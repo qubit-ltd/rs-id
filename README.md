@@ -65,6 +65,171 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `fast_uuid_like` | Generates canonical lowercase UUID-like text. |
 | `fast_simple_uuid_like` | Generates compact lowercase 32-hex UUID-like text. |
 
+## Generator Examples
+
+### QubitSnowflakeGenerator
+
+Use `QubitSnowflakeGenerator` for the Qubit fixed-header Snowflake layout. The
+default constructor uses sequential mode, second precision, and the default
+Qubit epoch.
+
+```rust
+use qubit_id::{IdGenerator, QubitSnowflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The argument is the 9-bit host ID encoded into generated IDs.
+    // It must be in the range 0..=511.
+    let generator = QubitSnowflakeGenerator::new(42)?;
+
+    let id = generator.next_id()?;
+    let id_text = generator.next_string()?;
+
+    let builder = generator.builder();
+    assert_eq!(builder.extract_host(id), 42);
+
+    println!("{id} {id_text}");
+    Ok(())
+}
+```
+
+Configure the Qubit layout explicitly when you need spread mode or millisecond
+precision.
+
+```rust
+use std::time::{Duration, UNIX_EPOCH};
+
+use qubit_id::{
+    IdGenerator, IdMode, QubitSnowflakeGenerator, TimestampPrecision,
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = QubitSnowflakeGenerator::with_options(
+        IdMode::Spread,
+        TimestampPrecision::Millisecond,
+        7,
+        UNIX_EPOCH + Duration::from_millis(1_543_708_800_000),
+    )?;
+
+    let id = generator.next_id()?;
+    let builder = generator.builder();
+
+    assert_eq!(builder.extract_mode(id), IdMode::Spread);
+    assert_eq!(builder.extract_precision(id), TimestampPrecision::Millisecond);
+    assert_eq!(builder.extract_host(id), 7);
+
+    Ok(())
+}
+```
+
+### SnowflakeGenerator
+
+Use `SnowflakeGenerator` when you need the classic 41-bit millisecond timestamp,
+10-bit node, and 12-bit sequence layout.
+
+```rust
+use qubit_id::{IdGenerator, SnowflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SnowflakeGenerator::new(3)?;
+
+    let id = generator.next_id()?;
+
+    assert_eq!(generator.extract_node_id(id), 3);
+    println!("{id}");
+
+    Ok(())
+}
+```
+
+You can also compose and inspect deterministic IDs from known parts.
+
+```rust
+use qubit_id::SnowflakeGenerator;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SnowflakeGenerator::new(3)?;
+    let id = generator.compose(1_000, 5)?;
+
+    assert_eq!(generator.extract_timestamp(id), 1_000);
+    assert_eq!(generator.extract_node_id(id), 3);
+    assert_eq!(generator.extract_sequence(id), 5);
+
+    Ok(())
+}
+```
+
+### SonyflakeGenerator
+
+Use `SonyflakeGenerator` when a larger machine ID space matters more than
+per-machine burst throughput.
+
+```rust
+use qubit_id::{IdGenerator, SonyflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SonyflakeGenerator::new(65_535)?;
+
+    let id = generator.next_id()?;
+
+    assert_eq!(generator.extract_machine_id(id), 65_535);
+    println!("{id}");
+
+    Ok(())
+}
+```
+
+For custom deployments, configure the sequence bits, machine bits, time unit,
+and start time explicitly.
+
+```rust
+use std::time::{Duration, UNIX_EPOCH};
+
+use qubit_id::{IdGenerator, SonyflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SonyflakeGenerator::with_options(
+        15,
+        10,
+        14,
+        Duration::from_millis(1),
+        UNIX_EPOCH + Duration::from_secs(1_735_689_600),
+    )?;
+
+    let id = generator.next_id()?;
+
+    assert_eq!(generator.bits_sequence(), 10);
+    assert_eq!(generator.bits_machine(), 14);
+    assert_eq!(generator.extract_machine_id(id), 15);
+
+    Ok(())
+}
+```
+
+### MicaUuidLikeGenerator And Helpers
+
+Use `MicaUuidLikeGenerator` when you want a random 128-bit value with UUID-like
+lowercase text formatting. Use the helper functions when you only need strings.
+
+```rust
+use qubit_id::{
+    IdGenerator, MicaUuidLikeGenerator, fast_simple_uuid_like, fast_uuid_like,
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = MicaUuidLikeGenerator::new();
+
+    let value = generator.next_id()?;
+    let canonical = generator.format_id(&value);
+    let compact = MicaUuidLikeGenerator::format_simple_uuid_like(value);
+
+    let random_canonical = fast_uuid_like()?;
+    let random_compact = fast_simple_uuid_like()?;
+
+    println!("{canonical} {compact} {random_canonical} {random_compact}");
+    Ok(())
+}
+```
+
 ## Algorithm Notes
 
 `QubitSnowflakeGenerator` is the default Snowflake-style generator for Qubit

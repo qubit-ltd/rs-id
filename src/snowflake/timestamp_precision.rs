@@ -8,7 +8,7 @@
  ******************************************************************************/
 //! Timestamp precision for Qubit snowflake IDs.
 
-use crate::constants::{
+use super::constants::{
     SEQUENCE_BITS_IN_MILLISECOND, SEQUENCE_BITS_IN_SECOND, TIMESTAMP_BITS_IN_MILLISECOND,
     TIMESTAMP_BITS_IN_SECOND, WAIT_DURATION_IN_MILLISECOND, WAIT_DURATION_IN_SECOND,
 };

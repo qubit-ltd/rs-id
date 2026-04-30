@@ -12,8 +12,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::constants::DEFAULT_QUBIT_EPOCH_MILLIS;
-use crate::time_slice::TimeSlice;
+use super::constants::DEFAULT_QUBIT_EPOCH_MILLIS;
+use super::time_slice::TimeSlice;
 use crate::{IdError, IdGenerator};
 
 const TIMESTAMP_BITS: u8 = 41;

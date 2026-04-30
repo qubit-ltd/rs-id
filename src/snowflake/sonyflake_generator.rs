@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::time_slice::TimeSlice;
+use super::time_slice::TimeSlice;
 use crate::{IdError, IdGenerator};
 
 const DEFAULT_BITS_SEQUENCE: u8 = 8;

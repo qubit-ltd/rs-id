@@ -12,9 +12,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::constants::{DEFAULT_MAX_SKEW_MILLIS, DEFAULT_QUBIT_EPOCH_MILLIS};
-use crate::time_slice::TimeSlice;
-use crate::{IdError, IdGenerator, IdMode, QubitSnowflakeBuilder, TimestampPrecision};
+use super::constants::{DEFAULT_MAX_SKEW_MILLIS, DEFAULT_QUBIT_EPOCH_MILLIS};
+use super::time_slice::TimeSlice;
+use super::{IdMode, QubitSnowflakeBuilder, TimestampPrecision};
+use crate::{IdError, IdGenerator};
 
 /// Qubit Snowflake generator.
 ///

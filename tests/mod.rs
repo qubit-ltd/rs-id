@@ -14,17 +14,17 @@ mod id_error_tests;
 #[path = "id_generator/id_generator_tests.rs"]
 mod id_generator_tests;
 
-#[path = "qubit_snowflake_generator/qubit_snowflake_generator_tests.rs"]
+#[path = "snowflake/qubit_snowflake_generator/qubit_snowflake_generator_tests.rs"]
 mod qubit_snowflake_generator_tests;
 
-#[path = "snowflake_builder/snowflake_builder_tests.rs"]
+#[path = "snowflake/snowflake_builder/snowflake_builder_tests.rs"]
 mod snowflake_builder_tests;
 
-#[path = "snowflake_generator/snowflake_generator_tests.rs"]
+#[path = "snowflake/snowflake_generator/snowflake_generator_tests.rs"]
 mod snowflake_generator_tests;
 
-#[path = "sonyflake_generator/sonyflake_generator_tests.rs"]
+#[path = "snowflake/sonyflake_generator/sonyflake_generator_tests.rs"]
 mod sonyflake_generator_tests;
 
-#[path = "mica_uuid_like_generator/mica_uuid_like_generator_tests.rs"]
+#[path = "uuid/mica_uuid_like_generator/mica_uuid_like_generator_tests.rs"]
 mod mica_uuid_like_generator_tests;

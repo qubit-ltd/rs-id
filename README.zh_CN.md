@@ -63,6 +63,169 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `fast_uuid_like` | 生成小写标准形态 UUID-like 字符串。 |
 | `fast_simple_uuid_like` | 生成小写 32 位十六进制 UUID-like 字符串。 |
 
+## Generator 使用示例
+
+### QubitSnowflakeGenerator
+
+需要使用 Qubit 固定头部 Snowflake 布局时，使用
+`QubitSnowflakeGenerator`。默认构造函数使用顺序模式、秒精度和默认
+Qubit epoch。
+
+```rust
+use qubit_id::{IdGenerator, QubitSnowflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 参数是编码到生成 ID 中的 9 位 host ID。
+    // 取值范围必须是 0..=511。
+    let generator = QubitSnowflakeGenerator::new(42)?;
+
+    let id = generator.next_id()?;
+    let id_text = generator.next_string()?;
+
+    let builder = generator.builder();
+    assert_eq!(builder.extract_host(id), 42);
+
+    println!("{id} {id_text}");
+    Ok(())
+}
+```
+
+如果需要打散模式或毫秒精度，可以显式配置 Qubit 布局。
+
+```rust
+use std::time::{Duration, UNIX_EPOCH};
+
+use qubit_id::{
+    IdGenerator, IdMode, QubitSnowflakeGenerator, TimestampPrecision,
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = QubitSnowflakeGenerator::with_options(
+        IdMode::Spread,
+        TimestampPrecision::Millisecond,
+        7,
+        UNIX_EPOCH + Duration::from_millis(1_543_708_800_000),
+    )?;
+
+    let id = generator.next_id()?;
+    let builder = generator.builder();
+
+    assert_eq!(builder.extract_mode(id), IdMode::Spread);
+    assert_eq!(builder.extract_precision(id), TimestampPrecision::Millisecond);
+    assert_eq!(builder.extract_host(id), 7);
+
+    Ok(())
+}
+```
+
+### SnowflakeGenerator
+
+需要经典的 41 位毫秒时间、10 位节点和 12 位序列布局时，使用
+`SnowflakeGenerator`。
+
+```rust
+use qubit_id::{IdGenerator, SnowflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SnowflakeGenerator::new(3)?;
+
+    let id = generator.next_id()?;
+
+    assert_eq!(generator.extract_node_id(id), 3);
+    println!("{id}");
+
+    Ok(())
+}
+```
+
+也可以用已知字段手动组合并解析确定性的 ID。
+
+```rust
+use qubit_id::SnowflakeGenerator;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SnowflakeGenerator::new(3)?;
+    let id = generator.compose(1_000, 5)?;
+
+    assert_eq!(generator.extract_timestamp(id), 1_000);
+    assert_eq!(generator.extract_node_id(id), 3);
+    assert_eq!(generator.extract_sequence(id), 5);
+
+    Ok(())
+}
+```
+
+### SonyflakeGenerator
+
+当机器号空间优先级高于单机瞬时吞吐时，可以使用
+`SonyflakeGenerator`。
+
+```rust
+use qubit_id::{IdGenerator, SonyflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SonyflakeGenerator::new(65_535)?;
+
+    let id = generator.next_id()?;
+
+    assert_eq!(generator.extract_machine_id(id), 65_535);
+    println!("{id}");
+
+    Ok(())
+}
+```
+
+对于自定义部署，也可以显式配置序列位、机器位、时间单位和起始时间。
+
+```rust
+use std::time::{Duration, UNIX_EPOCH};
+
+use qubit_id::{IdGenerator, SonyflakeGenerator};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = SonyflakeGenerator::with_options(
+        15,
+        10,
+        14,
+        Duration::from_millis(1),
+        UNIX_EPOCH + Duration::from_secs(1_735_689_600),
+    )?;
+
+    let id = generator.next_id()?;
+
+    assert_eq!(generator.bits_sequence(), 10);
+    assert_eq!(generator.bits_machine(), 14);
+    assert_eq!(generator.extract_machine_id(id), 15);
+
+    Ok(())
+}
+```
+
+### MicaUuidLikeGenerator 和便捷函数
+
+需要随机 128 位值和 UUID-like 小写文本格式时，使用
+`MicaUuidLikeGenerator`。如果只需要字符串，可以直接使用便捷函数。
+
+```rust
+use qubit_id::{
+    IdGenerator, MicaUuidLikeGenerator, fast_simple_uuid_like, fast_uuid_like,
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = MicaUuidLikeGenerator::new();
+
+    let value = generator.next_id()?;
+    let canonical = generator.format_id(&value);
+    let compact = MicaUuidLikeGenerator::format_simple_uuid_like(value);
+
+    let random_canonical = fast_uuid_like()?;
+    let random_compact = fast_simple_uuid_like()?;
+
+    println!("{canonical} {compact} {random_canonical} {random_compact}");
+    Ok(())
+}
+```
+
 ## 算法说明
 
 `QubitSnowflakeGenerator` 是 Qubit Rust 服务默认的 Snowflake 风格生成器。
