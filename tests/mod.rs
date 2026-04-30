@@ -26,5 +26,5 @@ mod snowflake_generator_tests;
 #[path = "sonyflake_generator/sonyflake_generator_tests.rs"]
 mod sonyflake_generator_tests;
 
-#[path = "uuid_generator/uuid_generator_tests.rs"]
-mod uuid_generator_tests;
+#[path = "fast_uuid_like_generator/fast_uuid_like_generator_tests.rs"]
+mod fast_uuid_like_generator_tests;

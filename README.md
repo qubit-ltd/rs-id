@@ -13,8 +13,8 @@ Documentation: [API Reference](https://docs.rs/qubit-id)
 `qubit-id` provides ID generation utilities for Rust services.
 
 It includes one common `IdGenerator<T>` trait plus generators for
-database-friendly Snowflake IDs, Sonyflake-style IDs, and fast UUID-shaped
-random identifiers.
+database-friendly Snowflake IDs, Sonyflake-style IDs, and fast UUID-like random
+identifiers.
 
 ## Why Use It
 
@@ -23,7 +23,7 @@ Use `qubit-id` when you need:
 - Qubit Snowflake IDs with fixed high-bit mode and precision headers
 - classic Snowflake IDs with a compact 64-bit numeric representation
 - Sonyflake-style IDs with longer runtime under small sequence pressure
-- fast UUID-shaped random strings matching the existing Java helper behavior
+- fast UUID-like random strings
 - one trait-based API that can return typed IDs and string representations
 
 ## Installation
@@ -36,18 +36,18 @@ qubit-id = "0.1.0"
 ## Quick Start
 
 ```rust
-use qubit_id::{IdGenerator, QubitSnowflakeGenerator, UuidGenerator};
+use qubit_id::{FastUuidLikeGenerator, IdGenerator, QubitSnowflakeGenerator};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let snowflake = QubitSnowflakeGenerator::new(1)?;
     let id: u64 = snowflake.next_id()?;
     let id_text = snowflake.next_string()?;
 
-    let uuid = UuidGenerator::new();
-    let uuid_value: u128 = uuid.next_id()?;
-    let uuid_text = uuid.next_string()?;
+    let uuid_like = FastUuidLikeGenerator::new();
+    let uuid_like_value: u128 = uuid_like.next_id()?;
+    let uuid_like_text = uuid_like.next_string()?;
 
-    println!("{id} {id_text} {uuid_value} {uuid_text}");
+    println!("{id} {id_text} {uuid_like_value} {uuid_like_text}");
     Ok(())
 }
 ```
@@ -61,9 +61,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `QubitSnowflakeBuilder` | Builds and inspects Qubit Snowflake bit layouts. |
 | `SnowflakeGenerator` | Classic 41-bit time, 10-bit node, 12-bit sequence Snowflake generator. |
 | `SonyflakeGenerator` | Sonyflake-style generator with configurable sequence and machine bits. |
-| `UuidGenerator` | Fast random 128-bit UUID-shaped generator. |
-| `fast_uuid` | Generates canonical lowercase UUID text. |
-| `fast_simple_uuid` | Generates compact lowercase 32-hex UUID text. |
+| `FastUuidLikeGenerator` | Fast random 128-bit UUID-like generator. |
+| `fast_uuid_like` | Generates canonical lowercase UUID-like text. |
+| `fast_simple_uuid_like` | Generates compact lowercase 32-hex UUID-like text. |
 
 ## Algorithm Notes
 
@@ -74,39 +74,47 @@ Rust services. It uses a fixed high-bit header:
 [mode:1][precision:1][timestamp][host:9][sequence]
 ```
 
+The field widths are:
+
+| Field | Width | Description |
+| --- | --- | --- |
+| `mode` | 1 bit | Encodes the ID ordering mode: sequential or spread. |
+| `precision` | 1 bit | Encodes timestamp precision: millisecond or second. |
+| `timestamp` | 41 bits in millisecond precision; 31 bits in second precision | Number of elapsed time slices since the configured epoch. |
+| `host` | 9 bits | Host identifier in `0..=511`. |
+| `sequence` | 12 bits in millisecond precision; 22 bits in second precision | Incrementing sequence inside the same time slice. |
+
 The fixed `mode` and `precision` positions make those header fields readable
 without knowing the timestamp and sequence widths first.
 
-This Rust layout intentionally differs from the earlier Java `common-id`
-Snowflake layout:
+This layout prioritizes a self-describing header, so the ID mode and precision
+can be identified directly during parsing.
 
-```text
-[mode:1][timestamp][precision:1][host:9][sequence]
-```
+### Choosing A Snowflake Generator
 
-The Java layout is useful historical context, but the Rust Qubit layout now
-prioritizes a self-describing header over binary compatibility with the Java
-IDs.
+| Generator | Strengths | Tradeoffs |
+| --- | --- | --- |
+| `QubitSnowflakeGenerator` | Encodes `mode` and `precision` in fixed high bits, so parsers can identify layout metadata directly; supports millisecond and second precision, with the default second precision providing a larger per-host sequence space; supports sequential and spread modes; tolerates small clock rollbacks by default. | Uses the Qubit fixed-header layout; the host field is 9 bits, allowing up to 512 host identifiers. |
+| `SnowflakeGenerator` | Uses the classic 41-bit millisecond time, 10-bit node, and 12-bit sequence layout; simple and familiar when a traditional Snowflake shape is required. | Fixed layout with no encoded mode or precision; clock rollback returns an error immediately; no spread mode. |
+| `SonyflakeGenerator` | Uses a 63-bit ID with 10 ms time units and a 16-bit machine field by default, which fits deployments that need more machine identifiers; sequence and machine bits are configurable. | The default 8-bit sequence per time slice has lower per-machine burst throughput than millisecond Snowflake layouts; 10 ms time units provide coarser ordering. |
 
-`SnowflakeGenerator` is useful when a standard Snowflake layout is preferred:
-41 bits of milliseconds, 10 bits of node ID, and 12 bits of sequence.
+For most new services, prefer `QubitSnowflakeGenerator`: it still produces a
+compact `u64` numeric ID while keeping layout metadata in fixed high bits, which
+makes parsing, debugging, and future evolution more direct. Choose
+`SnowflakeGenerator` when the traditional 41/10/12 layout is required, and
+choose `SonyflakeGenerator` when machine ID space matters more than per-machine
+burst throughput.
 
-`SonyflakeGenerator` follows Sonyflake-style tradeoffs: a 63-bit ID using a
-larger machine field and 10 ms time units by default. This reduces per-machine
-throughput compared with classic Snowflake, but gives a longer useful lifetime
-and a larger machine ID space.
-
-`UuidGenerator` intentionally matches the Java fast UUID helper by using 128
-random bits and formatting them as lowercase UUID text. It does not rewrite RFC
-version or variant bits.
+`FastUuidLikeGenerator` uses 128 random bits and formats them as lowercase
+UUID-like text. It does not rewrite RFC UUID version or variant bits, so it
+should not be treated as a standards-compliant UUID v4 generator.
 
 ## Project Scope
 
 - This crate focuses on local ID generation, not distributed node discovery.
 - Clock rollback is handled by waiting within the configured tolerance and
   returning an explicit error when the skew is too large.
-- `QubitSnowflakeGenerator` is not binary-compatible with the earlier Java
-  `common-id` Snowflake layout.
+- `QubitSnowflakeGenerator` uses its own fixed-header Snowflake layout.
 - `SnowflakeGenerator` and `SonyflakeGenerator` are available for services that
   intentionally choose those layouts.
 

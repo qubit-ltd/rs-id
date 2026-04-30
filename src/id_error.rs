@@ -80,7 +80,7 @@ pub enum IdError {
         /// Minimum allowed time unit in nanoseconds.
         min_nanos: u128,
     },
-    /// The operating system random source could not provide UUID bytes.
+    /// The operating system random source could not provide random ID bytes.
     RandomSourceUnavailable,
     /// The generator state mutex was poisoned by a panic while locked.
     StatePoisoned,

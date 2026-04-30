@@ -15,8 +15,8 @@ use std::fmt::Display;
 ///
 /// The trait keeps the generated representation generic while still providing a
 /// string-producing helper. Numeric generators normally use the default
-/// [`Display`] based formatting. Generators with specialized textual forms,
-/// such as UUIDs, can override [`IdGenerator::format_id`].
+/// [`Display`] based formatting. Generators with specialized textual forms can
+/// override [`IdGenerator::format_id`].
 pub trait IdGenerator<T> {
     /// Error returned when generation fails.
     type Error: Error;
