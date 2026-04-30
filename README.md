@@ -105,6 +105,8 @@ makes parsing, debugging, and future evolution more direct. Choose
 choose `SonyflakeGenerator` when machine ID space matters more than per-machine
 burst throughput.
 
+### MicaUuidLikeGenerator
+
 `MicaUuidLikeGenerator` is only a random number generator that mimics the
 canonical UUID text shape. It uses 128 random bits and formats them as lowercase
 UUID-like text. It does not rewrite RFC UUID version or variant bits, so it

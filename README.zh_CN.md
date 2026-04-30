@@ -82,8 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `host` | 9 位 | 主机编号，取值范围 `0..=511`。 |
 | `sequence` | 毫秒精度 12 位；秒精度 22 位 | 同一时间片内的递增序列号。 |
 
-固定 `mode` 和 `precision` 的位置后，不需要先知道 timestamp 和 sequence 的
-位宽，也能读取这两个头部字段。
+固定 `mode` 和 `precision` 的位置后，不需要先知道 timestamp 和 sequence 的位宽，也能读取这两个头部字段。
 
 这个布局优先保证头部自描述，便于在解析时直接识别 ID 的 mode 和 precision。
 
@@ -96,6 +95,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `SonyflakeGenerator` | 默认 63 位 ID、10 ms 时间单位、16 位机器号，适合机器号空间更大的部署；序列位和机器位可配置。 | 默认每个时间片只有 8 位序列，单机瞬时吞吐低于毫秒级 Snowflake；10 ms 时间单位下时间顺序粒度更粗。 |
 
 通常优先选择 `QubitSnowflakeGenerator`：它仍然生成紧凑的 `u64` 数字 ID，但把布局元信息编码到固定高位，后续解析、排查和演进更直接。需要传统 41/10/12 布局时再选择 `SnowflakeGenerator`；机器号空间明显优先于单机瞬时吞吐时，可以选择 `SonyflakeGenerator`。
+
+### MicaUuidLikeGenerator
 
 `MicaUuidLikeGenerator` 本质上只是一个随机数生成器，只是模仿标准 UUID 的文本形态。它使用 128 位随机数，并格式化为小写 UUID-like 文本。它不会重写 RFC UUID 版本位或 variant 位，因此不应当被当作标准 UUID v4 生成器使用。
 
