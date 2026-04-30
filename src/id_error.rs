@@ -14,7 +14,7 @@ use std::fmt::{self, Display, Formatter};
 /// Error returned when an ID generator cannot create or compose an ID.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum IdError {
-    /// A Java-compatible Qubit snowflake host identifier is outside its bit range.
+    /// A Qubit snowflake host identifier is outside its bit range.
     HostOutOfRange {
         /// Provided host identifier.
         host: u64,

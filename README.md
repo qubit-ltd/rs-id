@@ -20,7 +20,7 @@ random identifiers.
 
 Use `qubit-id` when you need:
 
-- Java `common-id` compatible Snowflake IDs for database records
+- Qubit Snowflake IDs with fixed high-bit mode and precision headers
 - classic Snowflake IDs with a compact 64-bit numeric representation
 - Sonyflake-style IDs with longer runtime under small sequence pressure
 - fast UUID-shaped random strings matching the existing Java helper behavior
@@ -57,8 +57,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | Type | Purpose |
 | --- | --- |
 | `IdGenerator<T>` | Common trait for typed ID generation and string formatting. |
-| `QubitSnowflakeGenerator` | Java `common-id` compatible Snowflake generator. |
-| `QubitSnowflakeBuilder` | Builds and inspects Java-compatible Snowflake bit layouts. |
+| `QubitSnowflakeGenerator` | Qubit fixed-header Snowflake generator. |
+| `QubitSnowflakeBuilder` | Builds and inspects Qubit Snowflake bit layouts. |
 | `SnowflakeGenerator` | Classic 41-bit time, 10-bit node, 12-bit sequence Snowflake generator. |
 | `SonyflakeGenerator` | Sonyflake-style generator with configurable sequence and machine bits. |
 | `UuidGenerator` | Fast random 128-bit UUID-shaped generator. |
@@ -67,9 +67,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Algorithm Notes
 
-`QubitSnowflakeGenerator` is the Java-compatible default for Qubit services. It
-preserves the existing `common-id` layout, including mode, precision, 9-bit
-host ID, timestamp, and sequence fields.
+`QubitSnowflakeGenerator` is the default Snowflake-style generator for Qubit
+Rust services. It uses a fixed high-bit header:
+
+```text
+[mode:1][precision:1][timestamp][host:9][sequence]
+```
+
+The fixed `mode` and `precision` positions make those header fields readable
+without knowing the timestamp and sequence widths first.
+
+This Rust layout intentionally differs from the earlier Java `common-id`
+Snowflake layout:
+
+```text
+[mode:1][timestamp][precision:1][host:9][sequence]
+```
+
+The Java layout is useful historical context, but the Rust Qubit layout now
+prioritizes a self-describing header over binary compatibility with the Java
+IDs.
 
 `SnowflakeGenerator` is useful when a standard Snowflake layout is preferred:
 41 bits of milliseconds, 10 bits of node ID, and 12 bits of sequence.
@@ -88,7 +105,8 @@ version or variant bits.
 - This crate focuses on local ID generation, not distributed node discovery.
 - Clock rollback is handled by waiting within the configured tolerance and
   returning an explicit error when the skew is too large.
-- `QubitSnowflakeGenerator` should be used for Java compatibility.
+- `QubitSnowflakeGenerator` is not binary-compatible with the earlier Java
+  `common-id` Snowflake layout.
 - `SnowflakeGenerator` and `SonyflakeGenerator` are available for services that
   intentionally choose those layouts.
 

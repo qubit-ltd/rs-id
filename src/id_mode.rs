@@ -6,7 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! ID ordering mode for Java-compatible Qubit snowflake IDs.
+//! ID ordering mode for Qubit snowflake IDs.
 
 /// Ordering mode encoded in a Qubit snowflake ID.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -18,7 +18,7 @@ pub enum IdMode {
 }
 
 impl IdMode {
-    /// Returns the one-bit ordinal used by the Java implementation.
+    /// Returns the one-bit ordinal used by the Qubit layout.
     ///
     /// # Returns
     /// `0` for [`IdMode::Sequential`] and `1` for [`IdMode::Spread`].

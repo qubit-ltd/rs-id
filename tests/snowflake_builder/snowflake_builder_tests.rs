@@ -6,17 +6,22 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Tests for the Java-compatible Qubit snowflake builder.
+//! Tests for the Qubit snowflake builder.
 
 use qubit_id::{HOST_MAX, HOST_MIN, IdError, IdMode, QubitSnowflakeBuilder, TimestampPrecision};
 
 #[test]
-fn test_qubit_snowflake_builder_builds_java_second_sequential_id() {
+fn test_qubit_snowflake_builder_builds_second_sequential_id_with_fixed_header() {
     let builder = QubitSnowflakeBuilder::new(IdMode::Sequential, TimestampPrecision::Second, 317)
         .expect("host should be accepted");
-    let id = 0b0000000000010010110101101000011111001111011010110100011111000111_u64;
+    let id = (TimestampPrecision::Second.ordinal() << 62)
+        | (1_234_567_u64 << 31)
+        | (317_u64 << 22)
+        | 2_836_423_u64;
 
     assert_eq!(builder.build(1_234_567, 2_836_423), Ok(id));
+    assert_eq!((id >> 63) & 1, 0);
+    assert_eq!((id >> 62) & 1, 1);
     assert_eq!(builder.extract_mode(id), IdMode::Sequential);
     assert_eq!(builder.extract_timestamp(id), 1_234_567);
     assert_eq!(builder.extract_precision(id), TimestampPrecision::Second);
@@ -25,12 +30,19 @@ fn test_qubit_snowflake_builder_builds_java_second_sequential_id() {
 }
 
 #[test]
-fn test_qubit_snowflake_builder_builds_java_second_spread_id() {
+fn test_qubit_snowflake_builder_builds_second_spread_id_with_fixed_header() {
     let builder = QubitSnowflakeBuilder::new(IdMode::Spread, TimestampPrecision::Second, 317)
         .expect("host should be accepted");
-    let id = 0b1111000010110101101001000000000011001111011010110100011111000111_u64;
+    let stored_timestamp = 1_234_567_u64.reverse_bits() >> (u64::BITS as u8 - 31);
+    let id = (IdMode::Spread.ordinal() << 63)
+        | (TimestampPrecision::Second.ordinal() << 62)
+        | (stored_timestamp << 31)
+        | (317_u64 << 22)
+        | 2_836_423_u64;
 
     assert_eq!(builder.build(1_234_567, 2_836_423), Ok(id));
+    assert_eq!((id >> 63) & 1, 1);
+    assert_eq!((id >> 62) & 1, 1);
     assert_eq!(builder.extract_mode(id), IdMode::Spread);
     assert_eq!(builder.extract_timestamp(id), 1_234_567);
     assert_eq!(builder.extract_precision(id), TimestampPrecision::Second);
@@ -39,13 +51,15 @@ fn test_qubit_snowflake_builder_builds_java_second_spread_id() {
 }
 
 #[test]
-fn test_qubit_snowflake_builder_builds_java_millisecond_sequential_id() {
+fn test_qubit_snowflake_builder_builds_millisecond_sequential_id_with_fixed_header() {
     let builder =
         QubitSnowflakeBuilder::new(IdMode::Sequential, TimestampPrecision::Millisecond, 317)
             .expect("host should be accepted");
-    let id = 0b0000000000000000000001001011010110100001110100111101100001000101_u64;
+    let id = (1_234_567_u64 << 21) | (317_u64 << 12) | 2_117_u64;
 
     assert_eq!(builder.build(1_234_567, 2_117), Ok(id));
+    assert_eq!((id >> 63) & 1, 0);
+    assert_eq!((id >> 62) & 1, 0);
     assert_eq!(builder.extract_mode(id), IdMode::Sequential);
     assert_eq!(builder.extract_timestamp(id), 1_234_567);
     assert_eq!(
@@ -57,12 +71,16 @@ fn test_qubit_snowflake_builder_builds_java_millisecond_sequential_id() {
 }
 
 #[test]
-fn test_qubit_snowflake_builder_builds_java_millisecond_spread_id() {
+fn test_qubit_snowflake_builder_builds_millisecond_spread_id_with_fixed_header() {
     let builder = QubitSnowflakeBuilder::new(IdMode::Spread, TimestampPrecision::Millisecond, 317)
         .expect("host should be accepted");
-    let id = 0b1111000010110101101001000000000000000000000100111101100001000101_u64;
+    let stored_timestamp = 1_234_567_u64.reverse_bits() >> (u64::BITS as u8 - 41);
+    let id =
+        (IdMode::Spread.ordinal() << 63) | (stored_timestamp << 21) | (317_u64 << 12) | 2_117_u64;
 
     assert_eq!(builder.build(1_234_567, 2_117), Ok(id));
+    assert_eq!((id >> 63) & 1, 1);
+    assert_eq!((id >> 62) & 1, 0);
     assert_eq!(builder.extract_mode(id), IdMode::Spread);
     assert_eq!(builder.extract_timestamp(id), 1_234_567);
     assert_eq!(
@@ -105,7 +123,7 @@ fn test_qubit_snowflake_builder_rejects_invalid_host_and_parts() {
 }
 
 #[test]
-fn test_qubit_snowflake_builder_getters_and_default_match_java_defaults() {
+fn test_qubit_snowflake_builder_getters_and_default_match_qubit_defaults() {
     let builder = QubitSnowflakeBuilder::default();
 
     assert_eq!(builder.mode(), IdMode::Sequential);

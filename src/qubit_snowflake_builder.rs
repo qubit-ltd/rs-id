@@ -6,18 +6,21 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Java-compatible Qubit snowflake ID bit builder.
+//! Qubit snowflake ID bit builder.
 
 use crate::constants::{HOST_BITS, HOST_MAX, MODE_BITS, PRECISION_BITS};
 use crate::{IdError, IdMode, TimestampPrecision};
 
-/// Builds and extracts Java-compatible Qubit snowflake IDs.
+/// Builds and extracts Qubit snowflake IDs.
 ///
 /// The layout is:
 ///
 /// ```text
-/// [mode:1][timestamp][precision:1][host:9][sequence]
+/// [mode:1][precision:1][timestamp][host:9][sequence]
 /// ```
+///
+/// The fixed high-bit header keeps mode and precision readable without knowing
+/// the timestamp and sequence widths first.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct QubitSnowflakeBuilder {
     mode: IdMode,
@@ -34,7 +37,7 @@ pub struct QubitSnowflakeBuilder {
 }
 
 impl QubitSnowflakeBuilder {
-    /// Creates a Java-compatible Qubit snowflake builder.
+    /// Creates a Qubit snowflake builder.
     ///
     /// # Parameters
     /// - `mode`: Encoded ID ordering mode.
@@ -45,8 +48,8 @@ impl QubitSnowflakeBuilder {
     /// A configured builder.
     ///
     /// # Errors
-    /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the
-    /// Java-compatible 9-bit host field.
+    /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the 9-bit
+    /// host field.
     pub fn new(mode: IdMode, precision: TimestampPrecision, host: u64) -> Result<Self, IdError> {
         if host > HOST_MAX {
             return Err(IdError::HostOutOfRange {
@@ -71,9 +74,9 @@ impl QubitSnowflakeBuilder {
         let sequence_bits = precision.sequence_bits();
         let max_timestamp = (1_u64 << timestamp_bits) - 1;
         let max_sequence = (1_u64 << sequence_bits) - 1;
-        let mode_shift = timestamp_bits + PRECISION_BITS + HOST_BITS + sequence_bits;
-        let timestamp_shift = PRECISION_BITS + HOST_BITS + sequence_bits;
-        let precision_shift = HOST_BITS + sequence_bits;
+        let mode_shift = u64::BITS as u8 - MODE_BITS;
+        let precision_shift = mode_shift - PRECISION_BITS;
+        let timestamp_shift = HOST_BITS + sequence_bits;
         let host_shift = sequence_bits;
         let fixed_data = (mode.ordinal() << mode_shift)
             | (precision.ordinal() << precision_shift)
@@ -171,7 +174,7 @@ impl QubitSnowflakeBuilder {
     /// Extracts the encoded ID ordering mode.
     ///
     /// # Parameters
-    /// - `id`: ID generated with the Java-compatible layout.
+    /// - `id`: ID generated with the Qubit layout.
     ///
     /// # Returns
     /// Encoded ordering mode.
@@ -198,7 +201,7 @@ impl QubitSnowflakeBuilder {
     /// Extracts the encoded timestamp precision.
     ///
     /// # Parameters
-    /// - `id`: ID generated with the Java-compatible layout.
+    /// - `id`: ID generated with the Qubit layout.
     ///
     /// # Returns
     /// Encoded timestamp precision.
@@ -210,7 +213,7 @@ impl QubitSnowflakeBuilder {
     /// Extracts the encoded host identifier.
     ///
     /// # Parameters
-    /// - `id`: ID generated with the Java-compatible layout.
+    /// - `id`: ID generated with the Qubit layout.
     ///
     /// # Returns
     /// Host identifier.
@@ -231,7 +234,7 @@ impl QubitSnowflakeBuilder {
 }
 
 impl Default for QubitSnowflakeBuilder {
-    /// Creates the same default layout as Java `AtomicIdGenerator`.
+    /// Creates the default Qubit layout.
     fn default() -> Self {
         Self::new_unchecked(IdMode::Sequential, TimestampPrecision::Second, 0)
     }

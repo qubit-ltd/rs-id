@@ -6,7 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Tests for the Java-compatible Qubit snowflake generator.
+//! Tests for the Qubit snowflake generator.
 
 use std::collections::HashSet;
 use std::sync::Arc;

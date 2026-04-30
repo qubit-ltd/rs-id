@@ -6,7 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Java-compatible Qubit snowflake generator.
+//! Qubit snowflake generator.
 
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -16,11 +16,11 @@ use crate::constants::{DEFAULT_MAX_SKEW_MILLIS, DEFAULT_QUBIT_EPOCH_MILLIS};
 use crate::time_slice::TimeSlice;
 use crate::{IdError, IdGenerator, IdMode, QubitSnowflakeBuilder, TimestampPrecision};
 
-/// Java-compatible Snowflake generator used by `java-common/common-id`.
+/// Qubit Snowflake generator.
 ///
-/// This generator preserves the Java bit layout, including mode and precision
-/// bits. The default constructor uses sequential mode, second precision, host
-/// `0`, and epoch `2018-12-02T00:00:00Z`.
+/// This generator uses the Qubit fixed-header layout, including mode and
+/// precision bits. The default constructor uses sequential mode, second
+/// precision, host `0`, and epoch `2018-12-02T00:00:00Z`.
 pub struct QubitSnowflakeGenerator {
     builder: QubitSnowflakeBuilder,
     epoch: SystemTime,
@@ -30,7 +30,7 @@ pub struct QubitSnowflakeGenerator {
 }
 
 impl QubitSnowflakeGenerator {
-    /// Creates a generator with Java-compatible defaults.
+    /// Creates a generator with Qubit defaults.
     ///
     /// # Parameters
     /// - `host`: Host identifier in `0..=511`.
@@ -39,8 +39,8 @@ impl QubitSnowflakeGenerator {
     /// A configured generator.
     ///
     /// # Errors
-    /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the
-    /// Java-compatible host field.
+    /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the host
+    /// field.
     pub fn new(host: u64) -> Result<Self, IdError> {
         Self::with_options(
             IdMode::Sequential,
@@ -118,7 +118,7 @@ impl QubitSnowflakeGenerator {
         })
     }
 
-    /// Returns the Java-compatible bit builder.
+    /// Returns the Qubit bit builder.
     ///
     /// # Returns
     /// Builder used to compose and inspect generated IDs.
@@ -212,7 +212,7 @@ impl QubitSnowflakeGenerator {
 impl IdGenerator<u64> for QubitSnowflakeGenerator {
     type Error = IdError;
 
-    /// Generates the next Java-compatible Qubit snowflake ID.
+    /// Generates the next Qubit snowflake ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
         loop {
             let mut state = self

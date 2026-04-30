@@ -6,7 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Timestamp precision for Java-compatible Qubit snowflake IDs.
+//! Timestamp precision for Qubit snowflake IDs.
 
 use crate::constants::{
     SEQUENCE_BITS_IN_MILLISECOND, SEQUENCE_BITS_IN_SECOND, TIMESTAMP_BITS_IN_MILLISECOND,
@@ -23,7 +23,7 @@ pub enum TimestampPrecision {
 }
 
 impl TimestampPrecision {
-    /// Returns the one-bit ordinal used by the Java implementation.
+    /// Returns the one-bit ordinal used by the Qubit layout.
     ///
     /// # Returns
     /// `0` for millisecond precision and `1` for second precision.
