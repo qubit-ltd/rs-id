@@ -34,14 +34,14 @@ qubit-id = "0.1.0"
 ## 快速开始
 
 ```rust
-use qubit_id::{FastUuidLikeGenerator, IdGenerator, QubitSnowflakeGenerator};
+use qubit_id::{IdGenerator, MicaUuidLikeGenerator, QubitSnowflakeGenerator};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let snowflake = QubitSnowflakeGenerator::new(1)?;
     let id: u64 = snowflake.next_id()?;
     let id_text = snowflake.next_string()?;
 
-    let uuid_like = FastUuidLikeGenerator::new();
+    let uuid_like = MicaUuidLikeGenerator::new();
     let uuid_like_value: u128 = uuid_like.next_id()?;
     let uuid_like_text = uuid_like.next_string()?;
 
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `QubitSnowflakeBuilder` | 构造和解析 Qubit Snowflake 位布局。 |
 | `SnowflakeGenerator` | 经典 41 位时间、10 位节点、12 位序列 Snowflake 生成器。 |
 | `SonyflakeGenerator` | 支持配置序列位和机器位的 Sonyflake 风格生成器。 |
-| `FastUuidLikeGenerator` | 快速随机 128 位 UUID-like 生成器。 |
+| `MicaUuidLikeGenerator` | Mica 风格随机 128 位 UUID-like 生成器。 |
 | `fast_uuid_like` | 生成小写标准形态 UUID-like 字符串。 |
 | `fast_simple_uuid_like` | 生成小写 32 位十六进制 UUID-like 字符串。 |
 
@@ -97,7 +97,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 通常优先选择 `QubitSnowflakeGenerator`：它仍然生成紧凑的 `u64` 数字 ID，但把布局元信息编码到固定高位，后续解析、排查和演进更直接。需要传统 41/10/12 布局时再选择 `SnowflakeGenerator`；机器号空间明显优先于单机瞬时吞吐时，可以选择 `SonyflakeGenerator`。
 
-`FastUuidLikeGenerator` 使用 128 位随机数，并格式化为小写 UUID-like 文本。它不会重写 RFC UUID 版本位或 variant 位，因此不应当被当作标准 UUID v4 生成器使用。
+`MicaUuidLikeGenerator` 本质上只是一个随机数生成器，只是模仿标准 UUID 的文本形态。它使用 128 位随机数，并格式化为小写 UUID-like 文本。它不会重写 RFC UUID 版本位或 variant 位，因此不应当被当作标准 UUID v4 生成器使用。
+
+UUID-like 格式化逻辑参考 Mica 的快速 UUID 辅助函数，以及
+[`StringUtil`](https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L335)
+中的
+[`formatUnsignedLong`](https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L348)
+格式化辅助函数。
+Mica 的 UUID 压测说明见
+[mica-jmh wiki](https://github.com/lets-mica/mica-jmh/wiki/uuid)。
 
 ## 项目边界
 

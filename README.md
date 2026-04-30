@@ -36,14 +36,14 @@ qubit-id = "0.1.0"
 ## Quick Start
 
 ```rust
-use qubit_id::{FastUuidLikeGenerator, IdGenerator, QubitSnowflakeGenerator};
+use qubit_id::{IdGenerator, MicaUuidLikeGenerator, QubitSnowflakeGenerator};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let snowflake = QubitSnowflakeGenerator::new(1)?;
     let id: u64 = snowflake.next_id()?;
     let id_text = snowflake.next_string()?;
 
-    let uuid_like = FastUuidLikeGenerator::new();
+    let uuid_like = MicaUuidLikeGenerator::new();
     let uuid_like_value: u128 = uuid_like.next_id()?;
     let uuid_like_text = uuid_like.next_string()?;
 
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `QubitSnowflakeBuilder` | Builds and inspects Qubit Snowflake bit layouts. |
 | `SnowflakeGenerator` | Classic 41-bit time, 10-bit node, 12-bit sequence Snowflake generator. |
 | `SonyflakeGenerator` | Sonyflake-style generator with configurable sequence and machine bits. |
-| `FastUuidLikeGenerator` | Fast random 128-bit UUID-like generator. |
+| `MicaUuidLikeGenerator` | Mica-style random 128-bit UUID-like generator. |
 | `fast_uuid_like` | Generates canonical lowercase UUID-like text. |
 | `fast_simple_uuid_like` | Generates compact lowercase 32-hex UUID-like text. |
 
@@ -105,9 +105,17 @@ makes parsing, debugging, and future evolution more direct. Choose
 choose `SonyflakeGenerator` when machine ID space matters more than per-machine
 burst throughput.
 
-`FastUuidLikeGenerator` uses 128 random bits and formats them as lowercase
+`MicaUuidLikeGenerator` is only a random number generator that mimics the
+canonical UUID text shape. It uses 128 random bits and formats them as lowercase
 UUID-like text. It does not rewrite RFC UUID version or variant bits, so it
 should not be treated as a standards-compliant UUID v4 generator.
+
+The UUID-like formatter follows Mica's fast UUID helper and
+[`formatUnsignedLong`](https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L348)
+formatter from
+[`StringUtil`](https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L335).
+Mica's UUID benchmark notes are available in the
+[mica-jmh wiki](https://github.com/lets-mica/mica-jmh/wiki/uuid).
 
 ## Project Scope
 

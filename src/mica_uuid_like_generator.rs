@@ -6,25 +6,50 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Fast random UUID-like ID generation.
+//! Mica-style random UUID-like ID generation.
+//!
+//! The formatting approach follows Mica's fast UUID helper and unsigned
+//! hexadecimal formatter from [`StringUtil`], plus the related
+//! [Mica UUID benchmark notes].
+//!
+//! [`StringUtil`]: https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L335
+//! [Mica UUID benchmark notes]: https://github.com/lets-mica/mica-jmh/wiki/uuid
 
 use crate::{IdError, IdGenerator};
 
+/// Lowercase hexadecimal digits used by the Mica UUID-like formatter.
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
-/// Fast UUID-like random ID generator.
+/// Mask for extracting one hexadecimal digit from the low four bits.
 ///
-/// This generator matches the Java helper's performance-oriented behavior: it
-/// produces 128 random bits and formats them as lowercase UUID-like text. It
-/// does not rewrite RFC UUID version or variant bits.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct FastUuidLikeGenerator;
+/// A hexadecimal digit is a 4-bit nibble. After shifting the source value by a
+/// multiple of four bits, this mask keeps only the current digit. This mirrors
+/// the Java helper's `MASK = HEX_RADIX - 1` constant in Mica's
+/// `StringUtil::formatUnsignedLong`.
+const HEX_DIGIT_MASK: u128 = 0x0f;
 
-impl FastUuidLikeGenerator {
-    /// Creates a UUID-like generator.
+/// Mica-style UUID-like random ID generator.
+///
+/// This generator is only a random number generator that mimics the canonical
+/// UUID text shape. It produces 128 random bits and formats them as lowercase
+/// UUID-like text, but it does not rewrite RFC UUID version or variant bits.
+/// Therefore it should not be treated as a standards-compliant UUID v4
+/// generator.
+///
+/// # Origin
+/// The formatting approach is based on Mica's fast UUID utility and
+/// `formatUnsignedLong` helper:
+/// <https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L348>.
+/// The Java source also points to Mica's UUID benchmark notes:
+/// <https://github.com/lets-mica/mica-jmh/wiki/uuid>.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct MicaUuidLikeGenerator;
+
+impl MicaUuidLikeGenerator {
+    /// Creates a Mica-style UUID-like generator.
     ///
     /// # Returns
-    /// A UUID-like generator.
+    /// A Mica-style UUID-like generator.
     pub const fn new() -> Self {
         Self
     }
@@ -64,7 +89,7 @@ impl FastUuidLikeGenerator {
     }
 }
 
-impl IdGenerator<u128> for FastUuidLikeGenerator {
+impl IdGenerator<u128> for MicaUuidLikeGenerator {
     type Error = IdError;
 
     /// Generates the next random 128-bit UUID-like value.
@@ -89,7 +114,7 @@ impl IdGenerator<u128> for FastUuidLikeGenerator {
 /// Returns [`IdError::RandomSourceUnavailable`] when the operating system
 /// random source cannot fill 16 bytes.
 pub fn fast_uuid_like() -> Result<String, IdError> {
-    FastUuidLikeGenerator::new().next_string()
+    MicaUuidLikeGenerator::new().next_string()
 }
 
 /// Generates a compact lowercase UUID-like random string.
@@ -101,8 +126,8 @@ pub fn fast_uuid_like() -> Result<String, IdError> {
 /// Returns [`IdError::RandomSourceUnavailable`] when the operating system
 /// random source cannot fill 16 bytes.
 pub fn fast_simple_uuid_like() -> Result<String, IdError> {
-    let id = FastUuidLikeGenerator::new().next_id()?;
-    Ok(FastUuidLikeGenerator::format_simple_uuid_like(id))
+    let id = MicaUuidLikeGenerator::new().next_id()?;
+    Ok(MicaUuidLikeGenerator::format_simple_uuid_like(id))
 }
 
 /// Appends fixed-width lowercase hexadecimal digits to a string.
@@ -113,7 +138,7 @@ pub fn fast_simple_uuid_like() -> Result<String, IdError> {
 /// - `digits`: Number of hexadecimal digits to append.
 fn push_hex(output: &mut String, value: u128, digits: usize) {
     for index in (0..digits).rev() {
-        let nibble = ((value >> (index * 4)) & 0x0f) as usize;
+        let nibble = ((value >> (index * 4)) & HEX_DIGIT_MASK) as usize;
         output.push(char::from(HEX[nibble]));
     }
 }
