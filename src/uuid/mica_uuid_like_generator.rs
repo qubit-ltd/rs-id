@@ -16,7 +16,10 @@
 //! [`StringUtil`]: https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L335
 //! [Mica UUID benchmark notes]: https://github.com/lets-mica/mica-jmh/wiki/uuid
 
-use crate::{IdError, IdGenerator};
+use crate::{
+    IdError,
+    IdGenerator,
+};
 
 /// Lowercase hexadecimal digits used by the Mica UUID-like formatter.
 const HEX: &[u8; 16] = b"0123456789abcdef";

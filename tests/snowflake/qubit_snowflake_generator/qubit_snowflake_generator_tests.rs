@@ -11,12 +11,22 @@
 
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{
+    AtomicU64,
+    Ordering,
+};
 use std::thread;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
 use qubit_id::{
-    DEFAULT_MAX_SKEW_MILLIS, IdError, IdGenerator, IdMode, QubitSnowflakeGenerator,
+    DEFAULT_MAX_SKEW_MILLIS,
+    IdError,
+    IdGenerator,
+    IdMode,
+    QubitSnowflakeGenerator,
     TimestampPrecision,
 };
 

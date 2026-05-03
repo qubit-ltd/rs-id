@@ -10,7 +10,11 @@
 //! Error type returned by ID generators.
 
 use std::error::Error;
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{
+    self,
+    Display,
+    Formatter,
+};
 
 /// Error returned when an ID generator cannot create or compose an ID.
 #[derive(Debug, Clone, Eq, PartialEq)]

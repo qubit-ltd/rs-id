@@ -9,7 +9,14 @@
  ******************************************************************************/
 //! Tests for the Qubit snowflake builder.
 
-use qubit_id::{HOST_MAX, HOST_MIN, IdError, IdMode, QubitSnowflakeBuilder, TimestampPrecision};
+use qubit_id::{
+    HOST_MAX,
+    HOST_MIN,
+    IdError,
+    IdMode,
+    QubitSnowflakeBuilder,
+    TimestampPrecision,
+};
 
 #[test]
 fn test_qubit_snowflake_builder_builds_second_sequential_id_with_fixed_header() {

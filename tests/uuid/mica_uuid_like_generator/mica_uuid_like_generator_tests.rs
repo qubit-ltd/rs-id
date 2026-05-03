@@ -9,7 +9,12 @@
  ******************************************************************************/
 //! Tests for Mica UUID-like generation and formatting.
 
-use qubit_id::{IdGenerator, MicaUuidLikeGenerator, fast_simple_uuid_like, fast_uuid_like};
+use qubit_id::{
+    IdGenerator,
+    MicaUuidLikeGenerator,
+    fast_simple_uuid_like,
+    fast_uuid_like,
+};
 
 #[test]
 fn test_mica_uuid_like_generator_formats_u128_as_canonical_uuid_like_text() {

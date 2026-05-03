@@ -11,4 +11,8 @@
 
 mod mica_uuid_like_generator;
 
-pub use mica_uuid_like_generator::{MicaUuidLikeGenerator, fast_simple_uuid_like, fast_uuid_like};
+pub use mica_uuid_like_generator::{
+    MicaUuidLikeGenerator,
+    fast_simple_uuid_like,
+    fast_uuid_like,
+};

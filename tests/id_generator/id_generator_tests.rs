@@ -11,7 +11,10 @@
 
 use std::convert::Infallible;
 
-use qubit_id::{IdError, IdGenerator};
+use qubit_id::{
+    IdError,
+    IdGenerator,
+};
 
 struct FixedGenerator;
 

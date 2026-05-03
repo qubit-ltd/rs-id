@@ -9,8 +9,16 @@
  ******************************************************************************/
 //! Qubit snowflake ID bit builder.
 
-use super::constants::{HOST_BITS, HOST_MAX, MODE_BITS, PRECISION_BITS};
-use super::{IdMode, TimestampPrecision};
+use super::constants::{
+    HOST_BITS,
+    HOST_MAX,
+    MODE_BITS,
+    PRECISION_BITS,
+};
+use super::{
+    IdMode,
+    TimestampPrecision,
+};
 use crate::IdError;
 
 /// Builds and extracts Qubit snowflake IDs.

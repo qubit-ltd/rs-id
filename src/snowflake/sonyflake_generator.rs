@@ -9,12 +9,22 @@
  ******************************************************************************/
 //! Sonyflake-style 63-bit ID generator.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH,
+};
 
 use super::time_slice::TimeSlice;
-use crate::{IdError, IdGenerator};
+use crate::{
+    IdError,
+    IdGenerator,
+};
 
 const DEFAULT_BITS_SEQUENCE: u8 = 8;
 const DEFAULT_BITS_MACHINE: u8 = 16;

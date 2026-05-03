@@ -10,10 +10,20 @@
 //! Tests for the classic Snowflake generator.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, UNIX_EPOCH};
+use std::sync::atomic::{
+    AtomicU64,
+    Ordering,
+};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
-use qubit_id::{IdError, IdGenerator, SnowflakeGenerator};
+use qubit_id::{
+    IdError,
+    IdGenerator,
+    SnowflakeGenerator,
+};
 
 #[test]
 fn test_snowflake_generator_compose_and_extract_parts() {

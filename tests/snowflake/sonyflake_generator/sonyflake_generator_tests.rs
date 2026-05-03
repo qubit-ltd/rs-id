@@ -10,10 +10,20 @@
 //! Tests for the Sonyflake-style generator.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI64, Ordering};
-use std::time::{Duration, UNIX_EPOCH};
+use std::sync::atomic::{
+    AtomicI64,
+    Ordering,
+};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
-use qubit_id::{IdError, IdGenerator, SonyflakeGenerator};
+use qubit_id::{
+    IdError,
+    IdGenerator,
+    SonyflakeGenerator,
+};
 
 #[test]
 fn test_sonyflake_generator_default_layout_matches_sonyflake() {

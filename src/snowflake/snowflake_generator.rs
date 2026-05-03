@@ -9,13 +9,23 @@
  ******************************************************************************/
 //! Classic 41/10/12 Snowflake generator.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH,
+};
 
 use super::constants::DEFAULT_QUBIT_EPOCH_MILLIS;
 use super::time_slice::TimeSlice;
-use crate::{IdError, IdGenerator};
+use crate::{
+    IdError,
+    IdGenerator,
+};
 
 const TIMESTAMP_BITS: u8 = 41;
 const NODE_BITS: u8 = 10;
