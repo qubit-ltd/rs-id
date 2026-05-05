@@ -7,9 +7,12 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Integration tests for `qubit-id`.
-
-mod error;
-mod id_generator;
-mod snowflake;
-mod uuid;
+mod constants_tests;
+mod id_mode_tests;
+mod qubit_snowflake_builder_tests;
+mod qubit_snowflake_generator;
+mod snowflake_builder;
+mod snowflake_generator;
+mod sonyflake_generator;
+mod time_slice_tests;
+mod timestamp_precision_tests;
