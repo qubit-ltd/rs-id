@@ -1,6 +1,6 @@
 # Qubit ID (`rs-id`)
 
-[![CircleCI](https://circleci.com/gh/qubit-ltd/rs-id.svg?style=shield)](https://circleci.com/gh/qubit-ltd/rs-id)
+[![Rust CI](https://github.com/qubit-ltd/rs-id/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-id/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-id/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-id?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/qubit-id.svg?color=blue)](https://crates.io/crates/qubit-id)
 [![Docs.rs](https://docs.rs/qubit-id/badge.svg)](https://docs.rs/qubit-id)
