@@ -1,7 +1,7 @@
 # Qubit ID (`rs-id`)
 
 [![Rust CI](https://github.com/qubit-ltd/rs-id/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-id/actions/workflows/ci.yml)
-[![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-id/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-id?branch=main)
+[![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-id/coverage-badge.json)](https://qubit-ltd.github.io/rs-id/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-id.svg?color=blue)](https://crates.io/crates/qubit-id)
 [![Docs.rs](https://docs.rs/qubit-id/badge.svg)](https://docs.rs/qubit-id)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
@@ -30,7 +30,7 @@ Use `qubit-id` when you need:
 
 ```toml
 [dependencies]
-qubit-id = "0.1.0"
+qubit-id = "0.2.1"
 ```
 
 ## Quick Start
