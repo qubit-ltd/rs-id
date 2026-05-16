@@ -28,7 +28,7 @@
 
 ```toml
 [dependencies]
-qubit-id = "0.2.1"
+qubit-id = "0.2"
 ```
 
 ## 快速开始
