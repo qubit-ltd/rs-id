@@ -30,7 +30,7 @@ Use `qubit-id` when you need:
 
 ```toml
 [dependencies]
-qubit-id = "0.2.1"
+qubit-id = "0.2"
 ```
 
 ## Quick Start
