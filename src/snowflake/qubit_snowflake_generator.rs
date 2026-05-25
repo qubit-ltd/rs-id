@@ -88,14 +88,7 @@ impl QubitSnowflakeGenerator {
         host: u64,
         epoch: SystemTime,
     ) -> Result<Self, IdError> {
-        Self::with_clock(
-            mode,
-            precision,
-            host,
-            epoch,
-            DEFAULT_MAX_SKEW_MILLIS,
-            SystemTime::now,
-        )
+        Self::with_clock(mode, precision, host, epoch, DEFAULT_MAX_SKEW_MILLIS, SystemTime::now)
     }
 
     /// Creates a generator with an explicit clock.
@@ -182,9 +175,7 @@ impl QubitSnowflakeGenerator {
     /// # Errors
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
     fn timestamp_for(&self, time: SystemTime) -> Result<u64, IdError> {
-        let elapsed = time
-            .duration_since(self.epoch)
-            .map_err(|_| IdError::TimeBeforeEpoch)?;
+        let elapsed = time.duration_since(self.epoch).map_err(|_| IdError::TimeBeforeEpoch)?;
         let timestamp = elapsed.as_millis() / u128::from(self.builder.precision().divisor_millis());
         if timestamp > u128::from(self.builder.max_timestamp()) {
             return Err(IdError::TimestampOverflow {
@@ -219,9 +210,7 @@ impl QubitSnowflakeGenerator {
     fn wait_for_next_timestamp(&self, last_timestamp: u64) -> Result<u64, IdError> {
         let mut timestamp = self.current_timestamp()?;
         while timestamp <= last_timestamp {
-            thread::sleep(Duration::from_millis(
-                self.builder.precision().wait_duration_millis(),
-            ));
+            thread::sleep(Duration::from_millis(self.builder.precision().wait_duration_millis()));
             timestamp = self.current_timestamp()?;
         }
         Ok(timestamp)
@@ -234,10 +223,7 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
     /// Generates the next Qubit snowflake ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
         loop {
-            let mut state = self
-                .state
-                .lock()
-                .expect("generator state mutex should not be poisoned");
+            let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
             let mut timestamp = self.current_timestamp()?;
 
             if state.timestamp > timestamp {
@@ -261,10 +247,7 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
                 if next_sequence == 0 {
                     drop(state);
                     timestamp = self.wait_for_next_timestamp(timestamp)?;
-                    let mut state = self
-                        .state
-                        .lock()
-                        .expect("generator state mutex should not be poisoned");
+                    let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
                     state.timestamp = timestamp;
                     state.sequence = 0;
                     return self.builder.build(timestamp, 0);

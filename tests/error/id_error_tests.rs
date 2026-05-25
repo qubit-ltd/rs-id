@@ -21,10 +21,7 @@ fn assert_error_trait(error: &dyn Error) -> String {
 fn test_id_error_display_formats_all_variants() {
     let cases = [
         (
-            IdError::HostOutOfRange {
-                host: 512,
-                max: 511,
-            },
+            IdError::HostOutOfRange { host: 512, max: 511 },
             "host id 512 is out of range 0..=511",
         ),
         (
@@ -42,17 +39,11 @@ fn test_id_error_display_formats_all_variants() {
             "machine id 65536 is out of range 0..=65535",
         ),
         (
-            IdError::TimestampOverflow {
-                timestamp: 8,
-                max: 7,
-            },
+            IdError::TimestampOverflow { timestamp: 8, max: 7 },
             "timestamp 8 exceeds maximum 7",
         ),
         (
-            IdError::SequenceOverflow {
-                sequence: 4,
-                max: 3,
-            },
+            IdError::SequenceOverflow { sequence: 4, max: 3 },
             "sequence 4 exceeds maximum 3",
         ),
         (
@@ -64,14 +55,8 @@ fn test_id_error_display_formats_all_variants() {
             },
             "clock moved backwards from 10 to 9; skew 1 ms exceeds maximum 0 ms",
         ),
-        (
-            IdError::TimeBeforeEpoch,
-            "time is before the configured epoch",
-        ),
-        (
-            IdError::StartTimeAhead,
-            "start time is ahead of the generator clock",
-        ),
+        (IdError::TimeBeforeEpoch, "time is before the configured epoch"),
+        (IdError::StartTimeAhead, "start time is ahead of the generator clock"),
         (
             IdError::InvalidBitLength {
                 name: "time",

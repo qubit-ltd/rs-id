@@ -39,10 +39,6 @@ impl IdMode {
     /// [`IdMode::Sequential`] for `0`; [`IdMode::Spread`] for every non-zero
     /// value after masking by callers.
     pub const fn from_bit(bit: u64) -> Self {
-        if bit == 0 {
-            Self::Sequential
-        } else {
-            Self::Spread
-        }
+        if bit == 0 { Self::Sequential } else { Self::Spread }
     }
 }

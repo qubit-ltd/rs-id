@@ -18,20 +18,15 @@ use qubit_id::{
 /// Test builder field extraction and validation through the public API.
 #[test]
 fn test_qubit_snowflake_builder_extracts_encoded_fields() {
-    let builder = QubitSnowflakeBuilder::new(IdMode::Spread, TimestampPrecision::Millisecond, 37)
-        .expect("host should be valid");
-    let id = builder
-        .build(12_345, 67)
-        .expect("timestamp and sequence should fit");
+    let builder =
+        QubitSnowflakeBuilder::new(IdMode::Spread, TimestampPrecision::Millisecond, 37).expect("host should be valid");
+    let id = builder.build(12_345, 67).expect("timestamp and sequence should fit");
 
     assert_eq!(builder.mode(), IdMode::Spread);
     assert_eq!(builder.precision(), TimestampPrecision::Millisecond);
     assert_eq!(builder.host(), 37);
     assert_eq!(builder.extract_mode(id), IdMode::Spread);
-    assert_eq!(
-        builder.extract_precision(id),
-        TimestampPrecision::Millisecond
-    );
+    assert_eq!(builder.extract_precision(id), TimestampPrecision::Millisecond);
     assert_eq!(builder.extract_timestamp(id), 12_345);
     assert_eq!(builder.extract_host(id), 37);
     assert_eq!(builder.extract_sequence(id), 67);
