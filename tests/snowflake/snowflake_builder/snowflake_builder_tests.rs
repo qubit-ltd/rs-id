@@ -22,10 +22,7 @@ use qubit_id::{
 fn test_qubit_snowflake_builder_builds_second_sequential_id_with_fixed_header() {
     let builder = QubitSnowflakeBuilder::new(IdMode::Sequential, TimestampPrecision::Second, 317)
         .expect("host should be accepted");
-    let id = (TimestampPrecision::Second.ordinal() << 62)
-        | (1_234_567_u64 << 31)
-        | (317_u64 << 22)
-        | 2_836_423_u64;
+    let id = (TimestampPrecision::Second.ordinal() << 62) | (1_234_567_u64 << 31) | (317_u64 << 22) | 2_836_423_u64;
 
     assert_eq!(builder.build(1_234_567, 2_836_423), Ok(id));
     assert_eq!((id >> 63) & 1, 0);
@@ -39,8 +36,8 @@ fn test_qubit_snowflake_builder_builds_second_sequential_id_with_fixed_header() 
 
 #[test]
 fn test_qubit_snowflake_builder_builds_second_spread_id_with_fixed_header() {
-    let builder = QubitSnowflakeBuilder::new(IdMode::Spread, TimestampPrecision::Second, 317)
-        .expect("host should be accepted");
+    let builder =
+        QubitSnowflakeBuilder::new(IdMode::Spread, TimestampPrecision::Second, 317).expect("host should be accepted");
     let stored_timestamp = 1_234_567_u64.reverse_bits() >> (u64::BITS as u8 - 31);
     let id = (IdMode::Spread.ordinal() << 63)
         | (TimestampPrecision::Second.ordinal() << 62)
@@ -60,9 +57,8 @@ fn test_qubit_snowflake_builder_builds_second_spread_id_with_fixed_header() {
 
 #[test]
 fn test_qubit_snowflake_builder_builds_millisecond_sequential_id_with_fixed_header() {
-    let builder =
-        QubitSnowflakeBuilder::new(IdMode::Sequential, TimestampPrecision::Millisecond, 317)
-            .expect("host should be accepted");
+    let builder = QubitSnowflakeBuilder::new(IdMode::Sequential, TimestampPrecision::Millisecond, 317)
+        .expect("host should be accepted");
     let id = (1_234_567_u64 << 21) | (317_u64 << 12) | 2_117_u64;
 
     assert_eq!(builder.build(1_234_567, 2_117), Ok(id));
@@ -70,10 +66,7 @@ fn test_qubit_snowflake_builder_builds_millisecond_sequential_id_with_fixed_head
     assert_eq!((id >> 62) & 1, 0);
     assert_eq!(builder.extract_mode(id), IdMode::Sequential);
     assert_eq!(builder.extract_timestamp(id), 1_234_567);
-    assert_eq!(
-        builder.extract_precision(id),
-        TimestampPrecision::Millisecond
-    );
+    assert_eq!(builder.extract_precision(id), TimestampPrecision::Millisecond);
     assert_eq!(builder.extract_host(id), 317);
     assert_eq!(builder.extract_sequence(id), 2_117);
 }
@@ -83,18 +76,14 @@ fn test_qubit_snowflake_builder_builds_millisecond_spread_id_with_fixed_header()
     let builder = QubitSnowflakeBuilder::new(IdMode::Spread, TimestampPrecision::Millisecond, 317)
         .expect("host should be accepted");
     let stored_timestamp = 1_234_567_u64.reverse_bits() >> (u64::BITS as u8 - 41);
-    let id =
-        (IdMode::Spread.ordinal() << 63) | (stored_timestamp << 21) | (317_u64 << 12) | 2_117_u64;
+    let id = (IdMode::Spread.ordinal() << 63) | (stored_timestamp << 21) | (317_u64 << 12) | 2_117_u64;
 
     assert_eq!(builder.build(1_234_567, 2_117), Ok(id));
     assert_eq!((id >> 63) & 1, 1);
     assert_eq!((id >> 62) & 1, 0);
     assert_eq!(builder.extract_mode(id), IdMode::Spread);
     assert_eq!(builder.extract_timestamp(id), 1_234_567);
-    assert_eq!(
-        builder.extract_precision(id),
-        TimestampPrecision::Millisecond
-    );
+    assert_eq!(builder.extract_precision(id), TimestampPrecision::Millisecond);
     assert_eq!(builder.extract_host(id), 317);
     assert_eq!(builder.extract_sequence(id), 2_117);
 }
@@ -111,8 +100,8 @@ fn test_qubit_snowflake_builder_rejects_invalid_host_and_parts() {
         })
     );
 
-    let builder = QubitSnowflakeBuilder::new(IdMode::Sequential, TimestampPrecision::Second, 1)
-        .expect("host should be accepted");
+    let builder =
+        QubitSnowflakeBuilder::new(IdMode::Sequential, TimestampPrecision::Second, 1).expect("host should be accepted");
 
     assert_eq!(
         builder.build(builder.max_timestamp() + 1, 0),

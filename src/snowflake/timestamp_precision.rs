@@ -48,11 +48,7 @@ impl TimestampPrecision {
     /// [`TimestampPrecision::Millisecond`] for `0`; [`TimestampPrecision::Second`]
     /// for every non-zero value after masking by callers.
     pub const fn from_bit(bit: u64) -> Self {
-        if bit == 0 {
-            Self::Millisecond
-        } else {
-            Self::Second
-        }
+        if bit == 0 { Self::Millisecond } else { Self::Second }
     }
 
     /// Returns the number of timestamp bits for this precision.

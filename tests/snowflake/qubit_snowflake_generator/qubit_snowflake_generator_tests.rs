@@ -131,9 +131,7 @@ fn test_qubit_snowflake_generator_waits_for_small_clock_backwards() {
     .expect("configuration should be valid");
 
     let first = generator.next_id().expect("first id should generate");
-    let second = generator
-        .next_id()
-        .expect("small clock skew should wait and retry");
+    let second = generator.next_id().expect("small clock skew should wait and retry");
 
     assert_eq!(generator.builder().extract_sequence(first), 0);
     assert_eq!(generator.builder().extract_sequence(second), 1);
@@ -228,10 +226,7 @@ fn test_qubit_snowflake_generator_rejects_invalid_host_from_clock_constructor() 
             DEFAULT_MAX_SKEW_MILLIS,
             move || epoch,
         ),
-        Err(IdError::HostOutOfRange {
-            host: 512,
-            max: 511
-        })
+        Err(IdError::HostOutOfRange { host: 512, max: 511 })
     ));
 }
 

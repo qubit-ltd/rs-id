@@ -52,10 +52,7 @@ impl SnowflakeGenerator {
     /// # Errors
     /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10 bits.
     pub fn new(node_id: u64) -> Result<Self, IdError> {
-        Self::with_epoch(
-            node_id,
-            UNIX_EPOCH + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS),
-        )
+        Self::with_epoch(node_id, UNIX_EPOCH + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS))
     }
 
     /// Creates a classic Snowflake generator with an explicit epoch.
@@ -207,9 +204,7 @@ impl SnowflakeGenerator {
     /// # Errors
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
     fn timestamp_for(&self, time: SystemTime) -> Result<u64, IdError> {
-        let elapsed = time
-            .duration_since(self.epoch)
-            .map_err(|_| IdError::TimeBeforeEpoch)?;
+        let elapsed = time.duration_since(self.epoch).map_err(|_| IdError::TimeBeforeEpoch)?;
         let timestamp = elapsed.as_millis();
         if timestamp > u128::from(self.max_timestamp()) {
             return Err(IdError::TimestampOverflow {
@@ -256,10 +251,7 @@ impl IdGenerator<u64> for SnowflakeGenerator {
 
     /// Generates the next classic Snowflake ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
-        let mut state = self
-            .state
-            .lock()
-            .expect("generator state mutex should not be poisoned");
+        let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
         let mut timestamp = self.current_timestamp()?;
 
         if state.timestamp > timestamp {
@@ -276,10 +268,7 @@ impl IdGenerator<u64> for SnowflakeGenerator {
             if next_sequence > self.max_sequence() {
                 drop(state);
                 timestamp = self.wait_for_next_timestamp(timestamp)?;
-                let mut state = self
-                    .state
-                    .lock()
-                    .expect("generator state mutex should not be poisoned");
+                let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
                 state.timestamp = timestamp;
                 state.sequence = 0;
                 return self.compose(timestamp, 0);

@@ -61,10 +61,7 @@ impl SonyflakeGenerator {
     /// Returns [`IdError::MachineIdOutOfRange`] when `machine_id` does not fit
     /// in the default 16-bit machine field.
     pub fn new(machine_id: u64) -> Result<Self, IdError> {
-        Self::with_epoch(
-            machine_id,
-            UNIX_EPOCH + Duration::from_millis(DEFAULT_START_MILLIS),
-        )
+        Self::with_epoch(machine_id, UNIX_EPOCH + Duration::from_millis(DEFAULT_START_MILLIS))
     }
 
     /// Creates a Sonyflake-style generator with default layout and explicit epoch.
@@ -286,12 +283,7 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     /// Returns range errors when any part does not fit the configured layout.
-    pub fn compose(
-        &self,
-        elapsed_time: u64,
-        sequence: u64,
-        machine_id: u64,
-    ) -> Result<u64, IdError> {
+    pub fn compose(&self, elapsed_time: u64, sequence: u64, machine_id: u64) -> Result<u64, IdError> {
         if elapsed_time > self.max_elapsed_time() {
             return Err(IdError::TimestampOverflow {
                 timestamp: elapsed_time,
@@ -310,9 +302,7 @@ impl SonyflakeGenerator {
                 max: self.max_machine_id(),
             });
         }
-        Ok((elapsed_time << (self.bits_sequence + self.bits_machine))
-            | (sequence << self.bits_machine)
-            | machine_id)
+        Ok((elapsed_time << (self.bits_sequence + self.bits_machine)) | (sequence << self.bits_machine) | machine_id)
     }
 
     /// Extracts elapsed time from a Sonyflake-style ID.
@@ -390,10 +380,7 @@ impl IdGenerator<u64> for SonyflakeGenerator {
 
     /// Generates the next Sonyflake-style ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
-        let mut state = self
-            .state
-            .lock()
-            .expect("generator state mutex should not be poisoned");
+        let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
         let current = self.current_elapsed_time()?;
 
         if state.timestamp < current {
@@ -408,10 +395,7 @@ impl IdGenerator<u64> for SonyflakeGenerator {
                 thread::sleep(Duration::from_nanos(
                     (u128::from(overtime) * self.time_unit.as_nanos()) as u64,
                 ));
-                state = self
-                    .state
-                    .lock()
-                    .expect("generator state mutex should not be poisoned");
+                state = self.state.lock().expect("generator state mutex should not be poisoned");
             }
         }
 

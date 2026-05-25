@@ -25,10 +25,7 @@ impl TimeSlice {
     /// # Returns
     /// A new time slice.
     pub(crate) const fn new(timestamp: u64) -> Self {
-        Self {
-            timestamp,
-            sequence: 0,
-        }
+        Self { timestamp, sequence: 0 }
     }
 
     /// Creates a time slice with an explicit sequence.
@@ -40,9 +37,6 @@ impl TimeSlice {
     /// # Returns
     /// A new time slice.
     pub(crate) const fn with_sequence(timestamp: u64, sequence: u64) -> Self {
-        Self {
-            timestamp,
-            sequence,
-        }
+        Self { timestamp, sequence }
     }
 }

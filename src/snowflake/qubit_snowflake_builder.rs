@@ -62,10 +62,7 @@ impl QubitSnowflakeBuilder {
     /// host field.
     pub fn new(mode: IdMode, precision: TimestampPrecision, host: u64) -> Result<Self, IdError> {
         if host > HOST_MAX {
-            return Err(IdError::HostOutOfRange {
-                host,
-                max: HOST_MAX,
-            });
+            return Err(IdError::HostOutOfRange { host, max: HOST_MAX });
         }
         Ok(Self::new_unchecked(mode, precision, host))
     }
@@ -88,9 +85,8 @@ impl QubitSnowflakeBuilder {
         let precision_shift = mode_shift - PRECISION_BITS;
         let timestamp_shift = HOST_BITS + sequence_bits;
         let host_shift = sequence_bits;
-        let fixed_data = (mode.ordinal() << mode_shift)
-            | (precision.ordinal() << precision_shift)
-            | (host << host_shift);
+        let fixed_data =
+            (mode.ordinal() << mode_shift) | (precision.ordinal() << precision_shift) | (host << host_shift);
 
         Self {
             mode,
