@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for Mica UUID-like generation and formatting.
 
 use qubit_id::{
@@ -36,7 +34,9 @@ fn test_mica_uuid_like_generator_next_string_uses_uuid_like_format() {
 
     let id = generator.next_id().expect("uuid-like id should generate");
     let uuid = MicaUuidLikeGenerator::format_uuid_like(id);
-    let next = generator.next_string().expect("uuid-like string should generate");
+    let next = generator
+        .next_string()
+        .expect("uuid-like string should generate");
 
     assert_eq!(uuid.len(), 36);
     assert_eq!(uuid.chars().filter(|ch| *ch == '-').count(), 4);
@@ -50,13 +50,13 @@ fn test_mica_uuid_like_generator_next_string_uses_uuid_like_format() {
 #[test]
 fn test_fast_uuid_like_helpers_return_lowercase_hex_shapes() {
     let uuid = fast_uuid_like().expect("uuid-like id should generate");
-    let simple = fast_simple_uuid_like().expect("simple uuid-like id should generate");
+    let simple =
+        fast_simple_uuid_like().expect("simple uuid-like id should generate");
 
     assert_eq!(uuid.len(), 36);
-    assert!(
-        uuid.chars()
-            .all(|ch| ch == '-' || ch.is_ascii_digit() || ('a'..='f').contains(&ch))
-    );
+    assert!(uuid.chars().all(|ch| ch == '-'
+        || ch.is_ascii_digit()
+        || ('a'..='f').contains(&ch)));
     assert_eq!(simple.len(), 32);
     assert!(
         simple

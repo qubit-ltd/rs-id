@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for the classic Snowflake generator.
 
 use std::sync::Arc;
@@ -28,9 +26,12 @@ use qubit_id::{
 #[test]
 fn test_snowflake_generator_compose_and_extract_parts() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = SnowflakeGenerator::with_epoch(513, epoch).expect("node id should be valid");
+    let generator = SnowflakeGenerator::with_epoch(513, epoch)
+        .expect("node id should be valid");
 
-    let id = generator.compose(1_234_567, 2_117).expect("parts should be valid");
+    let id = generator
+        .compose(1_234_567, 2_117)
+        .expect("parts should be valid");
 
     assert_eq!(generator.node_id(), 513);
     assert_eq!(generator.epoch(), epoch);
@@ -52,7 +53,8 @@ fn test_snowflake_generator_rejects_invalid_node_and_parts() {
         Ok(_) => panic!("invalid node id should be rejected"),
     }
 
-    let generator = SnowflakeGenerator::new(1).expect("node id should be valid");
+    let generator =
+        SnowflakeGenerator::new(1).expect("node id should be valid");
     assert_eq!(
         generator.compose(generator.max_timestamp() + 1, 0),
         Err(IdError::TimestampOverflow {
@@ -72,8 +74,10 @@ fn test_snowflake_generator_rejects_invalid_node_and_parts() {
 #[test]
 fn test_snowflake_generator_next_string_uses_numeric_string() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = SnowflakeGenerator::with_clock(9, epoch, move || epoch + Duration::from_millis(77))
-        .expect("configuration should be valid");
+    let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
+        epoch + Duration::from_millis(77)
+    })
+    .expect("configuration should be valid");
 
     let id = generator.next_id().expect("id should generate");
     let next_string = generator
@@ -138,8 +142,10 @@ fn test_snowflake_generator_waits_when_sequence_overflows() {
 #[test]
 fn test_snowflake_generator_reports_timestamp_overflow_from_clock() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = SnowflakeGenerator::with_clock(9, epoch, move || epoch + Duration::from_millis((1_u64 << 41) + 1))
-        .expect("configuration should be valid");
+    let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
+        epoch + Duration::from_millis((1_u64 << 41) + 1)
+    })
+    .expect("configuration should be valid");
 
     assert_eq!(
         generator.next_id(),
@@ -153,8 +159,10 @@ fn test_snowflake_generator_reports_timestamp_overflow_from_clock() {
 #[test]
 fn test_snowflake_generator_reports_time_before_epoch() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = SnowflakeGenerator::with_clock(9, epoch, move || epoch - Duration::from_millis(1))
-        .expect("configuration should be valid");
+    let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
+        epoch - Duration::from_millis(1)
+    })
+    .expect("configuration should be valid");
 
     assert_eq!(generator.next_id(), Err(IdError::TimeBeforeEpoch));
 }

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Qubit snowflake ID bit builder.
 
 use super::constants::{
@@ -58,11 +56,18 @@ impl QubitSnowflakeBuilder {
     /// A configured builder.
     ///
     /// # Errors
-    /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the 9-bit
-    /// host field.
-    pub fn new(mode: IdMode, precision: TimestampPrecision, host: u64) -> Result<Self, IdError> {
+    /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the
+    /// 9-bit host field.
+    pub fn new(
+        mode: IdMode,
+        precision: TimestampPrecision,
+        host: u64,
+    ) -> Result<Self, IdError> {
         if host > HOST_MAX {
-            return Err(IdError::HostOutOfRange { host, max: HOST_MAX });
+            return Err(IdError::HostOutOfRange {
+                host,
+                max: HOST_MAX,
+            });
         }
         Ok(Self::new_unchecked(mode, precision, host))
     }
@@ -76,7 +81,11 @@ impl QubitSnowflakeBuilder {
     ///
     /// # Returns
     /// A configured builder.
-    fn new_unchecked(mode: IdMode, precision: TimestampPrecision, host: u64) -> Self {
+    fn new_unchecked(
+        mode: IdMode,
+        precision: TimestampPrecision,
+        host: u64,
+    ) -> Self {
         let timestamp_bits = precision.timestamp_bits();
         let sequence_bits = precision.sequence_bits();
         let max_timestamp = (1_u64 << timestamp_bits) - 1;
@@ -85,8 +94,9 @@ impl QubitSnowflakeBuilder {
         let precision_shift = mode_shift - PRECISION_BITS;
         let timestamp_shift = HOST_BITS + sequence_bits;
         let host_shift = sequence_bits;
-        let fixed_data =
-            (mode.ordinal() << mode_shift) | (precision.ordinal() << precision_shift) | (host << host_shift);
+        let fixed_data = (mode.ordinal() << mode_shift)
+            | (precision.ordinal() << precision_shift)
+            | (host << host_shift);
 
         Self {
             mode,
@@ -172,9 +182,14 @@ impl QubitSnowflakeBuilder {
         }
         let stored_timestamp = match self.mode {
             IdMode::Sequential => timestamp,
-            IdMode::Spread => timestamp.reverse_bits() >> (u64::BITS as u8 - self.timestamp_bits),
+            IdMode::Spread => {
+                timestamp.reverse_bits()
+                    >> (u64::BITS as u8 - self.timestamp_bits)
+            }
         };
-        Ok((stored_timestamp << self.timestamp_shift) | self.fixed_data | sequence)
+        Ok((stored_timestamp << self.timestamp_shift)
+            | self.fixed_data
+            | sequence)
     }
 
     /// Extracts the encoded ID ordering mode.
@@ -200,7 +215,10 @@ impl QubitSnowflakeBuilder {
         let timestamp = (id >> self.timestamp_shift) & self.max_timestamp;
         match self.mode {
             IdMode::Sequential => timestamp,
-            IdMode::Spread => timestamp.reverse_bits() >> (u64::BITS as u8 - self.timestamp_bits),
+            IdMode::Spread => {
+                timestamp.reverse_bits()
+                    >> (u64::BITS as u8 - self.timestamp_bits)
+            }
         }
     }
 
@@ -212,7 +230,8 @@ impl QubitSnowflakeBuilder {
     /// # Returns
     /// Encoded timestamp precision.
     pub fn extract_precision(&self, id: u64) -> TimestampPrecision {
-        let bit = (id >> self.precision_shift) & ((1_u64 << PRECISION_BITS) - 1);
+        let bit =
+            (id >> self.precision_shift) & ((1_u64 << PRECISION_BITS) - 1);
         TimestampPrecision::from_bit(bit)
     }
 

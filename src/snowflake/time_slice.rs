@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Internal generator state for a single time slice.
 
 /// Mutable timestamp and sequence pair protected by each generator lock.
@@ -25,7 +23,10 @@ impl TimeSlice {
     /// # Returns
     /// A new time slice.
     pub(crate) const fn new(timestamp: u64) -> Self {
-        Self { timestamp, sequence: 0 }
+        Self {
+            timestamp,
+            sequence: 0,
+        }
     }
 
     /// Creates a time slice with an explicit sequence.
@@ -37,6 +38,9 @@ impl TimeSlice {
     /// # Returns
     /// A new time slice.
     pub(crate) const fn with_sequence(timestamp: u64, sequence: u64) -> Self {
-        Self { timestamp, sequence }
+        Self {
+            timestamp,
+            sequence,
+        }
     }
 }

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Timestamp precision for Qubit snowflake IDs.
 
 use super::constants::{
@@ -45,10 +43,15 @@ impl TimestampPrecision {
     /// - `bit`: Encoded one-bit precision value.
     ///
     /// # Returns
-    /// [`TimestampPrecision::Millisecond`] for `0`; [`TimestampPrecision::Second`]
-    /// for every non-zero value after masking by callers.
+    /// [`TimestampPrecision::Millisecond`] for `0`;
+    /// [`TimestampPrecision::Second`] for every non-zero value after
+    /// masking by callers.
     pub const fn from_bit(bit: u64) -> Self {
-        if bit == 0 { Self::Millisecond } else { Self::Second }
+        if bit == 0 {
+            Self::Millisecond
+        } else {
+            Self::Second
+        }
     }
 
     /// Returns the number of timestamp bits for this precision.

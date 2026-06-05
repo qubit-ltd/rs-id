@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::time::{
     Duration,
     UNIX_EPOCH,
@@ -20,7 +18,8 @@ use qubit_id::{
     TimestampPrecision,
 };
 
-/// Test generator time-slice state increments sequences and advances timestamps.
+/// Test generator time-slice state increments sequences and advances
+/// timestamps.
 #[test]
 fn test_time_slice_state_is_observable_through_generated_ids() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);

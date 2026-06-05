@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for the `IdGenerator` trait.
 
 use std::convert::Infallible;
@@ -40,7 +38,9 @@ impl IdGenerator<u64> for FailingGenerator {
 fn test_id_generator_next_string_uses_display_by_default() {
     let generator = FixedGenerator;
 
-    let id = generator.next_string().expect("fixed generator should not fail");
+    let id = generator
+        .next_string()
+        .expect("fixed generator should not fail");
 
     assert_eq!(id, "42");
 }

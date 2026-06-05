@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! ID ordering mode for Qubit snowflake IDs.
 
 /// Ordering mode encoded in a Qubit snowflake ID.
@@ -14,7 +12,8 @@
 pub enum IdMode {
     /// Timestamp bits are stored in normal order, producing time-ordered IDs.
     Sequential,
-    /// Timestamp bits are reversed, spreading adjacent timestamps across the ID space.
+    /// Timestamp bits are reversed, spreading adjacent timestamps across the ID
+    /// space.
     Spread,
 }
 
@@ -39,6 +38,10 @@ impl IdMode {
     /// [`IdMode::Sequential`] for `0`; [`IdMode::Spread`] for every non-zero
     /// value after masking by callers.
     pub const fn from_bit(bit: u64) -> Self {
-        if bit == 0 { Self::Sequential } else { Self::Spread }
+        if bit == 0 {
+            Self::Sequential
+        } else {
+            Self::Spread
+        }
     }
 }

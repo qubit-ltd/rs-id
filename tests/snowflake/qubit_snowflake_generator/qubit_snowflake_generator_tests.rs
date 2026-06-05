@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for the Qubit snowflake generator.
 
 use std::collections::HashSet;
@@ -90,7 +88,9 @@ fn test_qubit_snowflake_generator_reports_large_clock_backwards() {
         3,
         epoch,
         0,
-        move || epoch + Duration::from_millis(clock_millis.load(Ordering::SeqCst)),
+        move || {
+            epoch + Duration::from_millis(clock_millis.load(Ordering::SeqCst))
+        },
     )
     .expect("configuration should be valid");
 
@@ -131,7 +131,9 @@ fn test_qubit_snowflake_generator_waits_for_small_clock_backwards() {
     .expect("configuration should be valid");
 
     let first = generator.next_id().expect("first id should generate");
-    let second = generator.next_id().expect("small clock skew should wait and retry");
+    let second = generator
+        .next_id()
+        .expect("small clock skew should wait and retry");
 
     assert_eq!(generator.builder().extract_sequence(first), 0);
     assert_eq!(generator.builder().extract_sequence(second), 1);
@@ -214,7 +216,8 @@ fn test_qubit_snowflake_generator_reports_time_before_epoch() {
 }
 
 #[test]
-fn test_qubit_snowflake_generator_rejects_invalid_host_from_clock_constructor() {
+fn test_qubit_snowflake_generator_rejects_invalid_host_from_clock_constructor()
+{
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
 
     assert!(matches!(
@@ -226,13 +229,18 @@ fn test_qubit_snowflake_generator_rejects_invalid_host_from_clock_constructor() 
             DEFAULT_MAX_SKEW_MILLIS,
             move || epoch,
         ),
-        Err(IdError::HostOutOfRange { host: 512, max: 511 })
+        Err(IdError::HostOutOfRange {
+            host: 512,
+            max: 511
+        })
     ));
 }
 
 #[test]
 fn test_qubit_snowflake_generator_is_thread_safe() {
-    let generator = Arc::new(QubitSnowflakeGenerator::new(11).expect("host should be valid"));
+    let generator = Arc::new(
+        QubitSnowflakeGenerator::new(11).expect("host should be valid"),
+    );
     let mut handles = Vec::new();
 
     for _ in 0..4 {

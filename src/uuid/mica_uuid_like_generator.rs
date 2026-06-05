@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Mica-style random UUID-like ID generation.
 //!
 //! The formatting approach follows Mica's fast UUID helper and unsigned
@@ -99,7 +97,8 @@ impl IdGenerator<u128> for MicaUuidLikeGenerator {
     /// Generates the next random 128-bit UUID-like value.
     fn next_id(&self) -> Result<u128, Self::Error> {
         let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes).map_err(|_| IdError::RandomSourceUnavailable)?;
+        getrandom::fill(&mut bytes)
+            .map_err(|_| IdError::RandomSourceUnavailable)?;
         Ok(u128::from_be_bytes(bytes))
     }
 
