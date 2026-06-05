@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Error type returned by ID generators.
 
 use std::error::Error;
@@ -102,7 +100,10 @@ impl Display for IdError {
                 write!(formatter, "node id {node_id} is out of range 0..={max}")
             }
             Self::MachineIdOutOfRange { machine_id, max } => {
-                write!(formatter, "machine id {machine_id} is out of range 0..={max}")
+                write!(
+                    formatter,
+                    "machine id {machine_id} is out of range 0..={max}"
+                )
             }
             Self::TimestampOverflow { timestamp, max } => {
                 write!(formatter, "timestamp {timestamp} exceeds maximum {max}")
@@ -127,13 +128,22 @@ impl Display for IdError {
                 write!(formatter, "start time is ahead of the generator clock")
             }
             Self::InvalidBitLength { name, bits, reason } => {
-                write!(formatter, "invalid bit length for {name}: {bits}; {reason}")
+                write!(
+                    formatter,
+                    "invalid bit length for {name}: {bits}; {reason}"
+                )
             }
             Self::InvalidTimeUnit { nanos, min_nanos } => {
-                write!(formatter, "invalid time unit {nanos} ns; minimum is {min_nanos} ns")
+                write!(
+                    formatter,
+                    "invalid time unit {nanos} ns; minimum is {min_nanos} ns"
+                )
             }
             Self::RandomSourceUnavailable => {
-                write!(formatter, "operating system random source is unavailable")
+                write!(
+                    formatter,
+                    "operating system random source is unavailable"
+                )
             }
             Self::StatePoisoned => {
                 write!(formatter, "generator state mutex is poisoned")

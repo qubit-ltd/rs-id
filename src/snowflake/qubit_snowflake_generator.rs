@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Qubit snowflake generator.
 
 use std::sync::{
@@ -88,7 +86,14 @@ impl QubitSnowflakeGenerator {
         host: u64,
         epoch: SystemTime,
     ) -> Result<Self, IdError> {
-        Self::with_clock(mode, precision, host, epoch, DEFAULT_MAX_SKEW_MILLIS, SystemTime::now)
+        Self::with_clock(
+            mode,
+            precision,
+            host,
+            epoch,
+            DEFAULT_MAX_SKEW_MILLIS,
+            SystemTime::now,
+        )
     }
 
     /// Creates a generator with an explicit clock.
@@ -159,7 +164,11 @@ impl QubitSnowflakeGenerator {
     /// Returns [`IdError::TimeBeforeEpoch`] if `time` is before the configured
     /// epoch. Returns builder validation errors if the computed timestamp or
     /// provided sequence does not fit.
-    pub fn generate_at(&self, time: SystemTime, sequence: u64) -> Result<u64, IdError> {
+    pub fn generate_at(
+        &self,
+        time: SystemTime,
+        sequence: u64,
+    ) -> Result<u64, IdError> {
         let timestamp = self.timestamp_for(time)?;
         self.builder.build(timestamp, sequence)
     }
@@ -175,8 +184,11 @@ impl QubitSnowflakeGenerator {
     /// # Errors
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
     fn timestamp_for(&self, time: SystemTime) -> Result<u64, IdError> {
-        let elapsed = time.duration_since(self.epoch).map_err(|_| IdError::TimeBeforeEpoch)?;
-        let timestamp = elapsed.as_millis() / u128::from(self.builder.precision().divisor_millis());
+        let elapsed = time
+            .duration_since(self.epoch)
+            .map_err(|_| IdError::TimeBeforeEpoch)?;
+        let timestamp = elapsed.as_millis()
+            / u128::from(self.builder.precision().divisor_millis());
         if timestamp > u128::from(self.builder.max_timestamp()) {
             return Err(IdError::TimestampOverflow {
                 timestamp: u64::try_from(timestamp).unwrap_or(u64::MAX),
@@ -207,10 +219,15 @@ impl QubitSnowflakeGenerator {
     ///
     /// # Errors
     /// Returns [`IdError::TimeBeforeEpoch`] when the clock is before the epoch.
-    fn wait_for_next_timestamp(&self, last_timestamp: u64) -> Result<u64, IdError> {
+    fn wait_for_next_timestamp(
+        &self,
+        last_timestamp: u64,
+    ) -> Result<u64, IdError> {
         let mut timestamp = self.current_timestamp()?;
         while timestamp <= last_timestamp {
-            thread::sleep(Duration::from_millis(self.builder.precision().wait_duration_millis()));
+            thread::sleep(Duration::from_millis(
+                self.builder.precision().wait_duration_millis(),
+            ));
             timestamp = self.current_timestamp()?;
         }
         Ok(timestamp)
@@ -223,12 +240,16 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
     /// Generates the next Qubit snowflake ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
         loop {
-            let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
+            let mut state = self
+                .state
+                .lock()
+                .expect("generator state mutex should not be poisoned");
             let mut timestamp = self.current_timestamp()?;
 
             if state.timestamp > timestamp {
                 let skew = state.timestamp - timestamp;
-                let skew_millis = skew * self.builder.precision().divisor_millis();
+                let skew_millis =
+                    skew * self.builder.precision().divisor_millis();
                 if skew_millis > self.max_skew_millis {
                     return Err(IdError::ClockMovedBackwards {
                         last_timestamp: state.timestamp,
@@ -243,11 +264,15 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
             }
 
             let sequence = if timestamp == state.timestamp {
-                let next_sequence = (state.sequence + 1) & self.builder.max_sequence();
+                let next_sequence =
+                    (state.sequence + 1) & self.builder.max_sequence();
                 if next_sequence == 0 {
                     drop(state);
                     timestamp = self.wait_for_next_timestamp(timestamp)?;
-                    let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
+                    let mut state = self
+                        .state
+                        .lock()
+                        .expect("generator state mutex should not be poisoned");
                     state.timestamp = timestamp;
                     state.sequence = 0;
                     return self.builder.build(timestamp, 0);

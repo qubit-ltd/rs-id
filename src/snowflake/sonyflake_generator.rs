@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Sonyflake-style 63-bit ID generator.
 
 use std::sync::{
@@ -32,7 +30,8 @@ const DEFAULT_TIME_UNIT_NANOS: u128 = 10_000_000;
 const MIN_TIME_UNIT_NANOS: u128 = 1_000_000;
 const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
 
-/// Sonyflake-style generator using configurable time, sequence, and machine bits.
+/// Sonyflake-style generator using configurable time, sequence, and machine
+/// bits.
 ///
 /// By default, the layout is compatible with Sonyflake's commonly documented
 /// allocation: 39 bits of time in 10 ms units, 8 sequence bits, and 16 machine
@@ -61,10 +60,14 @@ impl SonyflakeGenerator {
     /// Returns [`IdError::MachineIdOutOfRange`] when `machine_id` does not fit
     /// in the default 16-bit machine field.
     pub fn new(machine_id: u64) -> Result<Self, IdError> {
-        Self::with_epoch(machine_id, UNIX_EPOCH + Duration::from_millis(DEFAULT_START_MILLIS))
+        Self::with_epoch(
+            machine_id,
+            UNIX_EPOCH + Duration::from_millis(DEFAULT_START_MILLIS),
+        )
     }
 
-    /// Creates a Sonyflake-style generator with default layout and explicit epoch.
+    /// Creates a Sonyflake-style generator with default layout and explicit
+    /// epoch.
     ///
     /// # Parameters
     /// - `machine_id`: Machine identifier in `0..=65535`.
@@ -75,7 +78,10 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     /// Returns the same errors as [`SonyflakeGenerator::with_options`].
-    pub fn with_epoch(machine_id: u64, start_time: SystemTime) -> Result<Self, IdError> {
+    pub fn with_epoch(
+        machine_id: u64,
+        start_time: SystemTime,
+    ) -> Result<Self, IdError> {
         Self::with_options(
             machine_id,
             DEFAULT_BITS_SEQUENCE,
@@ -136,7 +142,8 @@ impl SonyflakeGenerator {
     /// A configured generator.
     ///
     /// # Errors
-    /// Returns the same validation errors as [`SonyflakeGenerator::with_options`].
+    /// Returns the same validation errors as
+    /// [`SonyflakeGenerator::with_options`].
     pub fn with_clock<F>(
         machine_id: u64,
         bits_sequence: u8,
@@ -148,8 +155,16 @@ impl SonyflakeGenerator {
     where
         F: Fn() -> SystemTime + Send + Sync + 'static,
     {
-        let bits_sequence = Self::normalize_bits("sequence", bits_sequence, DEFAULT_BITS_SEQUENCE)?;
-        let bits_machine = Self::normalize_bits("machine", bits_machine_id, DEFAULT_BITS_MACHINE)?;
+        let bits_sequence = Self::normalize_bits(
+            "sequence",
+            bits_sequence,
+            DEFAULT_BITS_SEQUENCE,
+        )?;
+        let bits_machine = Self::normalize_bits(
+            "machine",
+            bits_machine_id,
+            DEFAULT_BITS_MACHINE,
+        )?;
         let bits_time = 63_u8
             .checked_sub(bits_sequence)
             .and_then(|value| value.checked_sub(bits_machine))
@@ -194,7 +209,10 @@ impl SonyflakeGenerator {
             start_time,
             machine_id,
             clock: Arc::new(clock),
-            state: Mutex::new(TimeSlice::with_sequence(0, (1_u64 << bits_sequence) - 1)),
+            state: Mutex::new(TimeSlice::with_sequence(
+                0,
+                (1_u64 << bits_sequence) - 1,
+            )),
         })
     }
 
@@ -211,7 +229,11 @@ impl SonyflakeGenerator {
     /// # Errors
     /// Returns [`IdError::InvalidBitLength`] when the normalized value is 31 or
     /// greater.
-    fn normalize_bits(name: &'static str, bits: u8, default_bits: u8) -> Result<u8, IdError> {
+    fn normalize_bits(
+        name: &'static str,
+        bits: u8,
+        default_bits: u8,
+    ) -> Result<u8, IdError> {
         let normalized = if bits == 0 { default_bits } else { bits };
         if normalized >= 31 {
             return Err(IdError::InvalidBitLength {
@@ -283,7 +305,12 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     /// Returns range errors when any part does not fit the configured layout.
-    pub fn compose(&self, elapsed_time: u64, sequence: u64, machine_id: u64) -> Result<u64, IdError> {
+    pub fn compose(
+        &self,
+        elapsed_time: u64,
+        sequence: u64,
+        machine_id: u64,
+    ) -> Result<u64, IdError> {
         if elapsed_time > self.max_elapsed_time() {
             return Err(IdError::TimestampOverflow {
                 timestamp: elapsed_time,
@@ -302,7 +329,9 @@ impl SonyflakeGenerator {
                 max: self.max_machine_id(),
             });
         }
-        Ok((elapsed_time << (self.bits_sequence + self.bits_machine)) | (sequence << self.bits_machine) | machine_id)
+        Ok((elapsed_time << (self.bits_sequence + self.bits_machine))
+            | (sequence << self.bits_machine)
+            | machine_id)
     }
 
     /// Extracts elapsed time from a Sonyflake-style ID.
@@ -369,7 +398,8 @@ impl SonyflakeGenerator {
     /// Current elapsed time units.
     ///
     /// # Errors
-    /// Returns [`IdError::TimeBeforeEpoch`] when the clock is before start time.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the clock is before start
+    /// time.
     fn current_elapsed_time(&self) -> Result<u64, IdError> {
         self.elapsed_time_for((self.clock)())
     }
@@ -380,7 +410,10 @@ impl IdGenerator<u64> for SonyflakeGenerator {
 
     /// Generates the next Sonyflake-style ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
-        let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
+        let mut state = self
+            .state
+            .lock()
+            .expect("generator state mutex should not be poisoned");
         let current = self.current_elapsed_time()?;
 
         if state.timestamp < current {
@@ -395,7 +428,10 @@ impl IdGenerator<u64> for SonyflakeGenerator {
                 thread::sleep(Duration::from_nanos(
                     (u128::from(overtime) * self.time_unit.as_nanos()) as u64,
                 ));
-                state = self.state.lock().expect("generator state mutex should not be poisoned");
+                state = self
+                    .state
+                    .lock()
+                    .expect("generator state mutex should not be poisoned");
             }
         }
 

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use qubit_id::TimestampPrecision;
 
 /// Test timestamp precision encoding and layout properties.
@@ -14,7 +12,10 @@ use qubit_id::TimestampPrecision;
 fn test_timestamp_precision_layout_values() {
     assert_eq!(TimestampPrecision::Millisecond.ordinal(), 0);
     assert_eq!(TimestampPrecision::Second.ordinal(), 1);
-    assert_eq!(TimestampPrecision::from_bit(0), TimestampPrecision::Millisecond,);
+    assert_eq!(
+        TimestampPrecision::from_bit(0),
+        TimestampPrecision::Millisecond,
+    );
     assert_eq!(TimestampPrecision::from_bit(1), TimestampPrecision::Second);
     assert_eq!(TimestampPrecision::from_bit(9), TimestampPrecision::Second);
 

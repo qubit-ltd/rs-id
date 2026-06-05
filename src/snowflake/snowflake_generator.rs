@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Classic 41/10/12 Snowflake generator.
 
 use std::sync::{
@@ -32,7 +30,8 @@ const NODE_BITS: u8 = 10;
 const SEQUENCE_BITS: u8 = 12;
 const MAX_NODE_ID: u64 = (1_u64 << NODE_BITS) - 1;
 
-/// Classic Snowflake generator using 41 timestamp, 10 node, and 12 sequence bits.
+/// Classic Snowflake generator using 41 timestamp, 10 node, and 12 sequence
+/// bits.
 pub struct SnowflakeGenerator {
     node_id: u64,
     epoch: SystemTime,
@@ -50,9 +49,13 @@ impl SnowflakeGenerator {
     /// A configured generator.
     ///
     /// # Errors
-    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10 bits.
+    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10
+    /// bits.
     pub fn new(node_id: u64) -> Result<Self, IdError> {
-        Self::with_epoch(node_id, UNIX_EPOCH + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS))
+        Self::with_epoch(
+            node_id,
+            UNIX_EPOCH + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS),
+        )
     }
 
     /// Creates a classic Snowflake generator with an explicit epoch.
@@ -65,8 +68,12 @@ impl SnowflakeGenerator {
     /// A configured generator using the system clock.
     ///
     /// # Errors
-    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10 bits.
-    pub fn with_epoch(node_id: u64, epoch: SystemTime) -> Result<Self, IdError> {
+    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10
+    /// bits.
+    pub fn with_epoch(
+        node_id: u64,
+        epoch: SystemTime,
+    ) -> Result<Self, IdError> {
         Self::with_clock(node_id, epoch, SystemTime::now)
     }
 
@@ -81,8 +88,13 @@ impl SnowflakeGenerator {
     /// A configured generator.
     ///
     /// # Errors
-    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10 bits.
-    pub fn with_clock<F>(node_id: u64, epoch: SystemTime, clock: F) -> Result<Self, IdError>
+    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10
+    /// bits.
+    pub fn with_clock<F>(
+        node_id: u64,
+        epoch: SystemTime,
+        clock: F,
+    ) -> Result<Self, IdError>
     where
         F: Fn() -> SystemTime + Send + Sync + 'static,
     {
@@ -144,7 +156,11 @@ impl SnowflakeGenerator {
     /// # Errors
     /// Returns [`IdError::TimestampOverflow`] or [`IdError::SequenceOverflow`]
     /// when a part does not fit the classic Snowflake layout.
-    pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
+    pub fn compose(
+        &self,
+        timestamp: u64,
+        sequence: u64,
+    ) -> Result<u64, IdError> {
         if timestamp > self.max_timestamp() {
             return Err(IdError::TimestampOverflow {
                 timestamp,
@@ -157,7 +173,9 @@ impl SnowflakeGenerator {
                 max: self.max_sequence(),
             });
         }
-        Ok((timestamp << (NODE_BITS + SEQUENCE_BITS)) | (self.node_id << SEQUENCE_BITS) | sequence)
+        Ok((timestamp << (NODE_BITS + SEQUENCE_BITS))
+            | (self.node_id << SEQUENCE_BITS)
+            | sequence)
     }
 
     /// Extracts the timestamp part from an ID.
@@ -204,7 +222,9 @@ impl SnowflakeGenerator {
     /// # Errors
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
     fn timestamp_for(&self, time: SystemTime) -> Result<u64, IdError> {
-        let elapsed = time.duration_since(self.epoch).map_err(|_| IdError::TimeBeforeEpoch)?;
+        let elapsed = time
+            .duration_since(self.epoch)
+            .map_err(|_| IdError::TimeBeforeEpoch)?;
         let timestamp = elapsed.as_millis();
         if timestamp > u128::from(self.max_timestamp()) {
             return Err(IdError::TimestampOverflow {
@@ -236,7 +256,10 @@ impl SnowflakeGenerator {
     ///
     /// # Errors
     /// Returns [`IdError::TimeBeforeEpoch`] when the clock is before the epoch.
-    fn wait_for_next_timestamp(&self, last_timestamp: u64) -> Result<u64, IdError> {
+    fn wait_for_next_timestamp(
+        &self,
+        last_timestamp: u64,
+    ) -> Result<u64, IdError> {
         let mut timestamp = self.current_timestamp()?;
         while timestamp <= last_timestamp {
             thread::sleep(Duration::from_millis(1));
@@ -251,7 +274,10 @@ impl IdGenerator<u64> for SnowflakeGenerator {
 
     /// Generates the next classic Snowflake ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
-        let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
+        let mut state = self
+            .state
+            .lock()
+            .expect("generator state mutex should not be poisoned");
         let mut timestamp = self.current_timestamp()?;
 
         if state.timestamp > timestamp {
@@ -268,7 +294,10 @@ impl IdGenerator<u64> for SnowflakeGenerator {
             if next_sequence > self.max_sequence() {
                 drop(state);
                 timestamp = self.wait_for_next_timestamp(timestamp)?;
-                let mut state = self.state.lock().expect("generator state mutex should not be poisoned");
+                let mut state = self
+                    .state
+                    .lock()
+                    .expect("generator state mutex should not be poisoned");
                 state.timestamp = timestamp;
                 state.sequence = 0;
                 return self.compose(timestamp, 0);
