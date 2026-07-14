@@ -36,6 +36,7 @@ use qubit_id::{
     IdGenerator,
     IdMode,
     QubitSnowflakeGenerator,
+    QubitSnowflakeLayout,
     TimestampPrecision,
 };
 
@@ -113,7 +114,7 @@ impl CoordinatedClock {
 }
 
 #[test]
-fn test_qubit_snowflake_generator_generate_at_matches_builder_parts() {
+fn test_generate_at_matches_layout_parts() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let generator = QubitSnowflakeGenerator::with_clock(
         IdMode::Sequential,
@@ -129,9 +130,10 @@ fn test_qubit_snowflake_generator_generate_at_matches_builder_parts() {
         .generate_at(epoch + Duration::from_millis(45), 9)
         .expect("timestamp and sequence should be valid");
 
-    assert_eq!(generator.builder().extract_timestamp(id), 45);
-    assert_eq!(generator.builder().extract_sequence(id), 9);
-    assert_eq!(generator.builder().extract_host(id), 7);
+    let parts = QubitSnowflakeLayout::decode(id);
+    assert_eq!(parts.timestamp(), 45);
+    assert_eq!(parts.sequence(), 9);
+    assert_eq!(parts.host(), 7);
     assert_eq!(generator.epoch(), epoch);
 }
 
@@ -160,10 +162,10 @@ fn test_qubit_snowflake_generator_next_id_increments_sequence_in_same_slice() {
     let first = generator.next_id().expect("first id should generate");
     let second = generator.next_id().expect("second id should generate");
 
-    assert_eq!(generator.builder().extract_timestamp(first), 11);
-    assert_eq!(generator.builder().extract_timestamp(second), 11);
-    assert_eq!(generator.builder().extract_sequence(first), 0);
-    assert_eq!(generator.builder().extract_sequence(second), 1);
+    assert_eq!(QubitSnowflakeLayout::decode(first).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(second).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(first).sequence(), 0);
+    assert_eq!(QubitSnowflakeLayout::decode(second).sequence(), 1);
     assert_eq!(
         generator.next_string().expect("string id should generate"),
         second.wrapping_add(1).to_string()
@@ -236,8 +238,8 @@ fn test_qubit_snowflake_generator_waits_for_small_clock_backwards() {
         .next_id()
         .expect("small clock skew should wait and retry");
 
-    assert_eq!(generator.builder().extract_sequence(first), 0);
-    assert_eq!(generator.builder().extract_sequence(second), 1);
+    assert_eq!(QubitSnowflakeLayout::decode(first).sequence(), 0);
+    assert_eq!(QubitSnowflakeLayout::decode(second).sequence(), 1);
 }
 
 #[test]
@@ -266,14 +268,17 @@ fn test_qubit_snowflake_generator_waits_when_sequence_overflows() {
 
     for expected_sequence in 0..=4_095 {
         let id = generator.next_id().expect("id should generate");
-        assert_eq!(generator.builder().extract_sequence(id), expected_sequence);
+        assert_eq!(
+            QubitSnowflakeLayout::decode(id).sequence(),
+            expected_sequence
+        );
     }
     let wrapped = generator
         .next_id()
         .expect("generator should wait for the next timestamp");
 
-    assert_eq!(generator.builder().extract_timestamp(wrapped), 11);
-    assert_eq!(generator.builder().extract_sequence(wrapped), 0);
+    assert_eq!(QubitSnowflakeLayout::decode(wrapped).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(wrapped).sequence(), 0);
 }
 
 #[test]
@@ -322,8 +327,8 @@ fn test_qubit_snowflake_generator_skips_initial_time_slice() {
         .join()
         .expect("worker should finish")
         .expect("id should generate after the clock advances");
-    assert_eq!(generator.builder().extract_timestamp(id), 11);
-    assert_eq!(generator.builder().extract_sequence(id), 0);
+    assert_eq!(QubitSnowflakeLayout::decode(id).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(id).sequence(), 0);
 }
 
 #[test]
@@ -345,8 +350,8 @@ fn test_qubit_snowflake_generator_concurrent_overflow_is_unique() {
 
     loop {
         let id = generator.next_id().expect("id should generate");
-        if generator.builder().extract_timestamp(id) == 10
-            && generator.builder().extract_sequence(id) == 4_095
+        if QubitSnowflakeLayout::decode(id).timestamp() == 10
+            && QubitSnowflakeLayout::decode(id).sequence() == 4_095
         {
             break;
         }
@@ -372,15 +377,66 @@ fn test_qubit_snowflake_generator_concurrent_overflow_is_unique() {
     }
     let timestamps = ids
         .iter()
-        .map(|id| generator.builder().extract_timestamp(*id))
+        .map(|id| QubitSnowflakeLayout::decode(*id).timestamp())
         .collect::<HashSet<_>>();
     let sequences = ids
         .iter()
-        .map(|id| generator.builder().extract_sequence(*id))
+        .map(|id| QubitSnowflakeLayout::decode(*id).sequence())
         .collect::<HashSet<_>>();
 
     assert_eq!(timestamps, HashSet::from([11]));
     assert_eq!(sequences, HashSet::from([0, 1]));
+}
+
+#[test]
+fn test_qubit_snowflake_generator_restart_skips_previous_time_slice() {
+    let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
+    let clock = Arc::new(CoordinatedClock::new(epoch));
+    let first_clock = Arc::clone(&clock);
+    let first_generator = QubitSnowflakeGenerator::with_clock(
+        IdMode::Sequential,
+        TimestampPrecision::Millisecond,
+        3,
+        epoch,
+        DEFAULT_MAX_SKEW_MILLIS,
+        move || first_clock.now(),
+    )
+    .expect("configuration should be valid");
+    let first = first_generator.next_id().expect("first id should generate");
+    assert_eq!(QubitSnowflakeLayout::decode(first).timestamp(), 10);
+    drop(first_generator);
+
+    let second_clock = Arc::clone(&clock);
+    let second_generator = Arc::new(
+        QubitSnowflakeGenerator::with_clock(
+            IdMode::Sequential,
+            TimestampPrecision::Millisecond,
+            3,
+            epoch,
+            DEFAULT_MAX_SKEW_MILLIS,
+            move || second_clock.now(),
+        )
+        .expect("configuration should be valid"),
+    );
+    let calls_before_restart = clock.call_count.load(Ordering::SeqCst);
+    let worker_generator = Arc::clone(&second_generator);
+    let worker = thread::spawn(move || worker_generator.next_id());
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while clock.call_count.load(Ordering::SeqCst) < calls_before_restart + 2
+        && !worker.is_finished()
+        && Instant::now() < deadline
+    {
+        thread::yield_now();
+    }
+    assert!(!worker.is_finished());
+    clock.advance_to(11);
+
+    let second = worker
+        .join()
+        .expect("worker should finish")
+        .expect("replacement generator should generate");
+    assert_eq!(QubitSnowflakeLayout::decode(second).timestamp(), 11);
+    assert_ne!(first, second);
 }
 
 #[test]
@@ -408,8 +464,8 @@ fn test_qubit_snowflake_generator_recovers_after_clock_panics() {
     let id = generator
         .next_id()
         .expect("generator should recover after the clock panic");
-    assert_eq!(generator.builder().extract_timestamp(id), 11);
-    assert_eq!(generator.builder().extract_sequence(id), 0);
+    assert_eq!(QubitSnowflakeLayout::decode(id).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(id).sequence(), 0);
 }
 
 #[test]
@@ -424,13 +480,13 @@ fn test_qubit_snowflake_generator_reports_timestamp_overflow_from_time() {
         move || epoch,
     )
     .expect("configuration should be valid");
-    let timestamp = generator.builder().max_timestamp() + 1;
+    let timestamp = generator.layout().max_timestamp() + 1;
 
     assert_eq!(
         generator.generate_at(epoch + Duration::from_millis(timestamp), 0),
         Err(IdError::TimestampOverflow {
             timestamp,
-            max: generator.builder().max_timestamp(),
+            max: generator.layout().max_timestamp(),
         })
     );
 }

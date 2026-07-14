@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Qubit snowflake ID bit builder.
+//! Qubit snowflake ID bit layout.
 
 use super::constants::{
     HOST_BITS,
@@ -15,11 +15,12 @@ use super::constants::{
 };
 use super::{
     IdMode,
+    QubitSnowflakeParts,
     TimestampPrecision,
 };
 use crate::IdError;
 
-/// Builds and extracts Qubit snowflake IDs.
+/// Immutable Qubit snowflake bit layout used to compose IDs.
 ///
 /// The layout is:
 ///
@@ -27,16 +28,14 @@ use crate::IdError;
 /// [mode:1][precision:1][timestamp][host:9][sequence]
 /// ```
 ///
-/// The fixed high-bit header keeps mode and precision readable without knowing
-/// the timestamp and sequence widths first.
+/// [`Self::compose`] and [`Self::decode`] are stateless bit operations. They do
+/// not allocate an ID and provide no uniqueness guarantee.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct QubitSnowflakeBuilder {
+pub struct QubitSnowflakeLayout {
     mode: IdMode,
     precision: TimestampPrecision,
     host: u64,
-    mode_shift: u8,
     timestamp_shift: u8,
-    precision_shift: u8,
     host_shift: u8,
     timestamp_bits: u8,
     max_timestamp: u64,
@@ -44,8 +43,8 @@ pub struct QubitSnowflakeBuilder {
     fixed_data: u64,
 }
 
-impl QubitSnowflakeBuilder {
-    /// Creates a Qubit snowflake builder.
+impl QubitSnowflakeLayout {
+    /// Creates a Qubit snowflake layout.
     ///
     /// # Parameters
     /// - `mode`: Encoded ID ordering mode.
@@ -53,7 +52,7 @@ impl QubitSnowflakeBuilder {
     /// - `host`: Host identifier in `0..=511`.
     ///
     /// # Returns
-    /// A configured builder.
+    /// A configured layout.
     ///
     /// # Errors
     /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the
@@ -72,7 +71,7 @@ impl QubitSnowflakeBuilder {
         Ok(Self::new_unchecked(mode, precision, host))
     }
 
-    /// Creates a builder after the caller has validated the host field.
+    /// Creates a layout after the caller has validated the host field.
     ///
     /// # Parameters
     /// - `mode`: Encoded ID ordering mode.
@@ -80,7 +79,7 @@ impl QubitSnowflakeBuilder {
     /// - `host`: Valid host identifier.
     ///
     /// # Returns
-    /// A configured builder.
+    /// A configured layout.
     fn new_unchecked(
         mode: IdMode,
         precision: TimestampPrecision,
@@ -102,9 +101,7 @@ impl QubitSnowflakeBuilder {
             mode,
             precision,
             host,
-            mode_shift,
             timestamp_shift,
-            precision_shift,
             host_shift,
             timestamp_bits,
             max_timestamp,
@@ -114,46 +111,33 @@ impl QubitSnowflakeBuilder {
     }
 
     /// Returns the encoded mode.
-    ///
-    /// # Returns
-    /// ID ordering mode.
     pub const fn mode(&self) -> IdMode {
         self.mode
     }
 
     /// Returns the encoded timestamp precision.
-    ///
-    /// # Returns
-    /// Timestamp precision.
     pub const fn precision(&self) -> TimestampPrecision {
         self.precision
     }
 
     /// Returns the encoded host identifier.
-    ///
-    /// # Returns
-    /// Host identifier.
     pub const fn host(&self) -> u64 {
         self.host
     }
 
     /// Returns the maximum representable timestamp.
-    ///
-    /// # Returns
-    /// Maximum timestamp for the configured precision.
     pub const fn max_timestamp(&self) -> u64 {
         self.max_timestamp
     }
 
     /// Returns the maximum representable sequence number.
-    ///
-    /// # Returns
-    /// Maximum sequence for the configured precision.
     pub const fn max_sequence(&self) -> u64 {
         self.max_sequence
     }
 
-    /// Builds an ID from timestamp and sequence parts.
+    /// Composes an ID from timestamp and sequence parts.
+    ///
+    /// This method is stateless and does not guarantee uniqueness.
     ///
     /// # Parameters
     /// - `timestamp`: Timestamp measured from the configured epoch in the
@@ -164,10 +148,13 @@ impl QubitSnowflakeBuilder {
     /// Encoded ID.
     ///
     /// # Errors
-    /// Returns [`IdError::TimestampOverflow`] when `timestamp` exceeds the
-    /// configured timestamp field. Returns [`IdError::SequenceOverflow`] when
-    /// `sequence` exceeds the configured sequence field.
-    pub fn build(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
+    /// Returns [`IdError::TimestampOverflow`] or
+    /// [`IdError::SequenceOverflow`] when a part does not fit.
+    pub fn compose(
+        &self,
+        timestamp: u64,
+        sequence: u64,
+    ) -> Result<u64, IdError> {
         if timestamp > self.max_timestamp {
             return Err(IdError::TimestampOverflow {
                 timestamp,
@@ -180,85 +167,70 @@ impl QubitSnowflakeBuilder {
                 max: self.max_sequence,
             });
         }
-        let stored_timestamp = match self.mode {
-            IdMode::Sequential => timestamp,
-            IdMode::Spread => {
-                timestamp.reverse_bits()
-                    >> (u64::BITS as u8 - self.timestamp_bits)
-            }
-        };
+        let stored_timestamp = Self::transform_timestamp(
+            self.mode,
+            self.timestamp_bits,
+            timestamp,
+        );
         Ok((stored_timestamp << self.timestamp_shift)
             | self.fixed_data
             | sequence)
     }
 
-    /// Extracts the encoded ID ordering mode.
+    /// Decodes a Qubit snowflake ID without a preconfigured layout.
+    ///
+    /// Mode and precision are read from the fixed high-bit header before the
+    /// remaining field widths are derived. Every `u64` value is a structurally
+    /// valid Qubit bit pattern, so decoding is infallible.
     ///
     /// # Parameters
-    /// - `id`: ID generated with the Qubit layout.
+    /// - `id`: Qubit snowflake bit pattern to decode.
     ///
     /// # Returns
-    /// Encoded ordering mode.
-    pub fn extract_mode(&self, id: u64) -> IdMode {
-        let bit = (id >> self.mode_shift) & ((1_u64 << MODE_BITS) - 1);
-        IdMode::from_bit(bit)
+    /// All fields decoded using the layout encoded in `id`.
+    pub fn decode(id: u64) -> QubitSnowflakeParts {
+        let mode_shift = u64::BITS as u8 - MODE_BITS;
+        let precision_shift = mode_shift - PRECISION_BITS;
+        let mode = IdMode::from_bit((id >> mode_shift) & 1);
+        let precision =
+            TimestampPrecision::from_bit((id >> precision_shift) & 1);
+        let layout = Self::new_unchecked(mode, precision, 0);
+        let stored_timestamp =
+            (id >> layout.timestamp_shift) & layout.max_timestamp;
+        let timestamp = Self::transform_timestamp(
+            mode,
+            layout.timestamp_bits,
+            stored_timestamp,
+        );
+        let host = (id >> layout.host_shift) & ((1_u64 << HOST_BITS) - 1);
+        let sequence = id & layout.max_sequence;
+        QubitSnowflakeParts::new(mode, precision, timestamp, host, sequence)
     }
 
-    /// Extracts the encoded timestamp.
+    /// Applies the reversible timestamp transform for the configured mode.
     ///
     /// # Parameters
-    /// - `id`: ID generated with this builder.
+    /// - `mode`: Timestamp storage mode.
+    /// - `timestamp_bits`: Width of the timestamp field.
+    /// - `timestamp`: Timestamp to transform.
     ///
     /// # Returns
-    /// Original timestamp before optional spread-mode bit reversal.
-    pub fn extract_timestamp(&self, id: u64) -> u64 {
-        let timestamp = (id >> self.timestamp_shift) & self.max_timestamp;
-        match self.mode {
+    /// Transformed timestamp restricted to `timestamp_bits` significant bits.
+    fn transform_timestamp(
+        mode: IdMode,
+        timestamp_bits: u8,
+        timestamp: u64,
+    ) -> u64 {
+        match mode {
             IdMode::Sequential => timestamp,
             IdMode::Spread => {
-                timestamp.reverse_bits()
-                    >> (u64::BITS as u8 - self.timestamp_bits)
+                timestamp.reverse_bits() >> (u64::BITS as u8 - timestamp_bits)
             }
         }
     }
-
-    /// Extracts the encoded timestamp precision.
-    ///
-    /// # Parameters
-    /// - `id`: ID generated with the Qubit layout.
-    ///
-    /// # Returns
-    /// Encoded timestamp precision.
-    pub fn extract_precision(&self, id: u64) -> TimestampPrecision {
-        let bit =
-            (id >> self.precision_shift) & ((1_u64 << PRECISION_BITS) - 1);
-        TimestampPrecision::from_bit(bit)
-    }
-
-    /// Extracts the encoded host identifier.
-    ///
-    /// # Parameters
-    /// - `id`: ID generated with the Qubit layout.
-    ///
-    /// # Returns
-    /// Host identifier.
-    pub fn extract_host(&self, id: u64) -> u64 {
-        (id >> self.host_shift) & ((1_u64 << HOST_BITS) - 1)
-    }
-
-    /// Extracts the encoded sequence.
-    ///
-    /// # Parameters
-    /// - `id`: ID generated with this builder.
-    ///
-    /// # Returns
-    /// Sequence number.
-    pub fn extract_sequence(&self, id: u64) -> u64 {
-        id & self.max_sequence
-    }
 }
 
-impl Default for QubitSnowflakeBuilder {
+impl Default for QubitSnowflakeLayout {
     /// Creates the default Qubit layout.
     fn default() -> Self {
         Self::new_unchecked(IdMode::Sequential, TimestampPrecision::Second, 0)

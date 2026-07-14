@@ -20,6 +20,7 @@ use qubit_id::{
     IdGenerator,
     IdMode,
     QubitSnowflakeGenerator,
+    QubitSnowflakeLayout,
     TimestampPrecision,
 };
 
@@ -50,8 +51,8 @@ fn test_time_slice_state_is_observable_through_generated_ids() {
     let first = generator.next_id().expect("first id should generate");
     let second = generator.next_id().expect("second id should generate");
 
-    assert_eq!(generator.builder().extract_timestamp(first), 11);
-    assert_eq!(generator.builder().extract_timestamp(second), 11);
-    assert_eq!(generator.builder().extract_sequence(first), 0);
-    assert_eq!(generator.builder().extract_sequence(second), 1);
+    assert_eq!(QubitSnowflakeLayout::decode(first).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(second).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(first).sequence(), 0);
+    assert_eq!(QubitSnowflakeLayout::decode(second).sequence(), 1);
 }
