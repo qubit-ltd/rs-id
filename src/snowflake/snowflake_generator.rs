@@ -19,6 +19,10 @@ use parking_lot::Mutex;
 
 use super::constants::DEFAULT_QUBIT_EPOCH_MILLIS;
 use super::time_slice::TimeSlice;
+use super::time_slice_reservation::{
+    TimeSliceReservation,
+    reserve_next,
+};
 use crate::{
     IdError,
     IdGenerator,
@@ -297,45 +301,31 @@ impl IdGenerator<u64> for SnowflakeGenerator {
     /// Generates the next classic Snowflake ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
         loop {
-            let mut state = self.state.lock();
-            let timestamp = self.current_timestamp()?;
-
-            let Some(time_slice) = state.as_mut() else {
-                *state = Some(TimeSlice::with_sequence(
-                    timestamp,
-                    self.max_sequence(),
-                ));
-                drop(state);
-                self.wait_for_next_timestamp(timestamp)?;
-                continue;
+            let reservation = {
+                let mut state = self.state.lock();
+                let timestamp = self.current_timestamp()?;
+                reserve_next(&mut state, timestamp, self.max_sequence())
             };
-
-            if time_slice.timestamp > timestamp {
-                return Err(IdError::ClockMovedBackwards {
-                    last_timestamp: time_slice.timestamp,
-                    current_timestamp: timestamp,
-                    skew_millis: time_slice.timestamp - timestamp,
-                    max_skew_millis: 0,
-                });
+            match reservation {
+                TimeSliceReservation::Allocated(time_slice) => {
+                    return self
+                        .compose(time_slice.timestamp, time_slice.sequence);
+                }
+                TimeSliceReservation::WaitForNext(last_timestamp) => {
+                    self.wait_for_next_timestamp(last_timestamp)?;
+                }
+                TimeSliceReservation::ClockMovedBackwards {
+                    last_timestamp,
+                    current_timestamp,
+                } => {
+                    return Err(IdError::ClockMovedBackwards {
+                        last_timestamp,
+                        current_timestamp,
+                        skew_millis: last_timestamp - current_timestamp,
+                        max_skew_millis: 0,
+                    });
+                }
             }
-
-            if timestamp > time_slice.timestamp {
-                *time_slice = TimeSlice::new(timestamp);
-                drop(state);
-                return self.compose(timestamp, 0);
-            }
-
-            if time_slice.sequence == self.max_sequence() {
-                let exhausted_timestamp = time_slice.timestamp;
-                drop(state);
-                self.wait_for_next_timestamp(exhausted_timestamp)?;
-                continue;
-            }
-
-            time_slice.sequence += 1;
-            let sequence = time_slice.sequence;
-            drop(state);
-            return self.compose(timestamp, sequence);
         }
     }
 }

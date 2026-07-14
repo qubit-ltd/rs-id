@@ -138,6 +138,30 @@ fn test_generate_at_matches_layout_parts() {
 }
 
 #[test]
+fn test_qubit_snowflake_generator_accessors_return_configuration() {
+    let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
+    let generator = QubitSnowflakeGenerator::with_clock(
+        IdMode::Spread,
+        TimestampPrecision::Millisecond,
+        17,
+        epoch,
+        37,
+        move || epoch + Duration::from_millis(100),
+    )
+    .expect("configuration should be valid");
+    let expected_layout = QubitSnowflakeLayout::new(
+        IdMode::Spread,
+        TimestampPrecision::Millisecond,
+        17,
+    )
+    .expect("layout should be valid");
+
+    assert_eq!(generator.layout(), &expected_layout);
+    assert_eq!(generator.epoch(), epoch);
+    assert_eq!(generator.max_skew_millis(), 37);
+}
+
+#[test]
 fn test_qubit_snowflake_generator_next_id_increments_sequence_in_same_slice() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);

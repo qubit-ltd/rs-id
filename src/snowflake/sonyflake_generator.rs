@@ -18,6 +18,10 @@ use std::time::{
 use parking_lot::Mutex;
 
 use super::time_slice::TimeSlice;
+use super::time_slice_reservation::{
+    TimeSliceReservation,
+    reserve_next,
+};
 use crate::{
     IdError,
     IdGenerator,
@@ -286,6 +290,30 @@ impl SonyflakeGenerator {
         self.bits_machine
     }
 
+    /// Returns the configured time unit.
+    ///
+    /// # Returns
+    /// Duration represented by one elapsed-time unit.
+    pub const fn time_unit(&self) -> Duration {
+        self.time_unit
+    }
+
+    /// Returns the configured start time.
+    ///
+    /// # Returns
+    /// Elapsed-time origin used by this generator.
+    pub const fn start_time(&self) -> SystemTime {
+        self.start_time
+    }
+
+    /// Returns the configured machine identifier.
+    ///
+    /// # Returns
+    /// Machine identifier encoded in generated IDs.
+    pub const fn machine_id(&self) -> u64 {
+        self.machine_id
+    }
+
     /// Returns the maximum representable elapsed time unit.
     ///
     /// # Returns
@@ -453,50 +481,39 @@ impl IdGenerator<u64> for SonyflakeGenerator {
     /// Generates the next Sonyflake-style ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
         loop {
-            let mut state = self.state.lock();
-            let current = self.current_elapsed_time()?;
-
-            let Some(time_slice) = state.as_mut() else {
-                *state = Some(TimeSlice::with_sequence(
-                    current,
-                    self.max_sequence(),
-                ));
-                drop(state);
-                self.wait_for_next_elapsed_time(current)?;
-                continue;
+            let reservation = {
+                let mut state = self.state.lock();
+                let current = self.current_elapsed_time()?;
+                reserve_next(&mut state, current, self.max_sequence())
             };
-
-            if time_slice.timestamp > current {
-                let skew_units = time_slice.timestamp - current;
-                let skew_nanos = u128::from(skew_units)
-                    .saturating_mul(self.time_unit.as_nanos());
-                let skew_millis =
-                    u64::try_from(skew_nanos / 1_000_000).unwrap_or(u64::MAX);
-                return Err(IdError::ClockMovedBackwards {
-                    last_timestamp: time_slice.timestamp,
-                    current_timestamp: current,
-                    skew_millis,
-                    max_skew_millis: 0,
-                });
+            match reservation {
+                TimeSliceReservation::Allocated(time_slice) => {
+                    return self.compose(
+                        time_slice.timestamp,
+                        time_slice.sequence,
+                        self.machine_id,
+                    );
+                }
+                TimeSliceReservation::WaitForNext(last_elapsed_time) => {
+                    self.wait_for_next_elapsed_time(last_elapsed_time)?;
+                }
+                TimeSliceReservation::ClockMovedBackwards {
+                    last_timestamp,
+                    current_timestamp,
+                } => {
+                    let skew_units = last_timestamp - current_timestamp;
+                    let skew_nanos = u128::from(skew_units)
+                        .saturating_mul(self.time_unit.as_nanos());
+                    let skew_millis = u64::try_from(skew_nanos / 1_000_000)
+                        .unwrap_or(u64::MAX);
+                    return Err(IdError::ClockMovedBackwards {
+                        last_timestamp,
+                        current_timestamp,
+                        skew_millis,
+                        max_skew_millis: 0,
+                    });
+                }
             }
-
-            if current > time_slice.timestamp {
-                *time_slice = TimeSlice::new(current);
-                drop(state);
-                return self.compose(current, 0, self.machine_id);
-            }
-
-            if time_slice.sequence == self.max_sequence() {
-                let exhausted_elapsed_time = time_slice.timestamp;
-                drop(state);
-                self.wait_for_next_elapsed_time(exhausted_elapsed_time)?;
-                continue;
-            }
-
-            time_slice.sequence += 1;
-            let sequence = time_slice.sequence;
-            drop(state);
-            return self.compose(current, sequence, self.machine_id);
         }
     }
 }
