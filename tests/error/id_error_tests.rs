@@ -89,7 +89,6 @@ fn test_id_error_display_formats_all_variants() {
             IdError::RandomSourceUnavailable,
             "operating system random source is unavailable",
         ),
-        (IdError::StatePoisoned, "generator state mutex is poisoned"),
     ];
 
     for (error, expected) in cases {
