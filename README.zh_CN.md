@@ -28,7 +28,7 @@
 
 ```toml
 [dependencies]
-qubit-id = "0.2"
+qubit-id = "0.3"
 ```
 
 ## 快速开始
@@ -56,12 +56,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | --- | --- |
 | `IdGenerator<T>` | 统一的强类型 ID 生成和字符串格式化 trait。 |
 | `QubitSnowflakeGenerator` | Qubit 固定头部 Snowflake 生成器。 |
-| `QubitSnowflakeBuilder` | 构造和解析 Qubit Snowflake 位布局。 |
+| `QubitSnowflakeLayout` | 组合 Qubit Snowflake ID，并根据固定头部解析任意 Qubit 布局。 |
+| `QubitSnowflakeParts` | `QubitSnowflakeLayout::decode` 返回的字段。 |
 | `SnowflakeGenerator` | 经典 41 位时间、10 位节点、12 位序列 Snowflake 生成器。 |
 | `SonyflakeGenerator` | 支持配置序列位和机器位的 Sonyflake 风格生成器。 |
 | `MicaUuidLikeGenerator` | Mica 风格随机 128 位 UUID-like 生成器。 |
 | `fast_uuid_like` | 生成小写标准形态 UUID-like 字符串。 |
 | `fast_simple_uuid_like` | 生成小写 32 位十六进制 UUID-like 字符串。 |
+
+## 唯一性与部署要求
+
+三种 Snowflake 系列生成器都是线程安全的。同一个存活且共享的 generator
+实例上，成功的 `next_id` 和 `next_string` 调用不会生成重复 ID。一个进程
+内，每个 ID 命名空间应该共享一个 generator 实例，不应为每个线程或请求
+分别创建实例。
+
+跨进程、跨服务器时，所有可能向同一命名空间生成 ID 的并行 generator
+实例必须独占各自的身份编号：
+
+- `QubitSnowflakeGenerator` 使用 `host`
+- `SnowflakeGenerator` 使用 `node_id`
+- `SonyflakeGenerator` 使用 `machine_id`
+
+本 crate 不负责分配或协调这些编号。不同的 epoch、start time 或位布局也
+可能产生相同的数值，因此部署配置本身也是 ID 命名空间的一部分。
+
+Snowflake 系列 generator 第一次使用时会跳过当时观测到的时间片。因此，
+在旧实例已经停止、机器时钟没有回拨的前提下，使用相同身份编号和
+epoch/start time 启动替代实例不会重复旧 ID。如果重启期间机器时钟发生
+回拨，由于分配状态没有持久化，仍然可能生成重复 ID。
+
+第一次调用以及序列耗尽后的调用，在时钟正常前进时可能阻塞大约一个配置
+时间单位；如果时钟停止，可能无限期阻塞。Qubit Snowflake 会在配置的回拨
+容忍范围内等待重试，超过范围时报错；经典 Snowflake 和 Sonyflake 对任何
+已观测到的回拨都会立即报错。正常等待只有一个很小的时间单位，因此不提供
+异步生成 API。
+
+`compose`、`generate_at` 和 `decode` 都是无状态转换，不提供唯一性保证。
+`MicaUuidLikeGenerator` 使用 128 位随机数，因此只提供概率意义上的唯一性，
+理论上仍可能碰撞。
 
 ## Generator 使用示例
 
@@ -72,7 +105,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 Qubit epoch。
 
 ```rust
-use qubit_id::{IdGenerator, QubitSnowflakeGenerator};
+use qubit_id::{
+    IdGenerator, QubitSnowflakeGenerator, QubitSnowflakeLayout,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 参数是编码到生成 ID 中的 9 位 host ID。
@@ -82,8 +117,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let id = generator.next_id()?;
     let id_text = generator.next_string()?;
 
-    let builder = generator.builder();
-    assert_eq!(builder.extract_host(id), 42);
+    let parts = QubitSnowflakeLayout::decode(id);
+    assert_eq!(parts.host(), 42);
 
     println!("{id} {id_text}");
     Ok(())
@@ -96,7 +131,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 use std::time::{Duration, UNIX_EPOCH};
 
 use qubit_id::{
-    IdGenerator, IdMode, QubitSnowflakeGenerator, TimestampPrecision,
+    IdGenerator, IdMode, QubitSnowflakeGenerator, QubitSnowflakeLayout,
+    TimestampPrecision,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -108,11 +144,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let id = generator.next_id()?;
-    let builder = generator.builder();
+    let parts = QubitSnowflakeLayout::decode(id);
 
-    assert_eq!(builder.extract_mode(id), IdMode::Spread);
-    assert_eq!(builder.extract_precision(id), TimestampPrecision::Millisecond);
-    assert_eq!(builder.extract_host(id), 7);
+    assert_eq!(parts.mode(), IdMode::Spread);
+    assert_eq!(parts.precision(), TimestampPrecision::Millisecond);
+    assert_eq!(parts.host(), 7);
 
     Ok(())
 }
@@ -274,7 +310,8 @@ Mica 的 UUID 压测说明见
 ## 项目边界
 
 - 本 crate 只负责本地 ID 生成，不负责分布式节点发现。
-- 时钟回拨会在配置容忍范围内等待，超过范围后返回明确错误。
+- Qubit Snowflake 会在配置的回拨容忍范围内等待；经典 Snowflake 和
+  Sonyflake 对任何已观测到的回拨都会返回错误。
 - `QubitSnowflakeGenerator` 使用自己的固定头部 Snowflake 布局。
 - `SnowflakeGenerator` 和 `SonyflakeGenerator` 适合服务主动选择这些布局时使用。
 
