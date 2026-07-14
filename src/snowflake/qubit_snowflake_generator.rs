@@ -7,16 +7,15 @@
 // =============================================================================
 //! Qubit snowflake generator.
 
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::Arc;
 use std::thread;
 use std::time::{
     Duration,
     SystemTime,
     UNIX_EPOCH,
 };
+
+use parking_lot::Mutex;
 
 use super::constants::{
     DEFAULT_MAX_SKEW_MILLIS,
@@ -38,12 +37,23 @@ use crate::{
 /// This generator uses the Qubit fixed-header layout, including mode and
 /// precision bits. The default constructor uses sequential mode, second
 /// precision, host `0`, and epoch `2018-12-02T00:00:00Z`.
+///
+/// The generator is thread-safe and guarantees that successful calls on one
+/// instance return distinct IDs. Share one instance inside a process, and use
+/// an exclusive host identifier for every concurrently running instance in the
+/// same ID namespace.
+///
+/// The first generation call skips the time slice observed at startup. This
+/// can block for at most approximately one configured time slice while the
+/// clock advances normally. It prevents reuse after a previous instance with
+/// the same host and epoch has stopped, provided the machine clock has not
+/// moved backwards between the two instance lifetimes.
 pub struct QubitSnowflakeGenerator {
     builder: QubitSnowflakeBuilder,
     epoch: SystemTime,
     max_skew_millis: u64,
     clock: Arc<dyn Fn() -> SystemTime + Send + Sync>,
-    state: Mutex<TimeSlice>,
+    state: Mutex<Option<TimeSlice>>,
 }
 
 impl QubitSnowflakeGenerator {
@@ -131,7 +141,7 @@ impl QubitSnowflakeGenerator {
             epoch,
             max_skew_millis,
             clock: Arc::new(clock),
-            state: Mutex::new(TimeSlice::new(0)),
+            state: Mutex::new(None),
         })
     }
 
@@ -238,21 +248,35 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
     type Error = IdError;
 
     /// Generates the next Qubit snowflake ID.
+    ///
+    /// Timestamp and sequence pairs are reserved while holding the generator
+    /// mutex. When the current sequence range is exhausted, this method
+    /// releases the mutex, waits for a later time slice, and then competes
+    /// for a new reservation. The method can therefore block for
+    /// approximately one time slice while the clock advances normally, or
+    /// longer while tolerating a configured backwards clock skew.
     fn next_id(&self) -> Result<u64, Self::Error> {
         loop {
-            let mut state = self
-                .state
-                .lock()
-                .expect("generator state mutex should not be poisoned");
-            let mut timestamp = self.current_timestamp()?;
+            let mut state = self.state.lock();
+            let timestamp = self.current_timestamp()?;
 
-            if state.timestamp > timestamp {
-                let skew = state.timestamp - timestamp;
+            let Some(time_slice) = state.as_mut() else {
+                *state = Some(TimeSlice::with_sequence(
+                    timestamp,
+                    self.builder.max_sequence(),
+                ));
+                drop(state);
+                self.wait_for_next_timestamp(timestamp)?;
+                continue;
+            };
+
+            if time_slice.timestamp > timestamp {
+                let skew = time_slice.timestamp - timestamp;
                 let skew_millis =
                     skew * self.builder.precision().divisor_millis();
                 if skew_millis > self.max_skew_millis {
                     return Err(IdError::ClockMovedBackwards {
-                        last_timestamp: state.timestamp,
+                        last_timestamp: time_slice.timestamp,
                         current_timestamp: timestamp,
                         skew_millis,
                         max_skew_millis: self.max_skew_millis,
@@ -263,27 +287,22 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
                 continue;
             }
 
-            let sequence = if timestamp == state.timestamp {
-                let next_sequence =
-                    (state.sequence + 1) & self.builder.max_sequence();
-                if next_sequence == 0 {
-                    drop(state);
-                    timestamp = self.wait_for_next_timestamp(timestamp)?;
-                    let mut state = self
-                        .state
-                        .lock()
-                        .expect("generator state mutex should not be poisoned");
-                    state.timestamp = timestamp;
-                    state.sequence = 0;
-                    return self.builder.build(timestamp, 0);
-                }
-                next_sequence
-            } else {
-                0
-            };
+            if timestamp > time_slice.timestamp {
+                *time_slice = TimeSlice::new(timestamp);
+                drop(state);
+                return self.builder.build(timestamp, 0);
+            }
 
-            state.timestamp = timestamp;
-            state.sequence = sequence;
+            if time_slice.sequence == self.builder.max_sequence() {
+                let exhausted_timestamp = time_slice.timestamp;
+                drop(state);
+                self.wait_for_next_timestamp(exhausted_timestamp)?;
+                continue;
+            }
+
+            time_slice.sequence += 1;
+            let sequence = time_slice.sequence;
+            drop(state);
             return self.builder.build(timestamp, sequence);
         }
     }
