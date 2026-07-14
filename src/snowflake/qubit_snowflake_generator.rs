@@ -24,7 +24,7 @@ use super::constants::{
 use super::time_slice::TimeSlice;
 use super::{
     IdMode,
-    QubitSnowflakeBuilder,
+    QubitSnowflakeLayout,
     TimestampPrecision,
 };
 use crate::{
@@ -36,20 +36,31 @@ use crate::{
 ///
 /// This generator uses the Qubit fixed-header layout, including mode and
 /// precision bits. The default constructor uses sequential mode, second
-/// precision, host `0`, and epoch `2018-12-02T00:00:00Z`.
+/// precision, the caller-provided host, and epoch `2018-12-02T00:00:00Z`.
 ///
-/// The generator is thread-safe and guarantees that successful calls on one
-/// instance return distinct IDs. Share one instance inside a process, and use
-/// an exclusive host identifier for every concurrently running instance in the
-/// same ID namespace.
+/// # Uniqueness
+/// The generator is thread-safe. Successful [`IdGenerator::next_id`] and
+/// [`IdGenerator::next_string`] calls on one shared live instance never return
+/// the same ID. A process should share one instance for each ID namespace.
+/// Every concurrently running instance across processes and servers must have
+/// an exclusive host identifier when its layout and epoch can produce IDs in
+/// the same namespace.
 ///
 /// The first generation call skips the time slice observed at startup. This
-/// can block for at most approximately one configured time slice while the
-/// clock advances normally. It prevents reuse after a previous instance with
-/// the same host and epoch has stopped, provided the machine clock has not
-/// moved backwards between the two instance lifetimes.
+/// prevents reuse after a previous instance with the same host, layout, and
+/// epoch has stopped, provided the old instance is no longer running and the
+/// machine clock has not moved backwards between their lifetimes. A clock
+/// rollback across a restart can repeat IDs because allocation state is not
+/// persisted.
+///
+/// # Blocking and clock behavior
+/// The first call and a call after sequence exhaustion can block for
+/// approximately one configured time slice while the clock advances normally.
+/// A stalled clock can block indefinitely. A backwards clock movement within
+/// `max_skew_millis` is retried after waiting; a larger movement returns
+/// [`IdError::ClockMovedBackwards`].
 pub struct QubitSnowflakeGenerator {
-    builder: QubitSnowflakeBuilder,
+    layout: QubitSnowflakeLayout,
     epoch: SystemTime,
     max_skew_millis: u64,
     clock: Arc<dyn Fn() -> SystemTime + Send + Sync>,
@@ -137,7 +148,7 @@ impl QubitSnowflakeGenerator {
         F: Fn() -> SystemTime + Send + Sync + 'static,
     {
         Ok(Self {
-            builder: QubitSnowflakeBuilder::new(mode, precision, host)?,
+            layout: QubitSnowflakeLayout::new(mode, precision, host)?,
             epoch,
             max_skew_millis,
             clock: Arc::new(clock),
@@ -145,12 +156,12 @@ impl QubitSnowflakeGenerator {
         })
     }
 
-    /// Returns the Qubit bit builder.
+    /// Returns the Qubit bit layout.
     ///
     /// # Returns
-    /// Builder used to compose and inspect generated IDs.
-    pub const fn builder(&self) -> &QubitSnowflakeBuilder {
-        &self.builder
+    /// Layout used to compose generated IDs.
+    pub const fn layout(&self) -> &QubitSnowflakeLayout {
+        &self.layout
     }
 
     /// Returns the configured epoch.
@@ -162,6 +173,9 @@ impl QubitSnowflakeGenerator {
     }
 
     /// Generates an ID for an explicit time and sequence.
+    ///
+    /// This method is stateless. Repeating its inputs repeats the ID, so it
+    /// provides no uniqueness guarantee.
     ///
     /// # Parameters
     /// - `time`: Time to encode.
@@ -180,7 +194,7 @@ impl QubitSnowflakeGenerator {
         sequence: u64,
     ) -> Result<u64, IdError> {
         let timestamp = self.timestamp_for(time)?;
-        self.builder.build(timestamp, sequence)
+        self.layout.compose(timestamp, sequence)
     }
 
     /// Converts a time value into a precision-aware timestamp.
@@ -198,11 +212,11 @@ impl QubitSnowflakeGenerator {
             .duration_since(self.epoch)
             .map_err(|_| IdError::TimeBeforeEpoch)?;
         let timestamp = elapsed.as_millis()
-            / u128::from(self.builder.precision().divisor_millis());
-        if timestamp > u128::from(self.builder.max_timestamp()) {
+            / u128::from(self.layout.precision().divisor_millis());
+        if timestamp > u128::from(self.layout.max_timestamp()) {
             return Err(IdError::TimestampOverflow {
                 timestamp: u64::try_from(timestamp).unwrap_or(u64::MAX),
-                max: self.builder.max_timestamp(),
+                max: self.layout.max_timestamp(),
             });
         }
         Ok(timestamp as u64)
@@ -236,7 +250,7 @@ impl QubitSnowflakeGenerator {
         let mut timestamp = self.current_timestamp()?;
         while timestamp <= last_timestamp {
             thread::sleep(Duration::from_millis(
-                self.builder.precision().wait_duration_millis(),
+                self.layout.precision().wait_duration_millis(),
             ));
             timestamp = self.current_timestamp()?;
         }
@@ -263,7 +277,7 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
             let Some(time_slice) = state.as_mut() else {
                 *state = Some(TimeSlice::with_sequence(
                     timestamp,
-                    self.builder.max_sequence(),
+                    self.layout.max_sequence(),
                 ));
                 drop(state);
                 self.wait_for_next_timestamp(timestamp)?;
@@ -273,7 +287,7 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
             if time_slice.timestamp > timestamp {
                 let skew = time_slice.timestamp - timestamp;
                 let skew_millis =
-                    skew * self.builder.precision().divisor_millis();
+                    skew * self.layout.precision().divisor_millis();
                 if skew_millis > self.max_skew_millis {
                     return Err(IdError::ClockMovedBackwards {
                         last_timestamp: time_slice.timestamp,
@@ -290,10 +304,10 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
             if timestamp > time_slice.timestamp {
                 *time_slice = TimeSlice::new(timestamp);
                 drop(state);
-                return self.builder.build(timestamp, 0);
+                return self.layout.compose(timestamp, 0);
             }
 
-            if time_slice.sequence == self.builder.max_sequence() {
+            if time_slice.sequence == self.layout.max_sequence() {
                 let exhausted_timestamp = time_slice.timestamp;
                 drop(state);
                 self.wait_for_next_timestamp(exhausted_timestamp)?;
@@ -303,7 +317,7 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
             time_slice.sequence += 1;
             let sequence = time_slice.sequence;
             drop(state);
-            return self.builder.build(timestamp, sequence);
+            return self.layout.compose(timestamp, sequence);
         }
     }
 }
