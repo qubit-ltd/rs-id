@@ -30,7 +30,7 @@ impl IdGenerator<u64> for FailingGenerator {
     type Error = IdError;
 
     fn next_id(&self) -> Result<u64, Self::Error> {
-        Err(IdError::StatePoisoned)
+        Err(IdError::RandomSourceUnavailable)
     }
 }
 
@@ -49,5 +49,8 @@ fn test_id_generator_next_string_uses_display_by_default() {
 fn test_id_generator_next_string_propagates_generation_error() {
     let generator = FailingGenerator;
 
-    assert_eq!(generator.next_string(), Err(IdError::StatePoisoned));
+    assert_eq!(
+        generator.next_string(),
+        Err(IdError::RandomSourceUnavailable)
+    );
 }

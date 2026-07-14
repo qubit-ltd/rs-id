@@ -85,8 +85,6 @@ pub enum IdError {
     },
     /// The operating system random source could not provide random ID bytes.
     RandomSourceUnavailable,
-    /// The generator state mutex was poisoned by a panic while locked.
-    StatePoisoned,
 }
 
 impl Display for IdError {
@@ -144,9 +142,6 @@ impl Display for IdError {
                     formatter,
                     "operating system random source is unavailable"
                 )
-            }
-            Self::StatePoisoned => {
-                write!(formatter, "generator state mutex is poisoned")
             }
         }
     }

@@ -38,6 +38,12 @@ const HEX_DIGIT_MASK: u128 = 0x0f;
 /// Therefore it should not be treated as a standards-compliant UUID v4
 /// generator.
 ///
+/// The generator has no synchronized mutable allocation state. Each successful
+/// call reads 128 random bits from the operating system. Uniqueness is
+/// therefore probabilistic, with a theoretical collision possibility, rather
+/// than the deterministic per-instance guarantee of the Snowflake-family
+/// generators.
+///
 /// # Origin
 /// The formatting approach is based on Mica's fast UUID utility and
 /// `formatUnsignedLong` helper:

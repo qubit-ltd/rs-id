@@ -16,6 +16,10 @@ use std::fmt::Display;
 /// string-producing helper. Numeric generators normally use the default
 /// [`Display`] based formatting. Generators with specialized textual forms can
 /// override [`IdGenerator::format_id`].
+///
+/// Uniqueness is defined by each implementation. Implementations based on a
+/// synchronized sequence can provide deterministic guarantees, while random
+/// implementations can only provide probabilistic uniqueness.
 pub trait IdGenerator<T> {
     /// Error returned when generation fails.
     type Error: Error;
