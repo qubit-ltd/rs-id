@@ -15,6 +15,7 @@ mod qubit_snowflake_parts;
 mod snowflake_generator;
 mod sonyflake_generator;
 mod time_slice;
+mod time_slice_reservation;
 mod timestamp_precision;
 
 pub use constants::{

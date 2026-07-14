@@ -22,6 +22,10 @@ use super::constants::{
     DEFAULT_QUBIT_EPOCH_MILLIS,
 };
 use super::time_slice::TimeSlice;
+use super::time_slice_reservation::{
+    TimeSliceReservation,
+    reserve_next,
+};
 use super::{
     IdMode,
     QubitSnowflakeLayout,
@@ -56,8 +60,10 @@ use crate::{
 /// # Blocking and clock behavior
 /// The first call and a call after sequence exhaustion can block for
 /// approximately one configured time slice while the clock advances normally.
-/// A stalled clock can block indefinitely. A backwards clock movement within
-/// `max_skew_millis` is retried after waiting; a larger movement returns
+/// With the default second precision, the startup fence means the first
+/// generation call can wait nearly one second. A stalled clock can block
+/// indefinitely. A backwards clock movement within `max_skew_millis` is
+/// retried after waiting; a larger movement returns
 /// [`IdError::ClockMovedBackwards`].
 pub struct QubitSnowflakeGenerator {
     layout: QubitSnowflakeLayout,
@@ -172,6 +178,14 @@ impl QubitSnowflakeGenerator {
         self.epoch
     }
 
+    /// Returns the maximum tolerated backwards clock movement.
+    ///
+    /// # Returns
+    /// Maximum clock skew in milliseconds.
+    pub const fn max_skew_millis(&self) -> u64 {
+        self.max_skew_millis
+    }
+
     /// Generates an ID for an explicit time and sequence.
     ///
     /// This method is stateless. Repeating its inputs repeats the ID, so it
@@ -186,8 +200,9 @@ impl QubitSnowflakeGenerator {
     ///
     /// # Errors
     /// Returns [`IdError::TimeBeforeEpoch`] if `time` is before the configured
-    /// epoch. Returns builder validation errors if the computed timestamp or
-    /// provided sequence does not fit.
+    /// epoch. Returns [`IdError::TimestampOverflow`] or
+    /// [`IdError::SequenceOverflow`] when the computed timestamp or provided
+    /// sequence does not fit the layout.
     pub fn generate_at(
         &self,
         time: SystemTime,
@@ -271,53 +286,38 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
     /// longer while tolerating a configured backwards clock skew.
     fn next_id(&self) -> Result<u64, Self::Error> {
         loop {
-            let mut state = self.state.lock();
-            let timestamp = self.current_timestamp()?;
-
-            let Some(time_slice) = state.as_mut() else {
-                *state = Some(TimeSlice::with_sequence(
-                    timestamp,
-                    self.layout.max_sequence(),
-                ));
-                drop(state);
-                self.wait_for_next_timestamp(timestamp)?;
-                continue;
+            let reservation = {
+                let mut state = self.state.lock();
+                let timestamp = self.current_timestamp()?;
+                reserve_next(&mut state, timestamp, self.layout.max_sequence())
             };
-
-            if time_slice.timestamp > timestamp {
-                let skew = time_slice.timestamp - timestamp;
-                let skew_millis =
-                    skew * self.layout.precision().divisor_millis();
-                if skew_millis > self.max_skew_millis {
-                    return Err(IdError::ClockMovedBackwards {
-                        last_timestamp: time_slice.timestamp,
-                        current_timestamp: timestamp,
-                        skew_millis,
-                        max_skew_millis: self.max_skew_millis,
-                    });
+            match reservation {
+                TimeSliceReservation::Allocated(time_slice) => {
+                    return self
+                        .layout
+                        .compose(time_slice.timestamp, time_slice.sequence);
                 }
-                drop(state);
-                thread::sleep(Duration::from_millis(skew_millis));
-                continue;
+                TimeSliceReservation::WaitForNext(last_timestamp) => {
+                    self.wait_for_next_timestamp(last_timestamp)?;
+                }
+                TimeSliceReservation::ClockMovedBackwards {
+                    last_timestamp,
+                    current_timestamp,
+                } => {
+                    let skew = last_timestamp - current_timestamp;
+                    let skew_millis =
+                        skew * self.layout.precision().divisor_millis();
+                    if skew_millis > self.max_skew_millis {
+                        return Err(IdError::ClockMovedBackwards {
+                            last_timestamp,
+                            current_timestamp,
+                            skew_millis,
+                            max_skew_millis: self.max_skew_millis,
+                        });
+                    }
+                    thread::sleep(Duration::from_millis(skew_millis));
+                }
             }
-
-            if timestamp > time_slice.timestamp {
-                *time_slice = TimeSlice::new(timestamp);
-                drop(state);
-                return self.layout.compose(timestamp, 0);
-            }
-
-            if time_slice.sequence == self.layout.max_sequence() {
-                let exhausted_timestamp = time_slice.timestamp;
-                drop(state);
-                self.wait_for_next_timestamp(exhausted_timestamp)?;
-                continue;
-            }
-
-            time_slice.sequence += 1;
-            let sequence = time_slice.sequence;
-            drop(state);
-            return self.layout.compose(timestamp, sequence);
         }
     }
 }

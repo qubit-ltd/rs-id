@@ -133,6 +133,28 @@ fn test_sonyflake_generator_default_layout_matches_sonyflake() {
 }
 
 #[test]
+fn test_sonyflake_generator_accessors_return_configuration() {
+    let start_time = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
+    let time_unit = Duration::from_millis(5);
+    let generator = SonyflakeGenerator::with_clock(
+        17,
+        7,
+        5,
+        time_unit,
+        start_time,
+        move || start_time + Duration::from_millis(100),
+    )
+    .expect("configuration should be valid");
+
+    assert_eq!(generator.machine_id(), 17);
+    assert_eq!(generator.start_time(), start_time);
+    assert_eq!(generator.time_unit(), time_unit);
+    assert_eq!(generator.bits_time(), 51);
+    assert_eq!(generator.bits_sequence(), 7);
+    assert_eq!(generator.bits_machine(), 5);
+}
+
+#[test]
 fn test_sonyflake_generator_new_uses_default_layout() {
     let generator =
         SonyflakeGenerator::new(1).expect("default machine id should be valid");
