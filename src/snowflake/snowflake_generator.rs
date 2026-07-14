@@ -7,16 +7,15 @@
 // =============================================================================
 //! Classic 41/10/12 Snowflake generator.
 
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::Arc;
 use std::thread;
 use std::time::{
     Duration,
     SystemTime,
     UNIX_EPOCH,
 };
+
+use parking_lot::Mutex;
 
 use super::constants::DEFAULT_QUBIT_EPOCH_MILLIS;
 use super::time_slice::TimeSlice;
@@ -32,11 +31,31 @@ const MAX_NODE_ID: u64 = (1_u64 << NODE_BITS) - 1;
 
 /// Classic Snowflake generator using 41 timestamp, 10 node, and 12 sequence
 /// bits.
+///
+/// # Uniqueness
+/// The generator is thread-safe. Successful [`IdGenerator::next_id`] and
+/// [`IdGenerator::next_string`] calls on one shared live instance never return
+/// the same ID. A process should share one instance for each ID namespace.
+/// Every concurrently running instance across processes and servers must have
+/// an exclusive node identifier when its epoch can produce IDs in the same
+/// namespace.
+///
+/// The first generation call skips the observed millisecond. This prevents
+/// reuse after a stopped instance with the same node and epoch is replaced,
+/// provided the old instance is no longer running and the machine clock has
+/// not moved backwards. A rollback across a restart can repeat IDs because
+/// allocation state is not persisted.
+///
+/// # Blocking and clock behavior
+/// The first call and a call after sequence exhaustion can block for
+/// approximately one millisecond while the clock advances normally. A stalled
+/// clock can block indefinitely. A backwards clock movement returns
+/// [`IdError::ClockMovedBackwards`] immediately.
 pub struct SnowflakeGenerator {
     node_id: u64,
     epoch: SystemTime,
     clock: Arc<dyn Fn() -> SystemTime + Send + Sync>,
-    state: Mutex<TimeSlice>,
+    state: Mutex<Option<TimeSlice>>,
 }
 
 impl SnowflakeGenerator {
@@ -108,7 +127,7 @@ impl SnowflakeGenerator {
             node_id,
             epoch,
             clock: Arc::new(clock),
-            state: Mutex::new(TimeSlice::new(0)),
+            state: Mutex::new(None),
         })
     }
 
@@ -145,6 +164,9 @@ impl SnowflakeGenerator {
     }
 
     /// Composes an ID from timestamp and sequence parts.
+    ///
+    /// This method is stateless. Repeating its inputs repeats the ID, so it
+    /// provides no uniqueness guarantee.
     ///
     /// # Parameters
     /// - `timestamp`: Milliseconds elapsed since the epoch.
@@ -274,41 +296,46 @@ impl IdGenerator<u64> for SnowflakeGenerator {
 
     /// Generates the next classic Snowflake ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
-        let mut state = self
-            .state
-            .lock()
-            .expect("generator state mutex should not be poisoned");
-        let mut timestamp = self.current_timestamp()?;
+        loop {
+            let mut state = self.state.lock();
+            let timestamp = self.current_timestamp()?;
 
-        if state.timestamp > timestamp {
-            return Err(IdError::ClockMovedBackwards {
-                last_timestamp: state.timestamp,
-                current_timestamp: timestamp,
-                skew_millis: state.timestamp - timestamp,
-                max_skew_millis: 0,
-            });
-        }
-
-        let sequence = if timestamp == state.timestamp {
-            let next_sequence = state.sequence + 1;
-            if next_sequence > self.max_sequence() {
+            let Some(time_slice) = state.as_mut() else {
+                *state = Some(TimeSlice::with_sequence(
+                    timestamp,
+                    self.max_sequence(),
+                ));
                 drop(state);
-                timestamp = self.wait_for_next_timestamp(timestamp)?;
-                let mut state = self
-                    .state
-                    .lock()
-                    .expect("generator state mutex should not be poisoned");
-                state.timestamp = timestamp;
-                state.sequence = 0;
+                self.wait_for_next_timestamp(timestamp)?;
+                continue;
+            };
+
+            if time_slice.timestamp > timestamp {
+                return Err(IdError::ClockMovedBackwards {
+                    last_timestamp: time_slice.timestamp,
+                    current_timestamp: timestamp,
+                    skew_millis: time_slice.timestamp - timestamp,
+                    max_skew_millis: 0,
+                });
+            }
+
+            if timestamp > time_slice.timestamp {
+                *time_slice = TimeSlice::new(timestamp);
+                drop(state);
                 return self.compose(timestamp, 0);
             }
-            next_sequence
-        } else {
-            0
-        };
 
-        state.timestamp = timestamp;
-        state.sequence = sequence;
-        self.compose(timestamp, sequence)
+            if time_slice.sequence == self.max_sequence() {
+                let exhausted_timestamp = time_slice.timestamp;
+                drop(state);
+                self.wait_for_next_timestamp(exhausted_timestamp)?;
+                continue;
+            }
+
+            time_slice.sequence += 1;
+            let sequence = time_slice.sequence;
+            drop(state);
+            return self.compose(timestamp, sequence);
+        }
     }
 }

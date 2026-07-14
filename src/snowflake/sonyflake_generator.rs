@@ -7,16 +7,15 @@
 // =============================================================================
 //! Sonyflake-style 63-bit ID generator.
 
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::Arc;
 use std::thread;
 use std::time::{
     Duration,
     SystemTime,
     UNIX_EPOCH,
 };
+
+use parking_lot::Mutex;
 
 use super::time_slice::TimeSlice;
 use crate::{
@@ -36,6 +35,27 @@ const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
 /// By default, the layout is compatible with Sonyflake's commonly documented
 /// allocation: 39 bits of time in 10 ms units, 8 sequence bits, and 16 machine
 /// bits. The sign bit is not used.
+///
+/// # Uniqueness
+/// The generator is thread-safe. Successful [`IdGenerator::next_id`] and
+/// [`IdGenerator::next_string`] calls on one shared live instance never return
+/// the same ID. A process should share one instance for each ID namespace.
+/// Every concurrently running instance across processes and servers must have
+/// an exclusive machine identifier when its layout and start time can produce
+/// IDs in the same namespace.
+///
+/// The first generation call skips the observed time unit. This prevents reuse
+/// after a stopped instance with the same machine, layout, and start time is
+/// replaced, provided the old instance is no longer running and the machine
+/// clock has not moved backwards. A rollback across a restart can repeat IDs
+/// because allocation state is not persisted.
+///
+/// # Blocking and clock behavior
+/// The first call and a call after sequence exhaustion can block for
+/// approximately one configured time unit while the clock advances normally.
+/// A stalled clock can block indefinitely. IDs are never allocated from a
+/// logical future time unit. A backwards clock movement returns
+/// [`IdError::ClockMovedBackwards`] immediately.
 pub struct SonyflakeGenerator {
     bits_time: u8,
     bits_sequence: u8,
@@ -44,7 +64,7 @@ pub struct SonyflakeGenerator {
     start_time: SystemTime,
     machine_id: u64,
     clock: Arc<dyn Fn() -> SystemTime + Send + Sync>,
-    state: Mutex<TimeSlice>,
+    state: Mutex<Option<TimeSlice>>,
 }
 
 impl SonyflakeGenerator {
@@ -209,10 +229,7 @@ impl SonyflakeGenerator {
             start_time,
             machine_id,
             clock: Arc::new(clock),
-            state: Mutex::new(TimeSlice::with_sequence(
-                0,
-                (1_u64 << bits_sequence) - 1,
-            )),
+            state: Mutex::new(None),
         })
     }
 
@@ -294,6 +311,9 @@ impl SonyflakeGenerator {
     }
 
     /// Composes a Sonyflake-style ID from explicit parts.
+    ///
+    /// This method is stateless. Repeating its inputs repeats the ID, so it
+    /// provides no uniqueness guarantee.
     ///
     /// # Parameters
     /// - `elapsed_time`: Time units elapsed since the start time.
@@ -403,6 +423,28 @@ impl SonyflakeGenerator {
     fn current_elapsed_time(&self) -> Result<u64, IdError> {
         self.elapsed_time_for((self.clock)())
     }
+
+    /// Waits until the clock reaches a later elapsed time unit.
+    ///
+    /// # Parameters
+    /// - `last_elapsed_time`: Time unit whose sequence range is unavailable.
+    ///
+    /// # Returns
+    /// First elapsed time unit greater than `last_elapsed_time`.
+    ///
+    /// # Errors
+    /// Returns clock conversion errors from [`Self::current_elapsed_time`].
+    fn wait_for_next_elapsed_time(
+        &self,
+        last_elapsed_time: u64,
+    ) -> Result<u64, IdError> {
+        let mut elapsed_time = self.current_elapsed_time()?;
+        while elapsed_time <= last_elapsed_time {
+            thread::sleep(self.time_unit);
+            elapsed_time = self.current_elapsed_time()?;
+        }
+        Ok(elapsed_time)
+    }
 }
 
 impl IdGenerator<u64> for SonyflakeGenerator {
@@ -410,31 +452,51 @@ impl IdGenerator<u64> for SonyflakeGenerator {
 
     /// Generates the next Sonyflake-style ID.
     fn next_id(&self) -> Result<u64, Self::Error> {
-        let mut state = self
-            .state
-            .lock()
-            .expect("generator state mutex should not be poisoned");
-        let current = self.current_elapsed_time()?;
+        loop {
+            let mut state = self.state.lock();
+            let current = self.current_elapsed_time()?;
 
-        if state.timestamp < current {
-            state.timestamp = current;
-            state.sequence = 0;
-        } else {
-            state.sequence = (state.sequence + 1) & self.max_sequence();
-            if state.sequence == 0 {
-                state.timestamp += 1;
-                let overtime = state.timestamp.saturating_sub(current);
-                drop(state);
-                thread::sleep(Duration::from_nanos(
-                    (u128::from(overtime) * self.time_unit.as_nanos()) as u64,
+            let Some(time_slice) = state.as_mut() else {
+                *state = Some(TimeSlice::with_sequence(
+                    current,
+                    self.max_sequence(),
                 ));
-                state = self
-                    .state
-                    .lock()
-                    .expect("generator state mutex should not be poisoned");
-            }
-        }
+                drop(state);
+                self.wait_for_next_elapsed_time(current)?;
+                continue;
+            };
 
-        self.compose(state.timestamp, state.sequence, self.machine_id)
+            if time_slice.timestamp > current {
+                let skew_units = time_slice.timestamp - current;
+                let skew_nanos = u128::from(skew_units)
+                    .saturating_mul(self.time_unit.as_nanos());
+                let skew_millis =
+                    u64::try_from(skew_nanos / 1_000_000).unwrap_or(u64::MAX);
+                return Err(IdError::ClockMovedBackwards {
+                    last_timestamp: time_slice.timestamp,
+                    current_timestamp: current,
+                    skew_millis,
+                    max_skew_millis: 0,
+                });
+            }
+
+            if current > time_slice.timestamp {
+                *time_slice = TimeSlice::new(current);
+                drop(state);
+                return self.compose(current, 0, self.machine_id);
+            }
+
+            if time_slice.sequence == self.max_sequence() {
+                let exhausted_elapsed_time = time_slice.timestamp;
+                drop(state);
+                self.wait_for_next_elapsed_time(exhausted_elapsed_time)?;
+                continue;
+            }
+
+            time_slice.sequence += 1;
+            let sequence = time_slice.sequence;
+            drop(state);
+            return self.compose(current, sequence, self.machine_id);
+        }
     }
 }
