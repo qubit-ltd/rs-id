@@ -30,7 +30,7 @@ Use `qubit-id` when you need:
 
 ```toml
 [dependencies]
-qubit-id = "0.2"
+qubit-id = "0.3"
 ```
 
 ## Quick Start
@@ -58,12 +58,48 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | --- | --- |
 | `IdGenerator<T>` | Common trait for typed ID generation and string formatting. |
 | `QubitSnowflakeGenerator` | Qubit fixed-header Snowflake generator. |
-| `QubitSnowflakeBuilder` | Builds and inspects Qubit Snowflake bit layouts. |
+| `QubitSnowflakeLayout` | Composes Qubit Snowflake IDs and decodes any Qubit layout from its fixed header. |
+| `QubitSnowflakeParts` | Fields returned by `QubitSnowflakeLayout::decode`. |
 | `SnowflakeGenerator` | Classic 41-bit time, 10-bit node, 12-bit sequence Snowflake generator. |
 | `SonyflakeGenerator` | Sonyflake-style generator with configurable sequence and machine bits. |
 | `MicaUuidLikeGenerator` | Mica-style random 128-bit UUID-like generator. |
 | `fast_uuid_like` | Generates canonical lowercase UUID-like text. |
 | `fast_simple_uuid_like` | Generates compact lowercase 32-hex UUID-like text. |
+
+## Uniqueness And Deployment
+
+The three Snowflake-family generators are thread-safe. Successful `next_id`
+and `next_string` calls on one shared live generator instance never repeat an
+ID. Within a process, share one generator instance for each ID namespace rather
+than constructing one per thread or request.
+
+Across processes and servers, every concurrently running generator instance
+that can emit into the same namespace must have an exclusive identity:
+
+- `host` for `QubitSnowflakeGenerator`
+- `node_id` for `SnowflakeGenerator`
+- `machine_id` for `SonyflakeGenerator`
+
+The crate does not allocate or coordinate these identities. Different epochs,
+start times, or bit layouts can also overlap numerically, so deployment
+configuration is part of the ID namespace.
+
+On first use, each Snowflake-family generator skips the currently observed time
+slice. Replacing a stopped instance with the same identity and epoch/start time
+therefore does not repeat IDs when the machine clock has not moved backwards.
+The old instance must no longer be running. A clock rollback across a restart
+can repeat IDs because allocation state is not persisted.
+
+The first call and a call after sequence exhaustion can block for approximately
+one configured time unit while the clock advances normally. A stalled clock can
+block indefinitely. Qubit Snowflake retries rollback within its configured
+tolerance and rejects larger skew; classic Snowflake and Sonyflake reject any
+observed rollback immediately. No asynchronous generation API is provided
+because the normal wait is only one small time unit.
+
+`compose`, `generate_at`, and `decode` are stateless transformations and do not
+guarantee uniqueness. `MicaUuidLikeGenerator` uses 128 random bits, so its
+uniqueness is probabilistic and a theoretical collision remains possible.
 
 ## Generator Examples
 
@@ -74,7 +110,9 @@ default constructor uses sequential mode, second precision, and the default
 Qubit epoch.
 
 ```rust
-use qubit_id::{IdGenerator, QubitSnowflakeGenerator};
+use qubit_id::{
+    IdGenerator, QubitSnowflakeGenerator, QubitSnowflakeLayout,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The argument is the 9-bit host ID encoded into generated IDs.
@@ -84,8 +122,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let id = generator.next_id()?;
     let id_text = generator.next_string()?;
 
-    let builder = generator.builder();
-    assert_eq!(builder.extract_host(id), 42);
+    let parts = QubitSnowflakeLayout::decode(id);
+    assert_eq!(parts.host(), 42);
 
     println!("{id} {id_text}");
     Ok(())
@@ -99,7 +137,8 @@ precision.
 use std::time::{Duration, UNIX_EPOCH};
 
 use qubit_id::{
-    IdGenerator, IdMode, QubitSnowflakeGenerator, TimestampPrecision,
+    IdGenerator, IdMode, QubitSnowflakeGenerator, QubitSnowflakeLayout,
+    TimestampPrecision,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -111,11 +150,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let id = generator.next_id()?;
-    let builder = generator.builder();
+    let parts = QubitSnowflakeLayout::decode(id);
 
-    assert_eq!(builder.extract_mode(id), IdMode::Spread);
-    assert_eq!(builder.extract_precision(id), TimestampPrecision::Millisecond);
-    assert_eq!(builder.extract_host(id), 7);
+    assert_eq!(parts.mode(), IdMode::Spread);
+    assert_eq!(parts.precision(), TimestampPrecision::Millisecond);
+    assert_eq!(parts.host(), 7);
 
     Ok(())
 }
@@ -287,8 +326,8 @@ Mica's UUID benchmark notes are available in the
 ## Project Scope
 
 - This crate focuses on local ID generation, not distributed node discovery.
-- Clock rollback is handled by waiting within the configured tolerance and
-  returning an explicit error when the skew is too large.
+- Qubit Snowflake can wait within its configured rollback tolerance; classic
+  Snowflake and Sonyflake return an error for any observed rollback.
 - `QubitSnowflakeGenerator` uses its own fixed-header Snowflake layout.
 - `SnowflakeGenerator` and `SonyflakeGenerator` are available for services that
   intentionally choose those layouts.
