@@ -5,6 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::sync::Arc;
+use std::sync::atomic::{
+    AtomicU64,
+    Ordering,
+};
 use std::time::{
     Duration,
     UNIX_EPOCH,
@@ -22,6 +27,8 @@ use qubit_id::{
 /// timestamps.
 #[test]
 fn test_time_slice_state_is_observable_through_generated_ids() {
+    let call_count = Arc::new(AtomicU64::new(0));
+    let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let generator = QubitSnowflakeGenerator::with_clock(
         IdMode::Sequential,
@@ -29,15 +36,22 @@ fn test_time_slice_state_is_observable_through_generated_ids() {
         3,
         epoch,
         DEFAULT_MAX_SKEW_MILLIS,
-        move || epoch + Duration::from_millis(10),
+        move || {
+            let timestamp = if clock_calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                10
+            } else {
+                11
+            };
+            epoch + Duration::from_millis(timestamp)
+        },
     )
     .expect("configuration should be valid");
 
     let first = generator.next_id().expect("first id should generate");
     let second = generator.next_id().expect("second id should generate");
 
-    assert_eq!(generator.builder().extract_timestamp(first), 10);
-    assert_eq!(generator.builder().extract_timestamp(second), 10);
+    assert_eq!(generator.builder().extract_timestamp(first), 11);
+    assert_eq!(generator.builder().extract_timestamp(second), 11);
     assert_eq!(generator.builder().extract_sequence(first), 0);
     assert_eq!(generator.builder().extract_sequence(second), 1);
 }
