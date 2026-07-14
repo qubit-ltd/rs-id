@@ -92,10 +92,12 @@ can repeat IDs because allocation state is not persisted.
 
 The first call and a call after sequence exhaustion can block for approximately
 one configured time unit while the clock advances normally. A stalled clock can
-block indefinitely. Qubit Snowflake retries rollback within its configured
-tolerance and rejects larger skew; classic Snowflake and Sonyflake reject any
-observed rollback immediately. No asynchronous generation API is provided
-because the normal wait is only one small time unit.
+block indefinitely. With the default second precision, the Qubit Snowflake
+startup fence means the first generation call can wait nearly one second. Qubit
+Snowflake retries rollback within its configured tolerance and rejects larger
+skew; classic Snowflake and Sonyflake reject any observed rollback immediately.
+No asynchronous generation API is provided because the normal wait is only one
+small time unit.
 
 `compose`, `generate_at`, and `decode` are stateless transformations and do not
 guarantee uniqueness. `MicaUuidLikeGenerator` uses 128 random bits, so its
