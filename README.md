@@ -58,10 +58,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | --- | --- |
 | `IdGenerator<T>` | Common trait for typed ID generation and string formatting. |
 | `QubitSnowflakeGenerator` | Qubit fixed-header Snowflake generator. |
+| `QubitSnowflakeGeneratorBuilder` | Configures a Qubit Snowflake generator. |
 | `QubitSnowflakeLayout` | Composes Qubit Snowflake IDs and decodes any Qubit layout from its fixed header. |
 | `QubitSnowflakeParts` | Fields returned by `QubitSnowflakeLayout::decode`. |
 | `SnowflakeGenerator` | Classic 41-bit time, 10-bit node, 12-bit sequence Snowflake generator. |
 | `SonyflakeGenerator` | Sonyflake-style generator with configurable sequence and machine bits. |
+| `SonyflakeGeneratorBuilder` | Configures a Sonyflake-style generator. |
 | `MicaUuidLikeGenerator` | Mica-style random 128-bit UUID-like generator. |
 | `fast_uuid_like` | Generates canonical lowercase UUID-like text. |
 | `fast_simple_uuid_like` | Generates compact lowercase 32-hex UUID-like text. |
@@ -84,20 +86,19 @@ The crate does not allocate or coordinate these identities. Different epochs,
 start times, or bit layouts can also overlap numerically, so deployment
 configuration is part of the ID namespace.
 
-On first use, each Snowflake-family generator skips the currently observed time
-slice. Replacing a stopped instance with the same identity and epoch/start time
-therefore does not repeat IDs when the machine clock has not moved backwards.
-The old instance must no longer be running. A clock rollback across a restart
-can repeat IDs because allocation state is not persisted.
+The first call allocates sequence zero in the currently observed time slice and
+does not wait for the next slice. Allocation state is not persisted, so a
+replacement instance using the same identity and epoch/start time can repeat an
+ID when it starts inside a time slice used by the previous instance. Reusing an
+identity across restarts therefore requires an external lease, an external
+cooldown, or persisted allocation state.
 
-The first call and a call after sequence exhaustion can block for approximately
-one configured time unit while the clock advances normally. A stalled clock can
-block indefinitely. With the default second precision, the Qubit Snowflake
-startup fence means the first generation call can wait nearly one second. Qubit
-Snowflake retries rollback within its configured tolerance and rejects larger
-skew; classic Snowflake and Sonyflake reject any observed rollback immediately.
-No asynchronous generation API is provided because the normal wait is only one
-small time unit.
+A call after sequence exhaustion can block for approximately one configured
+time unit while the clock advances normally, and a stalled clock can block
+indefinitely. Qubit Snowflake retries rollback within its configured tolerance
+and rejects larger skew; classic Snowflake and Sonyflake reject any observed
+rollback immediately. No asynchronous generation API is provided because the
+normal wait is only one small time unit.
 
 `compose`, `generate_at`, and `decode` are stateless transformations and do not
 guarantee uniqueness. `MicaUuidLikeGenerator` uses 128 random bits, so its
@@ -144,12 +145,11 @@ use qubit_id::{
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let generator = QubitSnowflakeGenerator::with_options(
-        IdMode::Spread,
-        TimestampPrecision::Millisecond,
-        7,
-        UNIX_EPOCH + Duration::from_millis(1_543_708_800_000),
-    )?;
+    let generator = QubitSnowflakeGenerator::builder(7)
+        .mode(IdMode::Spread)
+        .precision(TimestampPrecision::Millisecond)
+        .epoch(UNIX_EPOCH + Duration::from_millis(1_543_708_800_000))
+        .build()?;
 
     let id = generator.next_id()?;
     let parts = QubitSnowflakeLayout::decode(id);
@@ -228,13 +228,12 @@ use std::time::{Duration, UNIX_EPOCH};
 use qubit_id::{IdGenerator, SonyflakeGenerator};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let generator = SonyflakeGenerator::with_options(
-        15,
-        10,
-        14,
-        Duration::from_millis(1),
-        UNIX_EPOCH + Duration::from_secs(1_735_689_600),
-    )?;
+    let generator = SonyflakeGenerator::builder(15)
+        .bits_sequence(10)
+        .bits_machine(14)
+        .time_unit(Duration::from_millis(1))
+        .start_time(UNIX_EPOCH + Duration::from_secs(1_735_689_600))
+        .build()?;
 
     let id = generator.next_id()?;
 
