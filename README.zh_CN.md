@@ -56,10 +56,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | --- | --- |
 | `IdGenerator<T>` | 统一的强类型 ID 生成和字符串格式化 trait。 |
 | `QubitSnowflakeGenerator` | Qubit 固定头部 Snowflake 生成器。 |
+| `QubitSnowflakeGeneratorBuilder` | 配置 Qubit Snowflake 生成器。 |
 | `QubitSnowflakeLayout` | 组合 Qubit Snowflake ID，并根据固定头部解析任意 Qubit 布局。 |
 | `QubitSnowflakeParts` | `QubitSnowflakeLayout::decode` 返回的字段。 |
 | `SnowflakeGenerator` | 经典 41 位时间、10 位节点、12 位序列 Snowflake 生成器。 |
 | `SonyflakeGenerator` | 支持配置序列位和机器位的 Sonyflake 风格生成器。 |
+| `SonyflakeGeneratorBuilder` | 配置 Sonyflake 风格生成器。 |
 | `MicaUuidLikeGenerator` | Mica 风格随机 128 位 UUID-like 生成器。 |
 | `fast_uuid_like` | 生成小写标准形态 UUID-like 字符串。 |
 | `fast_simple_uuid_like` | 生成小写 32 位十六进制 UUID-like 字符串。 |
@@ -81,17 +83,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 本 crate 不负责分配或协调这些编号。不同的 epoch、start time 或位布局也
 可能产生相同的数值，因此部署配置本身也是 ID 命名空间的一部分。
 
-Snowflake 系列 generator 第一次使用时会跳过当时观测到的时间片。因此，
-在旧实例已经停止、机器时钟没有回拨的前提下，使用相同身份编号和
-epoch/start time 启动替代实例不会重复旧 ID。如果重启期间机器时钟发生
-回拨，由于分配状态没有持久化，仍然可能生成重复 ID。
+首次调用会立即在当前时间片分配序列号零，不再等待下一个时间片。由于分配
+状态没有持久化，使用相同身份编号和 epoch/start time 的替代实例如果在旧
+实例使用过的时间片内启动，可能生成重复 ID。因此，跨重启复用身份编号需要
+外部 lease、外部冷却时间或持久化分配状态。
 
-第一次调用以及序列耗尽后的调用，在时钟正常前进时可能阻塞大约一个配置
-时间单位；如果时钟停止，可能无限期阻塞。使用默认的秒精度时，Qubit
-Snowflake 的启动栅栏会使首次生成调用最多等待接近一秒。Qubit Snowflake
-会在配置的回拨容忍范围内等待重试，超过范围时报错；经典 Snowflake 和
-Sonyflake 对任何已观测到的回拨都会立即报错。正常等待只有一个很小的时间
-单位，因此不提供异步生成 API。
+序列耗尽后的调用在时钟正常前进时可能阻塞大约一个配置时间单位；如果时钟
+停止，可能无限期阻塞。Qubit Snowflake 会在配置的回拨容忍范围内等待重试，
+超过范围时报错；经典 Snowflake 和 Sonyflake 对任何已观测到的回拨都会立即
+报错。正常等待只有一个很小的时间单位，因此不提供异步生成 API。
 
 `compose`、`generate_at` 和 `decode` 都是无状态转换，不提供唯一性保证。
 `MicaUuidLikeGenerator` 使用 128 位随机数，因此只提供概率意义上的唯一性，
@@ -137,12 +137,11 @@ use qubit_id::{
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let generator = QubitSnowflakeGenerator::with_options(
-        IdMode::Spread,
-        TimestampPrecision::Millisecond,
-        7,
-        UNIX_EPOCH + Duration::from_millis(1_543_708_800_000),
-    )?;
+    let generator = QubitSnowflakeGenerator::builder(7)
+        .mode(IdMode::Spread)
+        .precision(TimestampPrecision::Millisecond)
+        .epoch(UNIX_EPOCH + Duration::from_millis(1_543_708_800_000))
+        .build()?;
 
     let id = generator.next_id()?;
     let parts = QubitSnowflakeLayout::decode(id);
@@ -220,13 +219,12 @@ use std::time::{Duration, UNIX_EPOCH};
 use qubit_id::{IdGenerator, SonyflakeGenerator};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let generator = SonyflakeGenerator::with_options(
-        15,
-        10,
-        14,
-        Duration::from_millis(1),
-        UNIX_EPOCH + Duration::from_secs(1_735_689_600),
-    )?;
+    let generator = SonyflakeGenerator::builder(15)
+        .bits_sequence(10)
+        .bits_machine(14)
+        .time_unit(Duration::from_millis(1))
+        .start_time(UNIX_EPOCH + Duration::from_secs(1_735_689_600))
+        .build()?;
 
     let id = generator.next_id()?;
 
