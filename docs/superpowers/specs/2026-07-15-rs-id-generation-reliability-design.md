@@ -187,9 +187,10 @@ thiserror = "2.0"
 ```
 
 测试使用同一个 `ManualMonotonicClock` 驱动 `ManualWallClock` 与
-`ManualBlockingSleeper`，确保一次阻塞等待会推进测试墙上时间而不发生真实
-休眠。墙上时钟和 sleeper 分开注入，是为了允许生产环境使用系统墙上时间
-观察时间戳，同时使用单调时钟实施等待。
+`ManualBlockingSleeper`。测试驱动线程在观察到 sleeper 注册的 deadline 后
+推进该手动单调时钟；同一次推进既更新墙上时间投影，也唤醒阻塞线程，因而不
+发生真实休眠。墙上时钟和 sleeper 分开注入，是为了允许生产环境使用系统
+墙上时间观察时间戳，同时使用单调时钟实施等待。
 
 ## 内部状态机
 
