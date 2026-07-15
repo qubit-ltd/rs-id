@@ -30,6 +30,10 @@ use crate::IdError;
 ///
 /// [`Self::compose`] and [`Self::decode`] are stateless bit operations. They do
 /// not allocate an ID and provide no uniqueness guarantee.
+///
+/// [`IdMode::Spread`] reversibly obscures the numeric relationship between
+/// adjacent timestamp slices. It is intended to make simple ordering and
+/// volume inference from public IDs harder, not to provide encryption.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct QubitSnowflakeLayout {
     mode: IdMode,
@@ -111,26 +115,31 @@ impl QubitSnowflakeLayout {
     }
 
     /// Returns the encoded mode.
+    #[inline(always)]
     pub const fn mode(&self) -> IdMode {
         self.mode
     }
 
     /// Returns the encoded timestamp precision.
+    #[inline(always)]
     pub const fn precision(&self) -> TimestampPrecision {
         self.precision
     }
 
     /// Returns the encoded host identifier.
+    #[inline(always)]
     pub const fn host(&self) -> u64 {
         self.host
     }
 
     /// Returns the maximum representable timestamp.
+    #[inline(always)]
     pub const fn max_timestamp(&self) -> u64 {
         self.max_timestamp
     }
 
     /// Returns the maximum representable sequence number.
+    #[inline(always)]
     pub const fn max_sequence(&self) -> u64 {
         self.max_sequence
     }
@@ -232,6 +241,7 @@ impl QubitSnowflakeLayout {
 
 impl Default for QubitSnowflakeLayout {
     /// Creates the default Qubit layout.
+    #[inline(always)]
     fn default() -> Self {
         Self::new_unchecked(IdMode::Sequential, TimestampPrecision::Second, 0)
     }

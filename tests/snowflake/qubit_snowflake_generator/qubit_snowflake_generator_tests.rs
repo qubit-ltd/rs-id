@@ -25,7 +25,6 @@ use std::sync::{
 use std::thread;
 use std::time::{
     Duration,
-    Instant,
     SystemTime,
     UNIX_EPOCH,
 };
@@ -113,10 +112,31 @@ impl CoordinatedClock {
     }
 }
 
+/// Builds a Qubit generator with an injected clock for deterministic tests.
+fn build_generator<F>(
+    mode: IdMode,
+    precision: TimestampPrecision,
+    host: u64,
+    epoch: SystemTime,
+    max_skew_millis: u64,
+    clock: F,
+) -> Result<QubitSnowflakeGenerator, IdError>
+where
+    F: Fn() -> SystemTime + Send + Sync + 'static,
+{
+    QubitSnowflakeGenerator::builder(host)
+        .mode(mode)
+        .precision(precision)
+        .epoch(epoch)
+        .max_skew_millis(max_skew_millis)
+        .clock(clock)
+        .build()
+}
+
 #[test]
 fn test_generate_at_matches_layout_parts() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         7,
@@ -140,7 +160,7 @@ fn test_generate_at_matches_layout_parts() {
 #[test]
 fn test_qubit_snowflake_generator_accessors_return_configuration() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Spread,
         TimestampPrecision::Millisecond,
         17,
@@ -163,31 +183,22 @@ fn test_qubit_snowflake_generator_accessors_return_configuration() {
 
 #[test]
 fn test_qubit_snowflake_generator_next_id_increments_sequence_in_same_slice() {
-    let call_count = Arc::new(AtomicU64::new(0));
-    let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
         epoch,
         DEFAULT_MAX_SKEW_MILLIS,
-        move || {
-            let timestamp = if clock_calls.fetch_add(1, Ordering::SeqCst) == 0 {
-                10
-            } else {
-                11
-            };
-            epoch + Duration::from_millis(timestamp)
-        },
+        move || epoch + Duration::from_millis(10),
     )
     .expect("configuration should be valid");
 
     let first = generator.next_id().expect("first id should generate");
     let second = generator.next_id().expect("second id should generate");
 
-    assert_eq!(QubitSnowflakeLayout::decode(first).timestamp(), 11);
-    assert_eq!(QubitSnowflakeLayout::decode(second).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(first).timestamp(), 10);
+    assert_eq!(QubitSnowflakeLayout::decode(second).timestamp(), 10);
     assert_eq!(QubitSnowflakeLayout::decode(first).sequence(), 0);
     assert_eq!(QubitSnowflakeLayout::decode(second).sequence(), 1);
     assert_eq!(
@@ -198,24 +209,17 @@ fn test_qubit_snowflake_generator_next_id_increments_sequence_in_same_slice() {
 
 #[test]
 fn test_qubit_snowflake_generator_reports_large_clock_backwards() {
-    let call_count = Arc::new(AtomicU64::new(0));
-    let clock_calls = Arc::clone(&call_count);
     let current_millis = Arc::new(AtomicU64::new(10));
     let clock_millis = Arc::clone(&current_millis);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
         epoch,
         0,
         move || {
-            let timestamp = if clock_calls.fetch_add(1, Ordering::SeqCst) == 0 {
-                9
-            } else {
-                clock_millis.load(Ordering::SeqCst)
-            };
-            epoch + Duration::from_millis(timestamp)
+            epoch + Duration::from_millis(clock_millis.load(Ordering::SeqCst))
         },
     )
     .expect("configuration should be valid");
@@ -235,11 +239,48 @@ fn test_qubit_snowflake_generator_reports_large_clock_backwards() {
 }
 
 #[test]
+fn test_qubit_snowflake_generator_reports_rollback_while_waiting() {
+    let call_count = Arc::new(AtomicU64::new(0));
+    let clock_calls = Arc::clone(&call_count);
+    let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
+    let generator = build_generator(
+        IdMode::Sequential,
+        TimestampPrecision::Millisecond,
+        3,
+        epoch,
+        0,
+        move || {
+            let timestamp = match clock_calls.fetch_add(1, Ordering::SeqCst) {
+                0..=4_096 => 10,
+                4_097 => 0,
+                _ => 11,
+            };
+            epoch + Duration::from_millis(timestamp)
+        },
+    )
+    .expect("configuration should be valid");
+
+    for _ in 0..=generator.layout().max_sequence() {
+        generator.next_id().expect("sequence should be available");
+    }
+
+    assert_eq!(
+        generator.next_id(),
+        Err(IdError::ClockMovedBackwards {
+            last_timestamp: 10,
+            current_timestamp: 0,
+            skew_millis: 10,
+            max_skew_millis: 0,
+        })
+    );
+}
+
+#[test]
 fn test_qubit_snowflake_generator_waits_for_small_clock_backwards() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
@@ -248,9 +289,8 @@ fn test_qubit_snowflake_generator_waits_for_small_clock_backwards() {
         move || {
             let call = clock_calls.fetch_add(1, Ordering::SeqCst);
             match call {
-                0 => epoch + Duration::from_millis(9),
-                1 | 2 => epoch + Duration::from_millis(10),
-                3 => epoch + Duration::from_millis(9),
+                0 => epoch + Duration::from_millis(10),
+                1 => epoch + Duration::from_millis(9),
                 _ => epoch + Duration::from_millis(10),
             }
         },
@@ -271,7 +311,7 @@ fn test_qubit_snowflake_generator_waits_when_sequence_overflows() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
@@ -279,9 +319,7 @@ fn test_qubit_snowflake_generator_waits_when_sequence_overflows() {
         DEFAULT_MAX_SKEW_MILLIS,
         move || {
             let call = clock_calls.fetch_add(1, Ordering::SeqCst);
-            if call == 0 {
-                epoch + Duration::from_millis(9)
-            } else if call <= 4_097 {
+            if call <= 4_096 {
                 epoch + Duration::from_millis(10)
             } else {
                 epoch + Duration::from_millis(11)
@@ -306,52 +344,32 @@ fn test_qubit_snowflake_generator_waits_when_sequence_overflows() {
 }
 
 #[test]
-fn test_qubit_snowflake_generator_skips_initial_time_slice() {
+fn test_qubit_snowflake_generator_first_id_uses_current_time_slice() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);
-    let current_millis = Arc::new(AtomicU64::new(10));
-    let clock_millis = Arc::clone(&current_millis);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = Arc::new(
-        QubitSnowflakeGenerator::with_clock(
-            IdMode::Sequential,
-            TimestampPrecision::Millisecond,
-            3,
-            epoch,
-            DEFAULT_MAX_SKEW_MILLIS,
-            move || {
-                clock_calls.fetch_add(1, Ordering::SeqCst);
-                epoch
-                    + Duration::from_millis(clock_millis.load(Ordering::SeqCst))
-            },
-        )
-        .expect("configuration should be valid"),
-    );
-    let worker_generator = Arc::clone(&generator);
-    let worker = thread::spawn(move || worker_generator.next_id());
+    let generator = build_generator(
+        IdMode::Sequential,
+        TimestampPrecision::Millisecond,
+        3,
+        epoch,
+        DEFAULT_MAX_SKEW_MILLIS,
+        move || {
+            let timestamp = if clock_calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                10
+            } else {
+                11
+            };
+            epoch + Duration::from_millis(timestamp)
+        },
+    )
+    .expect("configuration should be valid");
 
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while call_count.load(Ordering::SeqCst) < 2
-        && !worker.is_finished()
-        && Instant::now() < deadline
-    {
-        thread::yield_now();
-    }
-    assert!(
-        call_count.load(Ordering::SeqCst) >= 2 || worker.is_finished(),
-        "the worker should either enter the wait loop or finish"
-    );
-    assert!(
-        !worker.is_finished(),
-        "the first call should wait for the next time slice"
-    );
-    current_millis.store(11, Ordering::SeqCst);
+    let id = generator
+        .next_id()
+        .expect("first id should generate immediately");
 
-    let id = worker
-        .join()
-        .expect("worker should finish")
-        .expect("id should generate after the clock advances");
-    assert_eq!(QubitSnowflakeLayout::decode(id).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(id).timestamp(), 10);
     assert_eq!(QubitSnowflakeLayout::decode(id).sequence(), 0);
 }
 
@@ -361,7 +379,7 @@ fn test_qubit_snowflake_generator_concurrent_overflow_is_unique() {
     let clock = Arc::new(CoordinatedClock::new(epoch));
     let generator_clock = Arc::clone(&clock);
     let generator = Arc::new(
-        QubitSnowflakeGenerator::with_clock(
+        build_generator(
             IdMode::Sequential,
             TimestampPrecision::Millisecond,
             3,
@@ -413,54 +431,32 @@ fn test_qubit_snowflake_generator_concurrent_overflow_is_unique() {
 }
 
 #[test]
-fn test_qubit_snowflake_generator_restart_skips_previous_time_slice() {
+fn test_qubit_snowflake_generator_same_host_restart_can_repeat_id() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let clock = Arc::new(CoordinatedClock::new(epoch));
-    let first_clock = Arc::clone(&clock);
-    let first_generator = QubitSnowflakeGenerator::with_clock(
+    let first_generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
         epoch,
         DEFAULT_MAX_SKEW_MILLIS,
-        move || first_clock.now(),
+        move || epoch + Duration::from_millis(10),
     )
     .expect("configuration should be valid");
     let first = first_generator.next_id().expect("first id should generate");
-    assert_eq!(QubitSnowflakeLayout::decode(first).timestamp(), 10);
-    drop(first_generator);
+    let second_generator = build_generator(
+        IdMode::Sequential,
+        TimestampPrecision::Millisecond,
+        3,
+        epoch,
+        DEFAULT_MAX_SKEW_MILLIS,
+        move || epoch + Duration::from_millis(10),
+    )
+    .expect("configuration should be valid");
+    let second = second_generator
+        .next_id()
+        .expect("replacement generator should generate immediately");
 
-    let second_clock = Arc::clone(&clock);
-    let second_generator = Arc::new(
-        QubitSnowflakeGenerator::with_clock(
-            IdMode::Sequential,
-            TimestampPrecision::Millisecond,
-            3,
-            epoch,
-            DEFAULT_MAX_SKEW_MILLIS,
-            move || second_clock.now(),
-        )
-        .expect("configuration should be valid"),
-    );
-    let calls_before_restart = clock.call_count.load(Ordering::SeqCst);
-    let worker_generator = Arc::clone(&second_generator);
-    let worker = thread::spawn(move || worker_generator.next_id());
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while clock.call_count.load(Ordering::SeqCst) < calls_before_restart + 2
-        && !worker.is_finished()
-        && Instant::now() < deadline
-    {
-        thread::yield_now();
-    }
-    assert!(!worker.is_finished());
-    clock.advance_to(11);
-
-    let second = worker
-        .join()
-        .expect("worker should finish")
-        .expect("replacement generator should generate");
-    assert_eq!(QubitSnowflakeLayout::decode(second).timestamp(), 11);
-    assert_ne!(first, second);
+    assert_eq!(first, second);
 }
 
 #[test]
@@ -468,7 +464,7 @@ fn test_qubit_snowflake_generator_recovers_after_clock_panics() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
@@ -488,14 +484,14 @@ fn test_qubit_snowflake_generator_recovers_after_clock_panics() {
     let id = generator
         .next_id()
         .expect("generator should recover after the clock panic");
-    assert_eq!(QubitSnowflakeLayout::decode(id).timestamp(), 11);
+    assert_eq!(QubitSnowflakeLayout::decode(id).timestamp(), 10);
     assert_eq!(QubitSnowflakeLayout::decode(id).sequence(), 0);
 }
 
 #[test]
 fn test_qubit_snowflake_generator_reports_timestamp_overflow_from_time() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
@@ -518,7 +514,7 @@ fn test_qubit_snowflake_generator_reports_timestamp_overflow_from_time() {
 #[test]
 fn test_qubit_snowflake_generator_reports_time_before_epoch() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = QubitSnowflakeGenerator::with_clock(
+    let generator = build_generator(
         IdMode::Sequential,
         TimestampPrecision::Millisecond,
         3,
@@ -535,12 +531,11 @@ fn test_qubit_snowflake_generator_reports_time_before_epoch() {
 }
 
 #[test]
-fn test_qubit_snowflake_generator_rejects_invalid_host_from_clock_constructor()
-{
+fn test_qubit_snowflake_generator_rejects_invalid_host_from_builder() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
 
     assert!(matches!(
-        QubitSnowflakeGenerator::with_clock(
+        build_generator(
             IdMode::Sequential,
             TimestampPrecision::Millisecond,
             512,

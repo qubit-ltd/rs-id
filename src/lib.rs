@@ -26,10 +26,12 @@ pub use snowflake::{
     IdMode,
     PRECISION_BITS,
     QubitSnowflakeGenerator,
+    QubitSnowflakeGeneratorBuilder,
     QubitSnowflakeLayout,
     QubitSnowflakeParts,
     SnowflakeGenerator,
     SonyflakeGenerator,
+    SonyflakeGeneratorBuilder,
     TimestampPrecision,
 };
 pub use uuid::{

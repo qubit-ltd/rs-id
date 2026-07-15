@@ -8,9 +8,11 @@
 mod constants_tests;
 mod id_mode_tests;
 mod qubit_snowflake_generator;
+mod qubit_snowflake_generator_builder_tests;
 mod qubit_snowflake_layout_tests;
 mod qubit_snowflake_parts_tests;
 mod snowflake_generator;
 mod sonyflake_generator;
+mod sonyflake_generator_builder_tests;
 mod time_slice_tests;
 mod timestamp_precision_tests;

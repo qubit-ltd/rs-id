@@ -25,7 +25,6 @@ use std::sync::{
 use std::thread;
 use std::time::{
     Duration,
-    Instant,
     SystemTime,
     UNIX_EPOCH,
 };
@@ -154,16 +153,9 @@ fn test_snowflake_generator_rejects_invalid_node_and_parts() {
 
 #[test]
 fn test_snowflake_generator_next_string_uses_numeric_string() {
-    let call_count = Arc::new(AtomicU64::new(0));
-    let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
-        let millis = if clock_calls.fetch_add(1, Ordering::SeqCst) == 0 {
-            76
-        } else {
-            77
-        };
-        epoch + Duration::from_millis(millis)
+        epoch + Duration::from_millis(77)
     })
     .expect("configuration should be valid");
 
@@ -178,18 +170,11 @@ fn test_snowflake_generator_next_string_uses_numeric_string() {
 
 #[test]
 fn test_snowflake_generator_reports_clock_backwards() {
-    let call_count = Arc::new(AtomicU64::new(0));
-    let clock_calls = Arc::clone(&call_count);
     let current_millis = Arc::new(AtomicU64::new(10));
     let clock_millis = Arc::clone(&current_millis);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
-        let millis = if clock_calls.fetch_add(1, Ordering::SeqCst) == 0 {
-            9
-        } else {
-            clock_millis.load(Ordering::SeqCst)
-        };
-        epoch + Duration::from_millis(millis)
+        epoch + Duration::from_millis(clock_millis.load(Ordering::SeqCst))
     })
     .expect("configuration should be valid");
 
@@ -208,15 +193,43 @@ fn test_snowflake_generator_reports_clock_backwards() {
 }
 
 #[test]
+fn test_snowflake_generator_reports_rollback_while_waiting() {
+    let call_count = Arc::new(AtomicU64::new(0));
+    let clock_calls = Arc::clone(&call_count);
+    let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
+    let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
+        let timestamp = match clock_calls.fetch_add(1, Ordering::SeqCst) {
+            0..=4_096 => 10,
+            4_097 => 0,
+            _ => 11,
+        };
+        epoch + Duration::from_millis(timestamp)
+    })
+    .expect("configuration should be valid");
+
+    for _ in 0..=generator.max_sequence() {
+        generator.next_id().expect("sequence should be available");
+    }
+
+    assert_eq!(
+        generator.next_id(),
+        Err(IdError::ClockMovedBackwards {
+            last_timestamp: 10,
+            current_timestamp: 0,
+            skew_millis: 10,
+            max_skew_millis: 0,
+        })
+    );
+}
+
+#[test]
 fn test_snowflake_generator_waits_when_sequence_overflows() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
         let call = clock_calls.fetch_add(1, Ordering::SeqCst);
-        if call == 0 {
-            epoch + Duration::from_millis(9)
-        } else if call <= 4_098 {
+        if call <= 4_096 {
             epoch + Duration::from_millis(10)
         } else {
             epoch + Duration::from_millis(11)
@@ -288,75 +301,45 @@ fn test_snowflake_generator_concurrent_overflow_is_unique() {
 }
 
 #[test]
-fn test_snowflake_generator_restart_skips_previous_time_slice() {
+fn test_snowflake_generator_same_node_restart_can_repeat_id() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let clock = Arc::new(CoordinatedClock::new(epoch));
-    let first_clock = Arc::clone(&clock);
-    let first_generator =
-        SnowflakeGenerator::with_clock(9, epoch, move || first_clock.now())
-            .expect("configuration should be valid");
+    let first_generator = SnowflakeGenerator::with_clock(9, epoch, move || {
+        epoch + Duration::from_millis(10)
+    })
+    .expect("configuration should be valid");
     let first = first_generator.next_id().expect("first id should generate");
-    assert_eq!(first_generator.extract_timestamp(first), 10);
-    drop(first_generator);
+    let second_generator =
+        SnowflakeGenerator::with_clock(9, epoch, move || {
+            epoch + Duration::from_millis(10)
+        })
+        .expect("configuration should be valid");
+    let second = second_generator
+        .next_id()
+        .expect("replacement generator should generate immediately");
 
-    let second_clock = Arc::clone(&clock);
-    let second_generator = Arc::new(
-        SnowflakeGenerator::with_clock(9, epoch, move || second_clock.now())
-            .expect("configuration should be valid"),
-    );
-    let calls_before_restart = clock.call_count.load(Ordering::SeqCst);
-    let worker_generator = Arc::clone(&second_generator);
-    let worker = thread::spawn(move || worker_generator.next_id());
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while clock.call_count.load(Ordering::SeqCst) < calls_before_restart + 2
-        && !worker.is_finished()
-        && Instant::now() < deadline
-    {
-        thread::yield_now();
-    }
-    assert!(!worker.is_finished());
-    clock.advance_to(11);
-
-    let second = worker
-        .join()
-        .expect("worker should finish")
-        .expect("replacement generator should generate");
-    assert_eq!(second_generator.extract_timestamp(second), 11);
-    assert_ne!(first, second);
+    assert_eq!(first, second);
 }
 
 #[test]
-fn test_snowflake_generator_skips_initial_time_slice() {
+fn test_snowflake_generator_first_id_uses_current_time_slice() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);
-    let current_millis = Arc::new(AtomicU64::new(10));
-    let clock_millis = Arc::clone(&current_millis);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
-    let generator = Arc::new(
-        SnowflakeGenerator::with_clock(9, epoch, move || {
-            clock_calls.fetch_add(1, Ordering::SeqCst);
-            epoch + Duration::from_millis(clock_millis.load(Ordering::SeqCst))
-        })
-        .expect("configuration should be valid"),
-    );
-    let worker_generator = Arc::clone(&generator);
-    let worker = thread::spawn(move || worker_generator.next_id());
+    let generator = SnowflakeGenerator::with_clock(9, epoch, move || {
+        let timestamp = if clock_calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            10
+        } else {
+            11
+        };
+        epoch + Duration::from_millis(timestamp)
+    })
+    .expect("configuration should be valid");
 
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while call_count.load(Ordering::SeqCst) < 2
-        && !worker.is_finished()
-        && Instant::now() < deadline
-    {
-        thread::yield_now();
-    }
-    assert!(!worker.is_finished());
-    current_millis.store(11, Ordering::SeqCst);
+    let id = generator
+        .next_id()
+        .expect("first id should generate immediately");
 
-    let id = worker
-        .join()
-        .expect("worker should finish")
-        .expect("id should generate after the clock advances");
-    assert_eq!(generator.extract_timestamp(id), 11);
+    assert_eq!(generator.extract_timestamp(id), 10);
     assert_eq!(generator.extract_sequence(id), 0);
 }
 
@@ -380,7 +363,7 @@ fn test_snowflake_generator_recovers_after_clock_panics() {
     let id = generator
         .next_id()
         .expect("generator should recover after the clock panic");
-    assert_eq!(generator.extract_timestamp(id), 11);
+    assert_eq!(generator.extract_timestamp(id), 10);
     assert_eq!(generator.extract_sequence(id), 0);
 }
 

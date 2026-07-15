@@ -44,16 +44,17 @@ const MAX_NODE_ID: u64 = (1_u64 << NODE_BITS) - 1;
 /// an exclusive node identifier when its epoch can produce IDs in the same
 /// namespace.
 ///
-/// The first generation call skips the observed millisecond. This prevents
-/// reuse after a stopped instance with the same node and epoch is replaced,
-/// provided the old instance is no longer running and the machine clock has
-/// not moved backwards. A rollback across a restart can repeat IDs because
-/// allocation state is not persisted.
+/// The first generation call allocates sequence zero in the currently observed
+/// millisecond without waiting. Allocation state is not persisted, so
+/// replacing an instance with the same node and epoch inside one millisecond
+/// can repeat IDs. Applications that reuse nodes across restarts must
+/// coordinate node leases, wait outside the generator, or persist allocation
+/// state.
 ///
 /// # Blocking and clock behavior
-/// The first call and a call after sequence exhaustion can block for
-/// approximately one millisecond while the clock advances normally. A stalled
-/// clock can block indefinitely. A backwards clock movement returns
+/// A call after sequence exhaustion can block for approximately one
+/// millisecond while the clock advances normally. A stalled clock can block
+/// indefinitely. A backwards clock movement returns
 /// [`IdError::ClockMovedBackwards`] immediately.
 pub struct SnowflakeGenerator {
     node_id: u64,
@@ -272,26 +273,12 @@ impl SnowflakeGenerator {
         self.timestamp_for((self.clock)())
     }
 
-    /// Waits until the clock reaches a later millisecond.
+    /// Waits once before retrying allocation through the shared transition.
     ///
-    /// # Parameters
-    /// - `last_timestamp`: Millisecond that exhausted its sequence range.
-    ///
-    /// # Returns
-    /// First observed millisecond greater than `last_timestamp`.
-    ///
-    /// # Errors
-    /// Returns [`IdError::TimeBeforeEpoch`] when the clock is before the epoch.
-    fn wait_for_next_timestamp(
-        &self,
-        last_timestamp: u64,
-    ) -> Result<u64, IdError> {
-        let mut timestamp = self.current_timestamp()?;
-        while timestamp <= last_timestamp {
-            thread::sleep(Duration::from_millis(1));
-            timestamp = self.current_timestamp()?;
-        }
-        Ok(timestamp)
+    /// The next clock reading is handled by [`reserve_next`] so a rollback
+    /// observed while waiting is reported consistently.
+    fn wait_before_retry() {
+        thread::sleep(Duration::from_millis(1));
     }
 }
 
@@ -311,8 +298,8 @@ impl IdGenerator<u64> for SnowflakeGenerator {
                     return self
                         .compose(time_slice.timestamp, time_slice.sequence);
                 }
-                TimeSliceReservation::WaitForNext(last_timestamp) => {
-                    self.wait_for_next_timestamp(last_timestamp)?;
+                TimeSliceReservation::WaitForNext => {
+                    Self::wait_before_retry();
                 }
                 TimeSliceReservation::ClockMovedBackwards {
                     last_timestamp,

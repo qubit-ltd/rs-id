@@ -14,6 +14,17 @@ pub enum IdMode {
     Sequential,
     /// Timestamp bits are reversed, spreading adjacent timestamps across the ID
     /// space.
+    ///
+    /// This mode is useful for public identifiers such as order numbers. With
+    /// sequential timestamp bits, users can compare identifiers issued at
+    /// different times and make rough inferences about ordering or activity
+    /// volume. Spreading the timestamp bits breaks that direct lexical and
+    /// numeric relationship between adjacent time slices.
+    ///
+    /// Spread is reversible obfuscation, not encryption or a confidentiality
+    /// boundary. IDs created within the same time slice still have increasing
+    /// sequence values, and anyone who knows the layout can decode the original
+    /// timestamp.
     Spread,
 }
 
