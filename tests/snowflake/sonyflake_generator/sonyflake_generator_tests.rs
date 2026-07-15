@@ -48,8 +48,8 @@ struct CoordinatedClock {
 }
 
 impl CoordinatedClock {
-    /// Creates a clock whose startup-fence read is 9 ms and later reads are 10
-    /// ms.
+    /// Creates a clock whose first generation read is 9 ms and later reads are
+    /// 10 ms.
     fn new(epoch: SystemTime) -> Self {
         Self {
             epoch,
@@ -106,10 +106,31 @@ impl CoordinatedClock {
     }
 }
 
+/// Builds a Sonyflake generator with an injected clock for deterministic tests.
+fn build_generator<F>(
+    machine_id: u64,
+    bits_sequence: u8,
+    bits_machine: u8,
+    time_unit: Duration,
+    start_time: SystemTime,
+    clock: F,
+) -> Result<SonyflakeGenerator, IdError>
+where
+    F: Fn() -> SystemTime + Send + Sync + 'static,
+{
+    SonyflakeGenerator::builder(machine_id)
+        .bits_sequence(bits_sequence)
+        .bits_machine(bits_machine)
+        .time_unit(time_unit)
+        .start_time(start_time)
+        .clock(clock)
+        .build()
+}
+
 #[test]
 fn test_sonyflake_generator_default_layout_matches_sonyflake() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
+    let generator = build_generator(
         0x1234,
         8,
         16,
@@ -136,15 +157,11 @@ fn test_sonyflake_generator_default_layout_matches_sonyflake() {
 fn test_sonyflake_generator_accessors_return_configuration() {
     let start_time = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
     let time_unit = Duration::from_millis(5);
-    let generator = SonyflakeGenerator::with_clock(
-        17,
-        7,
-        5,
-        time_unit,
-        start_time,
-        move || start_time + Duration::from_millis(100),
-    )
-    .expect("configuration should be valid");
+    let generator =
+        build_generator(17, 7, 5, time_unit, start_time, move || {
+            start_time + Duration::from_millis(100)
+        })
+        .expect("configuration should be valid");
 
     assert_eq!(generator.machine_id(), 17);
     assert_eq!(generator.start_time(), start_time);
@@ -165,17 +182,38 @@ fn test_sonyflake_generator_new_uses_default_layout() {
 }
 
 #[test]
+fn test_sonyflake_generator_first_id_uses_current_time_unit() {
+    let call_count = Arc::new(AtomicU64::new(0));
+    let clock_calls = Arc::clone(&call_count);
+    let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
+    let generator =
+        build_generator(1, 8, 16, Duration::from_millis(1), epoch, move || {
+            let elapsed_millis =
+                if clock_calls.fetch_add(1, Ordering::SeqCst) <= 1 {
+                    10
+                } else {
+                    11
+                };
+            epoch + Duration::from_millis(elapsed_millis)
+        })
+        .expect("configuration should be valid");
+
+    let id = generator
+        .next_id()
+        .expect("first id should generate immediately");
+
+    assert_eq!(generator.extract_elapsed_time(id), 10);
+    assert_eq!(generator.extract_sequence(id), 0);
+}
+
+#[test]
 fn test_sonyflake_generator_zero_bits_select_defaults() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
-        1,
-        0,
-        0,
-        Duration::from_millis(10),
-        epoch,
-        move || epoch,
-    )
-    .expect("zero bit lengths should select defaults");
+    let generator =
+        build_generator(1, 0, 0, Duration::from_millis(10), epoch, move || {
+            epoch
+        })
+        .expect("zero bit lengths should select defaults");
 
     assert_eq!(generator.bits_time(), 39);
     assert_eq!(generator.bits_sequence(), 8);
@@ -189,21 +227,13 @@ fn test_sonyflake_generator_next_id_waits_for_physical_next_time_unit() {
     let current_millis = Arc::new(AtomicU64::new(5));
     let clock_millis = Arc::clone(&current_millis);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
-        1,
-        1,
-        1,
-        Duration::from_millis(1),
-        epoch,
-        move || {
-            let millis = match clock_calls.fetch_add(1, Ordering::SeqCst) {
-                1 => 4,
-                _ => clock_millis.load(Ordering::SeqCst),
-            };
+    let generator =
+        build_generator(1, 1, 1, Duration::from_millis(1), epoch, move || {
+            clock_calls.fetch_add(1, Ordering::SeqCst);
+            let millis = clock_millis.load(Ordering::SeqCst);
             epoch + Duration::from_millis(millis)
-        },
-    )
-    .expect("configuration should be valid");
+        })
+        .expect("configuration should be valid");
 
     let first = generator.next_id().expect("first id should generate");
     let second = generator.next_id().expect("second id should generate");
@@ -212,7 +242,7 @@ fn test_sonyflake_generator_next_id_waits_for_physical_next_time_unit() {
     let third = thread::spawn(move || third_generator.next_id());
 
     let deadline = Instant::now() + Duration::from_secs(2);
-    while call_count.load(Ordering::SeqCst) < 7
+    while call_count.load(Ordering::SeqCst) < 4
         && !third.is_finished()
         && Instant::now() < deadline
     {
@@ -239,14 +269,9 @@ fn test_sonyflake_generator_concurrent_overflow_is_unique() {
     let clock = Arc::new(CoordinatedClock::new(epoch));
     let generator_clock = Arc::clone(&clock);
     let generator = Arc::new(
-        SonyflakeGenerator::with_clock(
-            1,
-            1,
-            1,
-            Duration::from_millis(1),
-            epoch,
-            move || generator_clock.now(),
-        )
+        build_generator(1, 1, 1, Duration::from_millis(1), epoch, move || {
+            generator_clock.now()
+        })
         .expect("configuration should be valid"),
     );
 
@@ -292,61 +317,34 @@ fn test_sonyflake_generator_concurrent_overflow_is_unique() {
 }
 
 #[test]
-fn test_sonyflake_generator_restart_skips_previous_time_unit() {
+fn test_sonyflake_generator_same_machine_restart_can_repeat_id() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let clock = Arc::new(CoordinatedClock::new(epoch));
-    let first_clock = Arc::clone(&clock);
-    let first_generator = SonyflakeGenerator::with_clock(
-        1,
-        1,
-        1,
-        Duration::from_millis(1),
-        epoch,
-        move || first_clock.now(),
-    )
-    .expect("configuration should be valid");
+    let first_generator =
+        build_generator(1, 1, 1, Duration::from_millis(1), epoch, move || {
+            epoch + Duration::from_millis(10)
+        })
+        .expect("configuration should be valid");
     let first = first_generator.next_id().expect("first id should generate");
-    assert_eq!(first_generator.extract_elapsed_time(first), 10);
-    drop(first_generator);
+    let second_generator =
+        build_generator(1, 1, 1, Duration::from_millis(1), epoch, move || {
+            epoch + Duration::from_millis(10)
+        })
+        .expect("configuration should be valid");
+    let second = second_generator
+        .next_id()
+        .expect("replacement generator should generate immediately");
 
-    let second_clock = Arc::clone(&clock);
-    let second_generator = Arc::new(
-        SonyflakeGenerator::with_clock(
-            1,
-            1,
-            1,
-            Duration::from_millis(1),
-            epoch,
-            move || second_clock.now(),
-        )
-        .expect("configuration should be valid"),
-    );
-    let calls_before_restart = clock.call_count.load(Ordering::SeqCst);
-    let worker_generator = Arc::clone(&second_generator);
-    let worker = thread::spawn(move || worker_generator.next_id());
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while clock.call_count.load(Ordering::SeqCst) < calls_before_restart + 2
-        && !worker.is_finished()
-        && Instant::now() < deadline
-    {
-        thread::yield_now();
-    }
-    assert!(!worker.is_finished());
-    clock.advance_to(11);
-
-    let second = worker
-        .join()
-        .expect("worker should finish")
-        .expect("replacement generator should generate");
-    assert_eq!(second_generator.extract_elapsed_time(second), 11);
-    assert_ne!(first, second);
+    assert_eq!(first, second);
 }
 
 #[test]
 fn test_sonyflake_generator_rejects_invalid_settings_and_parts() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
 
-    match SonyflakeGenerator::with_epoch(65_536, epoch) {
+    match SonyflakeGenerator::builder(65_536)
+        .start_time(epoch)
+        .build()
+    {
         Err(error) => assert_eq!(
             error,
             IdError::MachineIdOutOfRange {
@@ -357,26 +355,24 @@ fn test_sonyflake_generator_rejects_invalid_settings_and_parts() {
         Ok(_) => panic!("invalid machine id should be rejected"),
     }
     assert!(matches!(
-        SonyflakeGenerator::with_options(
-            1,
-            31,
-            1,
-            Duration::from_millis(10),
-            epoch
-        ),
+        SonyflakeGenerator::builder(1)
+            .bits_sequence(31)
+            .bits_machine(1)
+            .time_unit(Duration::from_millis(10))
+            .start_time(epoch)
+            .build(),
         Err(IdError::InvalidBitLength {
             name: "sequence",
             ..
         })
     ));
     assert!(matches!(
-        SonyflakeGenerator::with_options(
-            1,
-            30,
-            2,
-            Duration::from_millis(10),
-            epoch
-        ),
+        SonyflakeGenerator::builder(1)
+            .bits_sequence(30)
+            .bits_machine(2)
+            .time_unit(Duration::from_millis(10))
+            .start_time(epoch)
+            .build(),
         Err(IdError::InvalidBitLength {
             name: "time",
             bits: 31,
@@ -384,23 +380,22 @@ fn test_sonyflake_generator_rejects_invalid_settings_and_parts() {
         })
     ));
     assert!(matches!(
-        SonyflakeGenerator::with_clock(
-            1,
-            8,
-            16,
-            Duration::from_millis(10),
-            epoch + Duration::from_millis(1),
-            move || epoch,
-        ),
+        SonyflakeGenerator::builder(1)
+            .bits_sequence(8)
+            .bits_machine(16)
+            .time_unit(Duration::from_millis(10))
+            .start_time(epoch + Duration::from_millis(1))
+            .clock(move || epoch)
+            .build(),
         Err(IdError::StartTimeAhead)
     ));
-    match SonyflakeGenerator::with_options(
-        1,
-        8,
-        16,
-        Duration::from_nanos(1),
-        epoch,
-    ) {
+    match SonyflakeGenerator::builder(1)
+        .bits_sequence(8)
+        .bits_machine(16)
+        .time_unit(Duration::from_nanos(1))
+        .start_time(epoch)
+        .build()
+    {
         Err(error) => assert_eq!(
             error,
             IdError::InvalidTimeUnit {
@@ -411,7 +406,9 @@ fn test_sonyflake_generator_rejects_invalid_settings_and_parts() {
         Ok(_) => panic!("invalid time unit should be rejected"),
     }
 
-    let generator = SonyflakeGenerator::with_epoch(1, epoch)
+    let generator = SonyflakeGenerator::builder(1)
+        .start_time(epoch)
+        .build()
         .expect("machine id should be valid");
     assert_eq!(
         generator.compose(generator.max_elapsed_time() + 1, 0, 1),
@@ -438,23 +435,14 @@ fn test_sonyflake_generator_rejects_invalid_settings_and_parts() {
 
 #[test]
 fn test_sonyflake_generator_string_output_is_numeric() {
-    let call_count = Arc::new(AtomicU64::new(0));
-    let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
+    let generator = build_generator(
         7,
         8,
         16,
         Duration::from_millis(10),
         epoch,
-        move || {
-            let millis = if clock_calls.fetch_add(1, Ordering::SeqCst) == 1 {
-                9
-            } else {
-                10
-            };
-            epoch + Duration::from_millis(millis)
-        },
+        move || epoch + Duration::from_millis(10),
     )
     .expect("configuration should be valid");
 
@@ -470,27 +458,14 @@ fn test_sonyflake_generator_string_output_is_numeric() {
 
 #[test]
 fn test_sonyflake_generator_reports_clock_backwards() {
-    let call_count = Arc::new(AtomicU64::new(0));
-    let clock_calls = Arc::clone(&call_count);
     let current_millis = Arc::new(AtomicU64::new(10));
     let clock_millis = Arc::clone(&current_millis);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
-        7,
-        8,
-        16,
-        Duration::from_millis(1),
-        epoch,
-        move || {
-            let millis = if clock_calls.fetch_add(1, Ordering::SeqCst) == 1 {
-                9
-            } else {
-                clock_millis.load(Ordering::SeqCst)
-            };
-            epoch + Duration::from_millis(millis)
-        },
-    )
-    .expect("configuration should be valid");
+    let generator =
+        build_generator(7, 8, 16, Duration::from_millis(1), epoch, move || {
+            epoch + Duration::from_millis(clock_millis.load(Ordering::SeqCst))
+        })
+        .expect("configuration should be valid");
 
     generator.next_id().expect("first id should generate");
     current_millis.store(9, Ordering::SeqCst);
@@ -507,24 +482,55 @@ fn test_sonyflake_generator_reports_clock_backwards() {
 }
 
 #[test]
+fn test_sonyflake_generator_reports_rollback_while_waiting() {
+    let call_count = Arc::new(AtomicU64::new(0));
+    let clock_calls = Arc::clone(&call_count);
+    let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
+    let generator =
+        build_generator(1, 1, 1, Duration::from_millis(1), epoch, move || {
+            let elapsed_millis =
+                match clock_calls.fetch_add(1, Ordering::SeqCst) {
+                    0..=3 => 10,
+                    4 => 0,
+                    _ => 11,
+                };
+            epoch + Duration::from_millis(elapsed_millis)
+        })
+        .expect("configuration should be valid");
+
+    generator
+        .next_id()
+        .expect("first sequence should be available");
+    generator
+        .next_id()
+        .expect("second sequence should be available");
+
+    assert_eq!(
+        generator.next_id(),
+        Err(IdError::ClockMovedBackwards {
+            last_timestamp: 10,
+            current_timestamp: 0,
+            skew_millis: 10,
+            max_skew_millis: 0,
+        })
+    );
+}
+
+#[test]
 fn test_sonyflake_generator_recovers_after_clock_panics() {
     let call_count = Arc::new(AtomicU64::new(0));
     let clock_calls = Arc::clone(&call_count);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
-        7,
-        8,
-        16,
-        Duration::from_millis(1),
-        epoch,
-        move || match clock_calls.fetch_add(1, Ordering::SeqCst) {
-            0 => epoch + Duration::from_millis(9),
-            1 => panic!("test clock panic"),
-            2 => epoch + Duration::from_millis(10),
-            _ => epoch + Duration::from_millis(11),
-        },
-    )
-    .expect("configuration should be valid");
+    let generator =
+        build_generator(7, 8, 16, Duration::from_millis(1), epoch, move || {
+            match clock_calls.fetch_add(1, Ordering::SeqCst) {
+                0 => epoch + Duration::from_millis(9),
+                1 => panic!("test clock panic"),
+                2 => epoch + Duration::from_millis(10),
+                _ => epoch + Duration::from_millis(11),
+            }
+        })
+        .expect("configuration should be valid");
 
     let panic = catch_unwind(AssertUnwindSafe(|| generator.next_id()));
     assert!(panic.is_err());
@@ -532,7 +538,7 @@ fn test_sonyflake_generator_recovers_after_clock_panics() {
     let id = generator
         .next_id()
         .expect("generator should recover after the clock panic");
-    assert_eq!(generator.extract_elapsed_time(id), 11);
+    assert_eq!(generator.extract_elapsed_time(id), 10);
     assert_eq!(generator.extract_sequence(id), 0);
 }
 
@@ -541,7 +547,7 @@ fn test_sonyflake_generator_reports_time_before_epoch_after_construction() {
     let offset = Arc::new(AtomicI64::new(0));
     let clock_offset = Arc::clone(&offset);
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
+    let generator = build_generator(
         7,
         8,
         16,
@@ -566,7 +572,7 @@ fn test_sonyflake_generator_reports_time_before_epoch_after_construction() {
 #[test]
 fn test_sonyflake_generator_reports_timestamp_overflow_from_clock() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = SonyflakeGenerator::with_clock(
+    let generator = build_generator(
         7,
         8,
         16,

@@ -12,24 +12,16 @@ use std::thread;
 use std::time::{
     Duration,
     SystemTime,
-    UNIX_EPOCH,
 };
 
 use parking_lot::Mutex;
 
-use super::constants::{
-    DEFAULT_MAX_SKEW_MILLIS,
-    DEFAULT_QUBIT_EPOCH_MILLIS,
-};
+use super::QubitSnowflakeLayout;
+use super::qubit_snowflake_generator_builder::QubitSnowflakeGeneratorBuilder;
 use super::time_slice::TimeSlice;
 use super::time_slice_reservation::{
     TimeSliceReservation,
     reserve_next,
-};
-use super::{
-    IdMode,
-    QubitSnowflakeLayout,
-    TimestampPrecision,
 };
 use crate::{
     IdError,
@@ -50,18 +42,15 @@ use crate::{
 /// an exclusive host identifier when its layout and epoch can produce IDs in
 /// the same namespace.
 ///
-/// The first generation call skips the time slice observed at startup. This
-/// prevents reuse after a previous instance with the same host, layout, and
-/// epoch has stopped, provided the old instance is no longer running and the
-/// machine clock has not moved backwards between their lifetimes. A clock
-/// rollback across a restart can repeat IDs because allocation state is not
-/// persisted.
+/// The first generation call allocates sequence zero in the currently observed
+/// time slice without waiting. Allocation state is not persisted, so replacing
+/// an instance with the same host, layout, and epoch inside one time slice can
+/// repeat IDs. Applications that reuse hosts across restarts must coordinate
+/// host leases, wait outside the generator, or persist allocation state.
 ///
 /// # Blocking and clock behavior
-/// The first call and a call after sequence exhaustion can block for
-/// approximately one configured time slice while the clock advances normally.
-/// With the default second precision, the startup fence means the first
-/// generation call can wait nearly one second. A stalled clock can block
+/// A call after sequence exhaustion can block for approximately one configured
+/// time slice while the clock advances normally. A stalled clock can block
 /// indefinitely. A backwards clock movement within `max_skew_millis` is
 /// retried after waiting; a larger movement returns
 /// [`IdError::ClockMovedBackwards`].
@@ -86,80 +75,32 @@ impl QubitSnowflakeGenerator {
     /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the host
     /// field.
     pub fn new(host: u64) -> Result<Self, IdError> {
-        Self::with_options(
-            IdMode::Sequential,
-            TimestampPrecision::Second,
-            host,
-            UNIX_EPOCH + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS),
-        )
+        Self::builder(host).build()
     }
 
-    /// Creates a generator with an explicit layout and epoch.
+    /// Creates a configurable generator builder for the specified host.
     ///
-    /// # Parameters
-    /// - `mode`: ID ordering mode.
-    /// - `precision`: Timestamp precision.
-    /// - `host`: Host identifier in `0..=511`.
-    /// - `epoch`: Timestamp origin.
-    ///
-    /// # Returns
-    /// A configured generator using the system clock.
-    ///
-    /// # Errors
-    /// Returns [`IdError::HostOutOfRange`] when `host` is invalid.
-    pub fn with_options(
-        mode: IdMode,
-        precision: TimestampPrecision,
-        host: u64,
-        epoch: SystemTime,
-    ) -> Result<Self, IdError> {
-        Self::with_clock(
-            mode,
-            precision,
-            host,
-            epoch,
-            DEFAULT_MAX_SKEW_MILLIS,
-            SystemTime::now,
-        )
+    /// Host validation is performed when
+    /// [`QubitSnowflakeGeneratorBuilder::build`] is called.
+    #[must_use]
+    pub fn builder(host: u64) -> QubitSnowflakeGeneratorBuilder {
+        QubitSnowflakeGeneratorBuilder::new(host)
     }
 
-    /// Creates a generator with an explicit clock.
-    ///
-    /// This constructor is useful for deterministic tests and for embedding the
-    /// generator in systems that already provide a clock abstraction.
-    ///
-    /// # Parameters
-    /// - `mode`: ID ordering mode.
-    /// - `precision`: Timestamp precision.
-    /// - `host`: Host identifier in `0..=511`.
-    /// - `epoch`: Timestamp origin.
-    /// - `max_skew_millis`: Maximum tolerated backwards clock movement in
-    ///   milliseconds.
-    /// - `clock`: Function returning the current time.
-    ///
-    /// # Returns
-    /// A configured generator.
-    ///
-    /// # Errors
-    /// Returns [`IdError::HostOutOfRange`] when `host` is invalid.
-    pub fn with_clock<F>(
-        mode: IdMode,
-        precision: TimestampPrecision,
-        host: u64,
+    /// Constructs a generator from a validated builder configuration.
+    pub(super) fn from_config(
+        layout: QubitSnowflakeLayout,
         epoch: SystemTime,
         max_skew_millis: u64,
-        clock: F,
-    ) -> Result<Self, IdError>
-    where
-        F: Fn() -> SystemTime + Send + Sync + 'static,
-    {
-        Ok(Self {
-            layout: QubitSnowflakeLayout::new(mode, precision, host)?,
+        clock: Arc<dyn Fn() -> SystemTime + Send + Sync>,
+    ) -> Self {
+        Self {
+            layout,
             epoch,
             max_skew_millis,
-            clock: Arc::new(clock),
+            clock,
             state: Mutex::new(None),
-        })
+        }
     }
 
     /// Returns the Qubit bit layout.
@@ -248,28 +189,14 @@ impl QubitSnowflakeGenerator {
         self.timestamp_for((self.clock)())
     }
 
-    /// Waits until the clock reaches a later timestamp.
+    /// Waits once before retrying allocation through the shared transition.
     ///
-    /// # Parameters
-    /// - `last_timestamp`: Timestamp that has exhausted its sequence range.
-    ///
-    /// # Returns
-    /// First observed timestamp greater than `last_timestamp`.
-    ///
-    /// # Errors
-    /// Returns [`IdError::TimeBeforeEpoch`] when the clock is before the epoch.
-    fn wait_for_next_timestamp(
-        &self,
-        last_timestamp: u64,
-    ) -> Result<u64, IdError> {
-        let mut timestamp = self.current_timestamp()?;
-        while timestamp <= last_timestamp {
-            thread::sleep(Duration::from_millis(
-                self.layout.precision().wait_duration_millis(),
-            ));
-            timestamp = self.current_timestamp()?;
-        }
-        Ok(timestamp)
+    /// The caller must read and classify the clock again after this delay so a
+    /// rollback observed while waiting cannot bypass the configured policy.
+    fn wait_before_retry(&self) {
+        thread::sleep(Duration::from_millis(
+            self.layout.precision().wait_duration_millis(),
+        ));
     }
 }
 
@@ -297,8 +224,8 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
                         .layout
                         .compose(time_slice.timestamp, time_slice.sequence);
                 }
-                TimeSliceReservation::WaitForNext(last_timestamp) => {
-                    self.wait_for_next_timestamp(last_timestamp)?;
+                TimeSliceReservation::WaitForNext => {
+                    self.wait_before_retry();
                 }
                 TimeSliceReservation::ClockMovedBackwards {
                     last_timestamp,

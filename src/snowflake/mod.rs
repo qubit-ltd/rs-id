@@ -10,10 +10,12 @@
 mod constants;
 mod id_mode;
 mod qubit_snowflake_generator;
+mod qubit_snowflake_generator_builder;
 mod qubit_snowflake_layout;
 mod qubit_snowflake_parts;
 mod snowflake_generator;
 mod sonyflake_generator;
+mod sonyflake_generator_builder;
 mod time_slice;
 mod time_slice_reservation;
 mod timestamp_precision;
@@ -27,8 +29,10 @@ pub use constants::{
 };
 pub use id_mode::IdMode;
 pub use qubit_snowflake_generator::QubitSnowflakeGenerator;
+pub use qubit_snowflake_generator_builder::QubitSnowflakeGeneratorBuilder;
 pub use qubit_snowflake_layout::QubitSnowflakeLayout;
 pub use qubit_snowflake_parts::QubitSnowflakeParts;
 pub use snowflake_generator::SnowflakeGenerator;
 pub use sonyflake_generator::SonyflakeGenerator;
+pub use sonyflake_generator_builder::SonyflakeGeneratorBuilder;
 pub use timestamp_precision::TimestampPrecision;

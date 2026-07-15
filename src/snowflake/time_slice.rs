@@ -28,19 +28,4 @@ impl TimeSlice {
             sequence: 0,
         }
     }
-
-    /// Creates a time slice with an explicit sequence.
-    ///
-    /// # Parameters
-    /// - `timestamp`: Timestamp represented by the slice.
-    /// - `sequence`: Sequence value within the timestamp.
-    ///
-    /// # Returns
-    /// A new time slice.
-    pub(crate) const fn with_sequence(timestamp: u64, sequence: u64) -> Self {
-        Self {
-            timestamp,
-            sequence,
-        }
-    }
 }

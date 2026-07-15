@@ -34,6 +34,7 @@ impl QubitSnowflakeParts {
     ///
     /// # Returns
     /// A decoded parts value.
+    #[inline]
     pub(crate) const fn new(
         mode: IdMode,
         precision: TimestampPrecision,
@@ -54,6 +55,7 @@ impl QubitSnowflakeParts {
     ///
     /// # Returns
     /// ID ordering mode.
+    #[inline(always)]
     pub const fn mode(self) -> IdMode {
         self.mode
     }
@@ -62,6 +64,7 @@ impl QubitSnowflakeParts {
     ///
     /// # Returns
     /// Timestamp precision.
+    #[inline(always)]
     pub const fn precision(self) -> TimestampPrecision {
         self.precision
     }
@@ -70,6 +73,7 @@ impl QubitSnowflakeParts {
     ///
     /// # Returns
     /// Timestamp since the generator epoch.
+    #[inline(always)]
     pub const fn timestamp(self) -> u64 {
         self.timestamp
     }
@@ -78,6 +82,7 @@ impl QubitSnowflakeParts {
     ///
     /// # Returns
     /// Host identifier.
+    #[inline(always)]
     pub const fn host(self) -> u64 {
         self.host
     }
@@ -86,6 +91,7 @@ impl QubitSnowflakeParts {
     ///
     /// # Returns
     /// Sequence number.
+    #[inline(always)]
     pub const fn sequence(self) -> u64 {
         self.sequence
     }

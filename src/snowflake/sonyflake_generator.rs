@@ -12,11 +12,11 @@ use std::thread;
 use std::time::{
     Duration,
     SystemTime,
-    UNIX_EPOCH,
 };
 
 use parking_lot::Mutex;
 
+use super::sonyflake_generator_builder::SonyflakeGeneratorBuilder;
 use super::time_slice::TimeSlice;
 use super::time_slice_reservation::{
     TimeSliceReservation,
@@ -27,11 +27,11 @@ use crate::{
     IdGenerator,
 };
 
-const DEFAULT_BITS_SEQUENCE: u8 = 8;
-const DEFAULT_BITS_MACHINE: u8 = 16;
-const DEFAULT_TIME_UNIT_NANOS: u128 = 10_000_000;
+pub(super) const DEFAULT_BITS_SEQUENCE: u8 = 8;
+pub(super) const DEFAULT_BITS_MACHINE: u8 = 16;
+pub(super) const DEFAULT_TIME_UNIT_NANOS: u128 = 10_000_000;
 const MIN_TIME_UNIT_NANOS: u128 = 1_000_000;
-const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
+pub(super) const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
 
 /// Sonyflake-style generator using configurable time, sequence, and machine
 /// bits.
@@ -48,16 +48,17 @@ const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
 /// an exclusive machine identifier when its layout and start time can produce
 /// IDs in the same namespace.
 ///
-/// The first generation call skips the observed time unit. This prevents reuse
-/// after a stopped instance with the same machine, layout, and start time is
-/// replaced, provided the old instance is no longer running and the machine
-/// clock has not moved backwards. A rollback across a restart can repeat IDs
-/// because allocation state is not persisted.
+/// The first generation call allocates sequence zero in the currently observed
+/// time unit without waiting. Allocation state is not persisted, so replacing
+/// an instance with the same machine, layout, and start time inside one time
+/// unit can repeat IDs. Applications that reuse machines across restarts must
+/// coordinate machine leases, wait outside the generator, or persist
+/// allocation state.
 ///
 /// # Blocking and clock behavior
-/// The first call and a call after sequence exhaustion can block for
-/// approximately one configured time unit while the clock advances normally.
-/// A stalled clock can block indefinitely. IDs are never allocated from a
+/// A call after sequence exhaustion can block for approximately one configured
+/// time unit while the clock advances normally. A stalled clock can block
+/// indefinitely. IDs are never allocated from a
 /// logical future time unit. A backwards clock movement returns
 /// [`IdError::ClockMovedBackwards`] immediately.
 pub struct SonyflakeGenerator {
@@ -84,101 +85,27 @@ impl SonyflakeGenerator {
     /// Returns [`IdError::MachineIdOutOfRange`] when `machine_id` does not fit
     /// in the default 16-bit machine field.
     pub fn new(machine_id: u64) -> Result<Self, IdError> {
-        Self::with_epoch(
-            machine_id,
-            UNIX_EPOCH + Duration::from_millis(DEFAULT_START_MILLIS),
-        )
+        Self::builder(machine_id).build()
     }
 
-    /// Creates a Sonyflake-style generator with default layout and explicit
-    /// epoch.
+    /// Creates a configurable generator builder for a machine identifier.
     ///
-    /// # Parameters
-    /// - `machine_id`: Machine identifier in `0..=65535`.
-    /// - `start_time`: Start time used as elapsed-time origin.
-    ///
-    /// # Returns
-    /// A configured generator using the system clock.
-    ///
-    /// # Errors
-    /// Returns the same errors as [`SonyflakeGenerator::with_options`].
-    pub fn with_epoch(
-        machine_id: u64,
-        start_time: SystemTime,
-    ) -> Result<Self, IdError> {
-        Self::with_options(
-            machine_id,
-            DEFAULT_BITS_SEQUENCE,
-            DEFAULT_BITS_MACHINE,
-            Duration::from_nanos(DEFAULT_TIME_UNIT_NANOS as u64),
-            start_time,
-        )
+    /// Configuration validation is performed when
+    /// [`SonyflakeGeneratorBuilder::build`] is called.
+    #[must_use]
+    pub fn builder(machine_id: u64) -> SonyflakeGeneratorBuilder {
+        SonyflakeGeneratorBuilder::new(machine_id)
     }
 
-    /// Creates a Sonyflake-style generator with explicit layout.
-    ///
-    /// Passing `0` for either bit length selects the Sonyflake default for that
-    /// field.
-    ///
-    /// # Parameters
-    /// - `machine_id`: Machine identifier.
-    /// - `bits_sequence`: Sequence bit length, or `0` for default.
-    /// - `bits_machine_id`: Machine bit length, or `0` for default.
-    /// - `time_unit`: Time unit; must be at least one millisecond.
-    /// - `start_time`: Start time used as elapsed-time origin.
-    ///
-    /// # Returns
-    /// A configured generator using the system clock.
-    ///
-    /// # Errors
-    /// Returns [`IdError::InvalidBitLength`] for invalid bit allocation,
-    /// [`IdError::InvalidTimeUnit`] for sub-millisecond time units,
-    /// [`IdError::StartTimeAhead`] when `start_time` is in the future, or
-    /// [`IdError::MachineIdOutOfRange`] when `machine_id` does not fit.
-    pub fn with_options(
+    /// Validates builder fields and constructs a configured generator.
+    pub(super) fn from_config(
         machine_id: u64,
         bits_sequence: u8,
         bits_machine_id: u8,
         time_unit: Duration,
         start_time: SystemTime,
+        clock: Arc<dyn Fn() -> SystemTime + Send + Sync>,
     ) -> Result<Self, IdError> {
-        Self::with_clock(
-            machine_id,
-            bits_sequence,
-            bits_machine_id,
-            time_unit,
-            start_time,
-            SystemTime::now,
-        )
-    }
-
-    /// Creates a Sonyflake-style generator with an explicit clock.
-    ///
-    /// # Parameters
-    /// - `machine_id`: Machine identifier.
-    /// - `bits_sequence`: Sequence bit length, or `0` for default.
-    /// - `bits_machine_id`: Machine bit length, or `0` for default.
-    /// - `time_unit`: Time unit; must be at least one millisecond.
-    /// - `start_time`: Start time used as elapsed-time origin.
-    /// - `clock`: Function returning the current time.
-    ///
-    /// # Returns
-    /// A configured generator.
-    ///
-    /// # Errors
-    /// Returns the same validation errors as
-    /// [`SonyflakeGenerator::with_options`].
-    pub fn with_clock<F>(
-        machine_id: u64,
-        bits_sequence: u8,
-        bits_machine_id: u8,
-        time_unit: Duration,
-        start_time: SystemTime,
-        clock: F,
-    ) -> Result<Self, IdError>
-    where
-        F: Fn() -> SystemTime + Send + Sync + 'static,
-    {
         let bits_sequence = Self::normalize_bits(
             "sequence",
             bits_sequence,
@@ -213,7 +140,7 @@ impl SonyflakeGenerator {
             });
         }
 
-        if start_time > clock() {
+        if start_time > (clock)() {
             return Err(IdError::StartTimeAhead);
         }
 
@@ -232,7 +159,7 @@ impl SonyflakeGenerator {
             time_unit,
             start_time,
             machine_id,
-            clock: Arc::new(clock),
+            clock,
             state: Mutex::new(None),
         })
     }
@@ -452,26 +379,12 @@ impl SonyflakeGenerator {
         self.elapsed_time_for((self.clock)())
     }
 
-    /// Waits until the clock reaches a later elapsed time unit.
+    /// Waits once before retrying allocation through the shared transition.
     ///
-    /// # Parameters
-    /// - `last_elapsed_time`: Time unit whose sequence range is unavailable.
-    ///
-    /// # Returns
-    /// First elapsed time unit greater than `last_elapsed_time`.
-    ///
-    /// # Errors
-    /// Returns clock conversion errors from [`Self::current_elapsed_time`].
-    fn wait_for_next_elapsed_time(
-        &self,
-        last_elapsed_time: u64,
-    ) -> Result<u64, IdError> {
-        let mut elapsed_time = self.current_elapsed_time()?;
-        while elapsed_time <= last_elapsed_time {
-            thread::sleep(self.time_unit);
-            elapsed_time = self.current_elapsed_time()?;
-        }
-        Ok(elapsed_time)
+    /// The caller reclassifies the clock after this delay so a rollback
+    /// observed while waiting is not hidden by an unchecked polling loop.
+    fn wait_before_retry(&self) {
+        thread::sleep(self.time_unit);
     }
 }
 
@@ -494,8 +407,8 @@ impl IdGenerator<u64> for SonyflakeGenerator {
                         self.machine_id,
                     );
                 }
-                TimeSliceReservation::WaitForNext(last_elapsed_time) => {
-                    self.wait_for_next_elapsed_time(last_elapsed_time)?;
+                TimeSliceReservation::WaitForNext => {
+                    self.wait_before_retry();
                 }
                 TimeSliceReservation::ClockMovedBackwards {
                     last_timestamp,

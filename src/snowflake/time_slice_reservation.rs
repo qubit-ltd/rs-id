@@ -14,8 +14,8 @@ use super::time_slice::TimeSlice;
 pub(crate) enum TimeSliceReservation {
     /// A timestamp and sequence pair was reserved.
     Allocated(TimeSlice),
-    /// Allocation must wait until the clock advances past this timestamp.
-    WaitForNext(u64),
+    /// Allocation must wait until the clock advances to a later time slice.
+    WaitForNext,
     /// The clock is behind the latest timestamp stored in the generator.
     ClockMovedBackwards {
         /// Latest timestamp stored in the generator.
@@ -27,10 +27,9 @@ pub(crate) enum TimeSliceReservation {
 
 /// Reserves the next timestamp and sequence pair from generator state.
 ///
-/// An empty state is initialized with an exhausted sequence so that callers
-/// preserve the startup fence by waiting for the next time slice. The state is
-/// not changed when the clock moves backwards or a sequence range is
-/// exhausted.
+/// An empty state immediately reserves sequence zero in the currently observed
+/// time slice. The state is not changed when the clock moves backwards or a
+/// sequence range is exhausted.
 ///
 /// # Parameters
 /// - `state`: Mutable generator state protected by the caller's lock.
@@ -38,16 +37,16 @@ pub(crate) enum TimeSliceReservation {
 /// - `max_sequence`: Maximum sequence value for the generator layout.
 ///
 /// # Returns
-/// The reserved pair, a timestamp to wait past, or a backwards-clock result.
+/// The reserved pair, a wait instruction, or a backwards-clock result.
 pub(crate) fn reserve_next(
     state: &mut Option<TimeSlice>,
     current_timestamp: u64,
     max_sequence: u64,
 ) -> TimeSliceReservation {
     let Some(time_slice) = state.as_mut() else {
-        *state =
-            Some(TimeSlice::with_sequence(current_timestamp, max_sequence));
-        return TimeSliceReservation::WaitForNext(current_timestamp);
+        let time_slice = TimeSlice::new(current_timestamp);
+        *state = Some(time_slice);
+        return TimeSliceReservation::Allocated(time_slice);
     };
 
     if time_slice.timestamp > current_timestamp {
@@ -63,7 +62,7 @@ pub(crate) fn reserve_next(
     }
 
     if time_slice.sequence == max_sequence {
-        return TimeSliceReservation::WaitForNext(time_slice.timestamp);
+        return TimeSliceReservation::WaitForNext;
     }
 
     time_slice.sequence += 1;

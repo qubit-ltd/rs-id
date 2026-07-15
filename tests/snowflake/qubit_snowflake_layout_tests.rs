@@ -16,6 +16,44 @@ use qubit_id::{
     TimestampPrecision,
 };
 
+const PROPERTY_CASES: usize = 10_000;
+const BOUNDARY_IDS: [u64; 8] = [
+    0,
+    1,
+    (1_u64 << 31) - 1,
+    1_u64 << 31,
+    (1_u64 << 62) - 1,
+    1_u64 << 62,
+    1_u64 << 63,
+    u64::MAX,
+];
+
+/// Produces a deterministic pseudo-random value with the SplitMix64 mixer.
+fn next_property_value(state: &mut u64) -> u64 {
+    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut value = *state;
+    value = (value ^ (value >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    value ^ (value >> 31)
+}
+
+/// Asserts that decoding and recomposing an arbitrary bit pattern is lossless.
+fn assert_id_round_trip(id: u64) {
+    let parts = QubitSnowflakeLayout::decode(id);
+    let layout = QubitSnowflakeLayout::new(
+        parts.mode(),
+        parts.precision(),
+        parts.host(),
+    )
+    .expect("a decoded host must fit its field");
+
+    assert_eq!(
+        layout.compose(parts.timestamp(), parts.sequence()),
+        Ok(id),
+        "round trip failed for ID {id:#018x}",
+    );
+}
+
 /// Tests all mode and precision combinations against the documented bit
 /// layout.
 #[test]
@@ -120,6 +158,54 @@ fn test_decode_is_configuration_independent() {
             assert_eq!(parts.timestamp(), timestamp);
             assert_eq!(parts.host(), 511);
             assert_eq!(parts.sequence(), sequence);
+        }
+    }
+}
+
+/// Checks that arbitrary 64-bit patterns survive decode-and-compose round
+/// trips.
+#[test]
+fn test_arbitrary_id_decode_compose_round_trip() {
+    for id in BOUNDARY_IDS {
+        assert_id_round_trip(id);
+    }
+
+    let mut state = 0xA076_1D64_78BD_642F;
+    for _ in 0..PROPERTY_CASES {
+        assert_id_round_trip(next_property_value(&mut state));
+    }
+}
+
+/// Checks that legal parts survive compose-and-decode round trips for every
+/// layout.
+#[test]
+fn test_legal_parts_compose_decode_round_trip() {
+    let mut state = 0xE703_7ED1_A0B4_28DB;
+
+    for mode in [IdMode::Sequential, IdMode::Spread] {
+        for precision in
+            [TimestampPrecision::Millisecond, TimestampPrecision::Second]
+        {
+            for _ in 0..PROPERTY_CASES {
+                let host = next_property_value(&mut state) & HOST_MAX;
+                let layout = QubitSnowflakeLayout::new(mode, precision, host)
+                    .expect("a masked host must be valid");
+                let timestamp =
+                    next_property_value(&mut state) & layout.max_timestamp();
+                let sequence =
+                    next_property_value(&mut state) & layout.max_sequence();
+                let id = layout
+                    .compose(timestamp, sequence)
+                    .expect("masked parts must fit their fields");
+
+                let parts = QubitSnowflakeLayout::decode(id);
+
+                assert_eq!(parts.mode(), mode);
+                assert_eq!(parts.precision(), precision);
+                assert_eq!(parts.timestamp(), timestamp);
+                assert_eq!(parts.host(), host);
+                assert_eq!(parts.sequence(), sequence);
+            }
         }
     }
 }
