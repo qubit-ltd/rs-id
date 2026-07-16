@@ -5,7 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Sustained-throughput benchmark for the Qubit Snowflake generator.
+//! Sustained-throughput benchmark executable for the Qubit Snowflake generator.
+
+mod startup_latency_summary;
+mod throughput_sample;
+mod throughput_summary;
 
 use std::hint::black_box;
 use std::sync::atomic::{
@@ -31,6 +35,10 @@ use qubit_id::{
     TimestampPrecision,
 };
 
+use self::startup_latency_summary::StartupLatencySummary;
+use self::throughput_sample::ThroughputSample;
+use self::throughput_summary::ThroughputSummary;
+
 const HOST: u64 = 0;
 const WORKER_COUNTS: [usize; 4] = [1, 2, 4, 6];
 const SAMPLE_COUNT: usize = 3;
@@ -40,41 +48,12 @@ const MILLIS_SLICES: u64 = 2_000;
 const SECOND_SLICES: u64 = 2;
 const BATCH_SIZE: usize = 64;
 
-/// One sustained-throughput observation.
-#[derive(Clone, Copy)]
-struct ThroughputSample {
-    generated: u64,
-    capacity: u64,
-    elapsed: Duration,
-}
-
-impl ThroughputSample {
-    /// Returns the percentage of the theoretical sequence capacity consumed.
-    fn utilization(self) -> f64 {
-        self.generated as f64 * 100.0 / self.capacity as f64
-    }
-
-    /// Returns IDs generated per elapsed second.
-    fn throughput(self) -> f64 {
-        self.generated as f64 / self.elapsed.as_secs_f64()
-    }
-}
-
-/// Min, median, and max observations ordered by throughput.
-struct ThroughputSummary {
-    min: ThroughputSample,
-    median: ThroughputSample,
-    max: ThroughputSample,
-}
-
-/// Min, median, and max build-plus-first-ID latency in nanoseconds.
-struct StartupLatencySummary {
-    min_nanos: u128,
-    median_nanos: u128,
-    max_nanos: u128,
-}
-
 /// Runs every precision and worker-count benchmark case.
+///
+/// # Panics
+///
+/// Panics when benchmark configuration, ID generation, worker execution, or
+/// system-clock conversion fails.
 fn main() {
     println!(
         "configuration throughput_samples={SAMPLE_COUNT} \
@@ -123,6 +102,19 @@ fn main() {
 }
 
 /// Runs and summarizes repeated samples for one benchmark case.
+///
+/// # Arguments
+///
+/// * `precision` - Timestamp precision to measure.
+/// * `worker_count` - Number of concurrent generator workers.
+///
+/// # Returns
+///
+/// Minimum, median, and maximum samples ordered by throughput.
+///
+/// # Panics
+///
+/// Panics under the same conditions as [`measure_throughput`].
 fn summarize_case(
     precision: TimestampPrecision,
     worker_count: usize,
@@ -148,6 +140,20 @@ fn summarize_case(
 /// wait at a barrier while the main thread aligns the run to a fresh clock
 /// slice. The returned count is checked against the theoretical capacity for
 /// the measured slices.
+///
+/// # Arguments
+///
+/// * `precision` - Timestamp precision to measure.
+/// * `worker_count` - Number of concurrent generator workers.
+///
+/// # Returns
+///
+/// Generated count, theoretical capacity, and elapsed wall duration.
+///
+/// # Panics
+///
+/// Panics when generator construction or generation fails, a worker panics,
+/// no ID is measured, or the observed count exceeds theoretical capacity.
 fn measure_throughput(
     precision: TimestampPrecision,
     worker_count: usize,
@@ -210,6 +216,14 @@ fn measure_throughput(
 }
 
 /// Generates untimed IDs so one-time setup does not influence throughput.
+///
+/// # Arguments
+///
+/// * `generator` - Generator to warm before measurement.
+///
+/// # Panics
+///
+/// Panics when warm-up ID generation fails.
 fn warm_up(generator: &QubitSnowflakeGenerator) {
     for _ in 0..WARM_UP_IDS {
         black_box(
@@ -221,6 +235,18 @@ fn warm_up(generator: &QubitSnowflakeGenerator) {
 }
 
 /// Measures construction plus the first ID generation on fresh instances.
+///
+/// # Arguments
+///
+/// * `precision` - Timestamp precision used by every fresh instance.
+///
+/// # Returns
+///
+/// Minimum, median, and maximum startup latency in nanoseconds.
+///
+/// # Panics
+///
+/// Panics when generator construction or first-ID generation fails.
 fn measure_startup_latency(
     precision: TimestampPrecision,
 ) -> StartupLatencySummary {
@@ -253,6 +279,22 @@ fn measure_startup_latency(
 /// IDs are produced in fixed-size batches. Only the final boundary batch is
 /// decoded, keeping timestamp extraction outside the hot path for earlier
 /// batches while excluding IDs outside the measured timestamp range.
+///
+/// # Arguments
+///
+/// * `generator` - Shared generator used by this worker.
+/// * `epoch` - Timestamp origin configured on `generator`.
+/// * `precision` - Timestamp precision configured on `generator`.
+/// * `start_timestamp` - First logical slice included in the sample.
+/// * `measured_slices` - Number of logical slices included in the sample.
+///
+/// # Returns
+///
+/// Number of IDs generated inside the measured timestamp range.
+///
+/// # Panics
+///
+/// Panics when ID generation or system-clock conversion fails.
 fn generate_until_target(
     generator: &QubitSnowflakeGenerator,
     epoch: SystemTime,
@@ -289,6 +331,22 @@ fn generate_until_target(
 ///
 /// The short sleeps avoid consuming a CPU core while retaining sufficiently
 /// precise alignment for both supported precisions.
+/// This function can wait indefinitely if the system wall clock does not
+/// enter a later logical slice.
+///
+/// # Arguments
+///
+/// * `epoch` - Timestamp origin used for clock conversion.
+/// * `precision` - Logical timestamp precision to observe.
+///
+/// # Returns
+///
+/// The first observed timestamp after the initial logical slice.
+///
+/// # Panics
+///
+/// Panics when the epoch is ahead of the system clock or the timestamp does
+/// not fit in `u64`.
 fn wait_for_fresh_slice(
     epoch: SystemTime,
     precision: TimestampPrecision,
@@ -308,6 +366,20 @@ fn wait_for_fresh_slice(
 }
 
 /// Returns the current elapsed timestamp for the selected precision.
+///
+/// # Arguments
+///
+/// * `epoch` - Timestamp origin used for clock conversion.
+/// * `precision` - Logical timestamp precision to apply.
+///
+/// # Returns
+///
+/// Current logical timestamp elapsed since `epoch`.
+///
+/// # Panics
+///
+/// Panics when `epoch` is ahead of the system clock or the timestamp does not
+/// fit in `u64`.
 fn current_timestamp(epoch: SystemTime, precision: TimestampPrecision) -> u64 {
     let elapsed = SystemTime::now()
         .duration_since(epoch)
@@ -318,6 +390,15 @@ fn current_timestamp(epoch: SystemTime, precision: TimestampPrecision) -> u64 {
 }
 
 /// Returns the number of complete slices measured for a precision.
+///
+/// # Arguments
+///
+/// * `precision` - Timestamp precision whose benchmark window is requested.
+///
+/// # Returns
+///
+/// Number of complete logical slices in one throughput sample.
+#[inline(always)]
 fn slice_count(precision: TimestampPrecision) -> u64 {
     match precision {
         TimestampPrecision::Millisecond => MILLIS_SLICES,
@@ -326,6 +407,15 @@ fn slice_count(precision: TimestampPrecision) -> u64 {
 }
 
 /// Returns the stable display name for a timestamp precision.
+///
+/// # Arguments
+///
+/// * `precision` - Timestamp precision to name.
+///
+/// # Returns
+///
+/// Stable lowercase name used in benchmark output.
+#[inline(always)]
 fn precision_name(precision: TimestampPrecision) -> &'static str {
     match precision {
         TimestampPrecision::Millisecond => "millisecond",

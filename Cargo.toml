@@ -34,6 +34,7 @@ doctest = true
 
 [[bench]]
 name = "qubit_snowflake_throughput"
+path = "benches/qubit_snowflake_throughput/main.rs"
 harness = false
 
 [dependencies]
