@@ -74,6 +74,7 @@ impl MicaUuidLikeGenerator {
     /// # Returns
     ///
     /// UUID-like text in `8-4-4-4-12` lowercase hexadecimal form.
+    #[inline]
     pub fn format_uuid_like(value: u128) -> String {
         let mut output = String::with_capacity(36);
         push_hex(&mut output, value >> 96, 8);
@@ -97,6 +98,7 @@ impl MicaUuidLikeGenerator {
     /// # Returns
     ///
     /// UUID-like text as 32 lowercase hexadecimal digits without separators.
+    #[inline]
     pub fn format_simple_uuid_like(value: u128) -> String {
         let mut output = String::with_capacity(32);
         push_hex(&mut output, value, 32);

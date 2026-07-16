@@ -73,6 +73,7 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// A builder using the Qubit defaults and standard clocks.
+    #[inline]
     pub(crate) fn new(host: u64) -> Self {
         Self {
             mode: IdMode::Sequential,

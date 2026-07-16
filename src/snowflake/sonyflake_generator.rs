@@ -453,6 +453,7 @@ impl SonyflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before `start_time`.
+    #[inline(always)]
     fn observation_for(
         &self,
         time: SystemTime,
