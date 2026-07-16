@@ -36,12 +36,29 @@ doctest = true
 name = "qubit_snowflake_throughput"
 path = "benches/qubit_snowflake_throughput/main.rs"
 harness = false
+required-features = ["qubit-snowflake"]
+
+[[bench]]
+name = "uuid_comparison"
+path = "benches/uuid_comparison/main.rs"
+harness = false
+required-features = ["uuid"]
+
+[features]
+default = ["qubit-snowflake"]
+qubit-snowflake = ["dep:parking_lot", "dep:qubit-clock"]
+classic-snowflake = ["dep:parking_lot", "dep:qubit-clock"]
+sonyflake = ["dep:parking_lot", "dep:qubit-clock"]
+uuid = ["dep:getrandom"]
 
 [dependencies]
-getrandom = "0.4"
-parking_lot = "0.12"
-qubit-clock = { version = "0.9", path = "../rs-clock" }
+getrandom = { version = "0.4", optional = true }
+parking_lot = { version = "0.12", optional = true }
+qubit-clock = { version = "0.9", path = "../rs-clock", optional = true }
 thiserror = "2.0"
+
+[dev-dependencies]
+uuid = { version = "1", features = ["v4"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

@@ -26,17 +26,48 @@
 
 ## 安装
 
+默认 feature 集合只启用 `qubit-snowflake`。通用的 `IdGenerator`、
+`GenerationOutcome` 和 `IdError` API 始终可用；其他算法都需要显式开启。
+
+| Feature | 默认启用 | API |
+| --- | --- | --- |
+| `qubit-snowflake` | 是 | Qubit Snowflake 的 Layout、Parts、Builder 和 Generator |
+| `classic-snowflake` | 否 | 经典 Snowflake 的 Layout、Parts、Builder 和 Generator |
+| `sonyflake` | 否 | Sonyflake 的 Layout、Parts、Builder 和 Generator |
+| `uuid` | 否 | Mica UUID-like Generator 和字符串便捷函数 |
+
+使用默认的 Qubit Snowflake API：
+
 ```toml
 [dependencies]
 qubit-id = "0.3"
 ```
 
+也可以关闭默认 feature，只选择一个可选算法：
+
+```toml
+[dependencies]
+qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
+```
+
+```toml
+[dependencies]
+qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
+```
+
+```toml
+[dependencies]
+qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
+```
+
+可以在同一条依赖声明中组合多个 feature。只需要通用核心 API 时，使用
+`default-features = false` 且不指定任何 feature。
+
 ## 快速开始
 
 ```rust
 use qubit_id::{
-    GenerationOutcome, IdGenerator, MicaUuidLikeGenerator,
-    QubitSnowflakeGenerator,
+    GenerationOutcome, IdGenerator, QubitSnowflakeGenerator,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,11 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let uuid_like = MicaUuidLikeGenerator::new();
-    let uuid_like_value: u128 = uuid_like.next_id()?;
-    let uuid_like_text = uuid_like.next_string()?;
-
-    println!("{id} {id_text} {uuid_like_value} {uuid_like_text}");
+    println!("{id} {id_text}");
     Ok(())
 }
 ```
@@ -73,8 +100,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `QubitSnowflakeParts` | `QubitSnowflakeLayout::decode` 返回的字段。 |
 | `SnowflakeGenerator` | 经典 41 位时间、10 位节点、12 位序列 Snowflake 生成器。 |
 | `SnowflakeGeneratorBuilder` | 配置经典 Snowflake 生成器。 |
+| `SnowflakeLayout` | 组合并解析经典 Snowflake ID。 |
+| `SnowflakeParts` | `SnowflakeLayout::decode` 返回的字段。 |
 | `SonyflakeGenerator` | 支持配置序列位和机器位的 Sonyflake 风格生成器。 |
 | `SonyflakeGeneratorBuilder` | 配置 Sonyflake 风格生成器。 |
+| `SonyflakeLayout` | 按配置布局组合并解析 Sonyflake ID。 |
+| `SonyflakeParts` | `SonyflakeLayout::decode` 返回的字段。 |
 | `MicaUuidLikeGenerator` | Mica 风格随机 128 位 UUID-like 生成器。 |
 | `fast_uuid_like` | 生成小写标准形态 UUID-like 字符串。 |
 | `fast_simple_uuid_like` | 生成小写 32 位十六进制 UUID-like 字符串。 |
@@ -124,6 +155,31 @@ Sonyflake 对任何已观测到的回拨都会立即报错。
 对任意 `u64` 解码只会提取字段，不会鉴别或验证该值。
 `MicaUuidLikeGenerator` 使用 128 位随机数，因此只提供概率意义上的唯一性，
 理论上仍可能碰撞。
+
+## Snowflake 有效期
+
+`expires_at()` 返回排他的到期边界。每种 Snowflake Layout 都接受从零到最大
+timestamp 的值，因此该边界位于最后一个可表示 timestamp 完整结束后的下一
+个瞬间。Generator 会缓存这个边界，并直接提供查询。
+
+```rust
+use qubit_id::QubitSnowflakeGenerator;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = QubitSnowflakeGenerator::new(1)?;
+    let calculated = generator.layout().expires_at(generator.epoch())?;
+
+    assert_eq!(generator.expires_at(), calculated);
+    Ok(())
+}
+```
+
+构造时会读取一次配置的墙上时钟。当 `now >= expires_at` 时，构造过程会
+panic，因为该配置已经无法生成有效 timestamp；`new()` 和 Builder 的
+`build()` 路径都遵循这一规则。如果排他的边界本身无法用 `SystemTime`
+表示，Layout 计算和 Builder 构造会返回
+`IdError::ExpirationTimeOverflow`。Qubit 与经典 Snowflake 的时间原点是
+`epoch`，Sonyflake 的时间原点是 `start_time`。
 
 ## Generator 使用示例
 
@@ -187,17 +243,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### SnowflakeGenerator
 
 需要经典的 41 位毫秒时间、10 位节点和 12 位序列布局时，使用
-`SnowflakeGenerator`。
+`SnowflakeGenerator`。该 API 需要启用 `classic-snowflake` feature。
 
 ```rust
-use qubit_id::{IdGenerator, SnowflakeGenerator};
+use qubit_id::{IdGenerator, SnowflakeGenerator, SnowflakeLayout};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let generator = SnowflakeGenerator::new(3)?;
 
     let id = generator.next_id()?;
 
-    assert_eq!(generator.extract_node_id(id), 3);
+    assert_eq!(SnowflakeLayout::decode(id).node_id(), 3);
     println!("{id}");
 
     Ok(())
@@ -207,15 +263,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 也可以用已知字段手动组合并解析确定性的 ID。
 
 ```rust
-use qubit_id::SnowflakeGenerator;
+use qubit_id::SnowflakeLayout;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let generator = SnowflakeGenerator::new(3)?;
-    let id = generator.compose(1_000, 5)?;
+    let layout = SnowflakeLayout::new(3)?;
+    let id = layout.compose(1_000, 5)?;
+    let parts = SnowflakeLayout::decode(id);
 
-    assert_eq!(generator.extract_timestamp(id), 1_000);
-    assert_eq!(generator.extract_node_id(id), 3);
-    assert_eq!(generator.extract_sequence(id), 5);
+    assert_eq!(parts.timestamp(), 1_000);
+    assert_eq!(parts.node_id(), 3);
+    assert_eq!(parts.sequence(), 5);
 
     Ok(())
 }
@@ -224,7 +281,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### SonyflakeGenerator
 
 当机器号空间优先级高于单机瞬时吞吐时，可以使用
-`SonyflakeGenerator`。
+`SonyflakeGenerator`。该 API 需要启用 `sonyflake` feature。
 
 ```rust
 use qubit_id::{IdGenerator, SonyflakeGenerator};
@@ -234,7 +291,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let id = generator.next_id()?;
 
-    assert_eq!(generator.extract_machine_id(id), 65_535);
+    assert_eq!(generator.layout().decode(id).machine_id(), 65_535);
     println!("{id}");
 
     Ok(())
@@ -258,9 +315,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let id = generator.next_id()?;
 
-    assert_eq!(generator.bits_sequence(), 10);
-    assert_eq!(generator.bits_machine(), 14);
-    assert_eq!(generator.extract_machine_id(id), 15);
+    assert_eq!(generator.layout().bits_sequence(), 10);
+    assert_eq!(generator.layout().bits_machine(), 14);
+    assert_eq!(generator.layout().decode(id).machine_id(), 15);
 
     Ok(())
 }
@@ -269,7 +326,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### MicaUuidLikeGenerator 和便捷函数
 
 需要随机 128 位值和 UUID-like 小写文本格式时，使用
-`MicaUuidLikeGenerator`。如果只需要字符串，可以直接使用便捷函数。
+`MicaUuidLikeGenerator`。如果只需要字符串，可以直接使用便捷函数。这些
+API 需要启用 `uuid` feature。
 
 ```rust
 use qubit_id::{
@@ -346,6 +404,20 @@ UUID-like 格式化逻辑参考 Mica 的快速 UUID 辅助函数，以及
 格式化辅助函数。
 Mica 的 UUID 压测说明见
 [mica-jmh wiki](https://github.com/lets-mica/mica-jmh/wiki/uuid)。
+
+## UUID 对比 Benchmark
+
+固定工作量 benchmark 会将 Mica UUID-like 的数值生成、带连字符字符串和
+紧凑字符串，分别与标准 UUID v4 的对应操作比较。它输出 min/median/max
+吞吐量，不设置依赖具体机器的性能阈值：
+
+```text
+cargo bench --no-default-features --features uuid --bench uuid_comparison
+```
+
+两种生成器的语义不同：`MicaUuidLikeGenerator` 保留全部 128 位随机数据，
+UUID v4 则会设置标准的 version 与 variant 位。因此该 benchmark 只提供本机
+性能证据，不代表两种格式兼容。
 
 ## 项目边界
 

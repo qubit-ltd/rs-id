@@ -25,11 +25,13 @@ use super::internal::{
     default_wall_clock,
 };
 use super::sonyflake_generator::{
+    DEFAULT_START_MILLIS,
+    SonyflakeGenerator,
+};
+use super::sonyflake_layout::{
     DEFAULT_BITS_MACHINE,
     DEFAULT_BITS_SEQUENCE,
-    DEFAULT_START_MILLIS,
     DEFAULT_TIME_UNIT_NANOS,
-    SonyflakeGenerator,
 };
 use crate::IdError;
 
@@ -40,6 +42,7 @@ use crate::IdError;
 /// machine bits, a 10 ms time unit, start time `2025-01-01T00:00:00Z`, and the
 /// [`RestartPolicy::Immediate`] policy with standard clock and sleeper
 /// capabilities.
+#[must_use = "builders do nothing unless built"]
 pub struct SonyflakeGeneratorBuilder {
     /// Machine identifier encoded in generated IDs.
     pub(super) machine_id: u64,
@@ -97,7 +100,6 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn bits_sequence(mut self, bits_sequence: u8) -> Self {
         self.bits_sequence = bits_sequence;
@@ -115,7 +117,6 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn bits_machine(mut self, bits_machine: u8) -> Self {
         self.bits_machine = bits_machine;
@@ -131,7 +132,6 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn time_unit(mut self, time_unit: Duration) -> Self {
         self.time_unit = time_unit;
@@ -147,7 +147,6 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn start_time(mut self, start_time: SystemTime) -> Self {
         self.start_time = start_time;
@@ -163,7 +162,6 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
@@ -179,7 +177,6 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
@@ -195,7 +192,6 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn blocking_sleeper(
         mut self,
@@ -216,8 +212,14 @@ impl SonyflakeGeneratorBuilder {
     /// Returns [`IdError::InvalidBitLength`] for an invalid allocation,
     /// [`IdError::InvalidTimeUnit`] for a sub-millisecond unit,
     /// [`IdError::StartTimeAhead`] when the start time is ahead of the clock,
-    /// or [`IdError::MachineIdOutOfRange`] when the machine identifier does not
-    /// fit its field.
+    /// [`IdError::MachineIdOutOfRange`] when the machine identifier does not
+    /// fit its field, or [`IdError::ExpirationTimeOverflow`] when the
+    /// exclusive expiration cannot be represented.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the configured wall clock is equal to or later than the
+    /// exclusive expiration boundary.
     #[inline(always)]
     pub fn build(self) -> Result<SonyflakeGenerator, IdError> {
         SonyflakeGenerator::from_builder(self)

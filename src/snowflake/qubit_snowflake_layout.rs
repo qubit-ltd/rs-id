@@ -7,12 +7,18 @@
 // =============================================================================
 //! Qubit snowflake ID bit layout.
 
+use std::time::{
+    Duration,
+    SystemTime,
+};
+
 use super::constants::{
     HOST_BITS,
     HOST_MAX,
     MODE_BITS,
     PRECISION_BITS,
 };
+use super::internal::expiration_time;
 use super::{
     IdMode,
     QubitSnowflakeParts,
@@ -47,6 +53,7 @@ use crate::IdError;
 /// It does not prove that the value was produced by this generator and is not
 /// an authenticity or format-validation operation.
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[must_use]
 pub struct QubitSnowflakeLayout {
     /// ID ordering mode encoded in the high-bit header.
     mode: IdMode,
@@ -111,7 +118,6 @@ impl QubitSnowflakeLayout {
     /// # Returns
     ///
     /// A configured layout.
-    #[inline]
     fn new_unchecked(
         mode: IdMode,
         precision: TimestampPrecision,
@@ -167,6 +173,7 @@ impl QubitSnowflakeLayout {
     /// # Returns
     ///
     /// Host identifier encoded by this layout.
+    #[must_use]
     #[inline(always)]
     pub const fn host(&self) -> u64 {
         self.host
@@ -177,6 +184,7 @@ impl QubitSnowflakeLayout {
     /// # Returns
     ///
     /// Maximum timestamp accepted by [`Self::compose`].
+    #[must_use]
     #[inline(always)]
     pub const fn max_timestamp(&self) -> u64 {
         self.max_timestamp
@@ -187,9 +195,36 @@ impl QubitSnowflakeLayout {
     /// # Returns
     ///
     /// Maximum sequence accepted by [`Self::compose`].
+    #[must_use]
     #[inline(always)]
     pub const fn max_sequence(&self) -> u64 {
         self.max_sequence
+    }
+
+    /// Calculates this layout's exclusive expiration for an epoch.
+    ///
+    /// Timestamp values from zero through [`Self::max_timestamp`] are valid.
+    /// The returned time is the first instant outside that range.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Timestamp origin represented by timestamp zero.
+    ///
+    /// # Returns
+    ///
+    /// The exclusive expiration boundary.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::ExpirationTimeOverflow`] when the boundary cannot be
+    /// represented by [`SystemTime`].
+    #[inline(always)]
+    pub fn expires_at(&self, epoch: SystemTime) -> Result<SystemTime, IdError> {
+        expiration_time(
+            epoch,
+            Duration::from_millis(self.precision.divisor_millis()),
+            self.max_timestamp,
+        )
     }
 
     /// Composes an ID from timestamp and sequence parts.
@@ -282,6 +317,7 @@ impl QubitSnowflakeLayout {
     /// # Returns
     ///
     /// Transformed timestamp restricted to `timestamp_bits` significant bits.
+    #[must_use]
     #[inline]
     fn transform_timestamp(
         mode: IdMode,

@@ -29,17 +29,50 @@ Use `qubit-id` when you need:
 
 ## Installation
 
+The default feature set enables only `qubit-snowflake`. The common
+`IdGenerator`, `GenerationOutcome`, and `IdError` APIs are always available;
+each non-default algorithm is opt-in.
+
+| Feature | Enabled by default | API |
+| --- | --- | --- |
+| `qubit-snowflake` | yes | Qubit Snowflake layout, parts, builder, and generator |
+| `classic-snowflake` | no | Classic Snowflake layout, parts, builder, and generator |
+| `sonyflake` | no | Sonyflake layout, parts, builder, and generator |
+| `uuid` | no | Mica UUID-like generator and string helpers |
+
+Use the default Qubit Snowflake API:
+
 ```toml
 [dependencies]
 qubit-id = "0.3"
 ```
 
+Or select one optional algorithm without the default:
+
+```toml
+[dependencies]
+qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
+```
+
+```toml
+[dependencies]
+qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
+```
+
+```toml
+[dependencies]
+qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
+```
+
+Features can be combined in one dependency declaration. Use
+`default-features = false` with no feature list when only the common core API
+is needed.
+
 ## Quick Start
 
 ```rust
 use qubit_id::{
-    GenerationOutcome, IdGenerator, MicaUuidLikeGenerator,
-    QubitSnowflakeGenerator,
+    GenerationOutcome, IdGenerator, QubitSnowflakeGenerator,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -54,11 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let uuid_like = MicaUuidLikeGenerator::new();
-    let uuid_like_value: u128 = uuid_like.next_id()?;
-    let uuid_like_text = uuid_like.next_string()?;
-
-    println!("{id} {id_text} {uuid_like_value} {uuid_like_text}");
+    println!("{id} {id_text}");
     Ok(())
 }
 ```
@@ -76,8 +105,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `QubitSnowflakeParts` | Fields returned by `QubitSnowflakeLayout::decode`. |
 | `SnowflakeGenerator` | Classic 41-bit time, 10-bit node, 12-bit sequence Snowflake generator. |
 | `SnowflakeGeneratorBuilder` | Configures a classic Snowflake generator. |
+| `SnowflakeLayout` | Composes and decodes classic Snowflake IDs. |
+| `SnowflakeParts` | Fields returned by `SnowflakeLayout::decode`. |
 | `SonyflakeGenerator` | Sonyflake-style generator with configurable sequence and machine bits. |
 | `SonyflakeGeneratorBuilder` | Configures a Sonyflake-style generator. |
+| `SonyflakeLayout` | Composes and decodes Sonyflake IDs using a configured layout. |
+| `SonyflakeParts` | Fields returned by `SonyflakeLayout::decode`. |
 | `MicaUuidLikeGenerator` | Mica-style random 128-bit UUID-like generator. |
 | `fast_uuid_like` | Generates canonical lowercase UUID-like text. |
 | `fast_simple_uuid_like` | Generates compact lowercase 32-hex UUID-like text. |
@@ -137,6 +170,33 @@ guarantee uniqueness. Decoding an arbitrary `u64` only extracts fields; it does
 not authenticate or validate the value. `MicaUuidLikeGenerator` uses 128 random
 bits, so its uniqueness is probabilistic and a theoretical collision remains
 possible.
+
+## Snowflake Lifetime
+
+`expires_at()` returns the exclusive expiration boundary. Every Snowflake
+layout accepts timestamps from zero through its maximum timestamp, so the
+boundary is one complete time unit after the last representable timestamp.
+The generator caches that boundary and exposes it without recalculation.
+
+```rust
+use qubit_id::QubitSnowflakeGenerator;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let generator = QubitSnowflakeGenerator::new(1)?;
+    let calculated = generator.layout().expires_at(generator.epoch())?;
+
+    assert_eq!(generator.expires_at(), calculated);
+    Ok(())
+}
+```
+
+Construction samples the configured wall clock. When
+`now >= expires_at`, construction panics because the application cannot emit
+a valid timestamp with that configuration. This applies to `new()` and
+builder `build()` paths. If the exclusive boundary itself cannot be
+represented by `SystemTime`, layout calculation and builder construction
+return `IdError::ExpirationTimeOverflow` instead. For Qubit and classic
+Snowflake the origin is `epoch`; for Sonyflake it is `start_time`.
 
 ## Generator Examples
 
@@ -201,17 +261,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### SnowflakeGenerator
 
 Use `SnowflakeGenerator` when you need the classic 41-bit millisecond timestamp,
-10-bit node, and 12-bit sequence layout.
+10-bit node, and 12-bit sequence layout. This API requires the
+`classic-snowflake` feature.
 
 ```rust
-use qubit_id::{IdGenerator, SnowflakeGenerator};
+use qubit_id::{IdGenerator, SnowflakeGenerator, SnowflakeLayout};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let generator = SnowflakeGenerator::new(3)?;
 
     let id = generator.next_id()?;
 
-    assert_eq!(generator.extract_node_id(id), 3);
+    assert_eq!(SnowflakeLayout::decode(id).node_id(), 3);
     println!("{id}");
 
     Ok(())
@@ -221,15 +282,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 You can also compose and inspect deterministic IDs from known parts.
 
 ```rust
-use qubit_id::SnowflakeGenerator;
+use qubit_id::SnowflakeLayout;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let generator = SnowflakeGenerator::new(3)?;
-    let id = generator.compose(1_000, 5)?;
+    let layout = SnowflakeLayout::new(3)?;
+    let id = layout.compose(1_000, 5)?;
+    let parts = SnowflakeLayout::decode(id);
 
-    assert_eq!(generator.extract_timestamp(id), 1_000);
-    assert_eq!(generator.extract_node_id(id), 3);
-    assert_eq!(generator.extract_sequence(id), 5);
+    assert_eq!(parts.timestamp(), 1_000);
+    assert_eq!(parts.node_id(), 3);
+    assert_eq!(parts.sequence(), 5);
 
     Ok(())
 }
@@ -238,7 +300,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### SonyflakeGenerator
 
 Use `SonyflakeGenerator` when a larger machine ID space matters more than
-per-machine burst throughput.
+per-machine burst throughput. This API requires the `sonyflake` feature.
 
 ```rust
 use qubit_id::{IdGenerator, SonyflakeGenerator};
@@ -248,7 +310,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let id = generator.next_id()?;
 
-    assert_eq!(generator.extract_machine_id(id), 65_535);
+    assert_eq!(generator.layout().decode(id).machine_id(), 65_535);
     println!("{id}");
 
     Ok(())
@@ -273,9 +335,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let id = generator.next_id()?;
 
-    assert_eq!(generator.bits_sequence(), 10);
-    assert_eq!(generator.bits_machine(), 14);
-    assert_eq!(generator.extract_machine_id(id), 15);
+    assert_eq!(generator.layout().bits_sequence(), 10);
+    assert_eq!(generator.layout().bits_machine(), 14);
+    assert_eq!(generator.layout().decode(id).machine_id(), 15);
 
     Ok(())
 }
@@ -285,6 +347,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 Use `MicaUuidLikeGenerator` when you want a random 128-bit value with UUID-like
 lowercase text formatting. Use the helper functions when you only need strings.
+These APIs require the `uuid` feature.
 
 ```rust
 use qubit_id::{
@@ -371,6 +434,21 @@ formatter from
 [`StringUtil`](https://github.com/lets-mica/mica/blob/master/mica-core/src/main/java/net/dreamlu/mica/core/utils/StringUtil.java#L335).
 Mica's UUID benchmark notes are available in the
 [mica-jmh wiki](https://github.com/lets-mica/mica-jmh/wiki/uuid).
+
+## UUID Comparison Benchmark
+
+The fixed-workload benchmark compares Mica UUID-like value generation,
+hyphenated strings, and simple strings with the corresponding standard UUID v4
+operations. It reports min/median/max throughput without enforcing a
+machine-dependent performance threshold:
+
+```text
+cargo bench --no-default-features --features uuid --bench uuid_comparison
+```
+
+The two generators have different semantics: `MicaUuidLikeGenerator` preserves
+all 128 random bits, while UUID v4 sets the standard version and variant bits.
+Use the benchmark as local performance evidence, not as a compatibility claim.
 
 ## Project Scope
 

@@ -22,6 +22,7 @@ use crate::{
 
 /// Mutable high-water and sequence state protected by a generator lock.
 #[derive(Debug)]
+#[must_use]
 pub(crate) struct GenerationState {
     /// Greatest raw elapsed time observed without rollback.
     last_observed_elapsed: Option<Duration>,

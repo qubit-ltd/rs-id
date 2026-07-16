@@ -23,6 +23,7 @@
 /// same identity; external exclusivity is still required.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[must_use]
 pub enum RestartPolicy {
     /// Allocates immediately and may repeat IDs after same-slice state loss.
     ///

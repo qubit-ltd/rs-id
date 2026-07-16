@@ -8,6 +8,17 @@
 //! Integration tests for `qubit-id`.
 
 mod markdown_tests;
+#[cfg(any(
+    feature = "qubit-snowflake",
+    feature = "classic-snowflake",
+    feature = "sonyflake",
+))]
 mod snowflake;
+#[cfg(any(
+    feature = "qubit-snowflake",
+    feature = "classic-snowflake",
+    feature = "sonyflake",
+))]
 mod support;
+#[cfg(feature = "uuid")]
 mod uuid;

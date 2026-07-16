@@ -14,6 +14,7 @@ use super::{
 
 /// Fields decoded from a Qubit snowflake ID.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[must_use]
 pub struct QubitSnowflakeParts {
     /// Decoded ID ordering mode.
     mode: IdMode,
@@ -83,6 +84,7 @@ impl QubitSnowflakeParts {
     /// # Returns
     ///
     /// Timestamp since the generator epoch.
+    #[must_use]
     #[inline(always)]
     pub const fn timestamp(self) -> u64 {
         self.timestamp
@@ -93,6 +95,7 @@ impl QubitSnowflakeParts {
     /// # Returns
     ///
     /// Host identifier.
+    #[must_use]
     #[inline(always)]
     pub const fn host(self) -> u64 {
         self.host
@@ -103,6 +106,7 @@ impl QubitSnowflakeParts {
     /// # Returns
     ///
     /// Sequence number.
+    #[must_use]
     #[inline(always)]
     pub const fn sequence(self) -> u64 {
         self.sequence

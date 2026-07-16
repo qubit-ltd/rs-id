@@ -42,14 +42,9 @@ impl ManualTime {
     ///
     /// A deterministic wall clock and sleeper pair.
     pub(crate) fn new(now: SystemTime) -> Self {
-        let monotonic_clock = Arc::new(ManualMonotonicClock::new());
-        let wall_clock = Arc::new(ManualWallClock::from_clock(
-            now,
-            Arc::clone(&monotonic_clock),
-        ));
-        let blocking_sleeper = Arc::new(ManualBlockingSleeper::from_clock(
-            Arc::clone(&monotonic_clock),
-        ));
+        let monotonic_clock = ManualMonotonicClock::new_shared();
+        let wall_clock = monotonic_clock.new_wall_clock(now);
+        let blocking_sleeper = monotonic_clock.new_blocking_sleeper();
         Self {
             monotonic_clock,
             wall_clock,

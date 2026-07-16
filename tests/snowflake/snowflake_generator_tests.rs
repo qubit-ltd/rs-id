@@ -26,6 +26,7 @@ use qubit_id::{
     IdGenerator,
     RestartPolicy,
     SnowflakeGenerator,
+    SnowflakeLayout,
 };
 
 use crate::support::{
@@ -34,51 +35,25 @@ use crate::support::{
 };
 
 #[test]
-fn test_snowflake_generator_compose_and_extract_parts() {
+fn test_snowflake_generator_exposes_layout_and_epoch() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let generator = SnowflakeGenerator::builder(513)
         .epoch(epoch)
         .build()
         .expect("node id should be valid");
 
-    let id = generator
-        .compose(1_234_567, 2_117)
-        .expect("parts should be valid");
-
-    assert_eq!(generator.node_id(), 513);
+    assert_eq!(generator.layout().node_id(), 513);
     assert_eq!(generator.epoch(), epoch);
-    assert_eq!(generator.extract_timestamp(id), 1_234_567);
-    assert_eq!(generator.extract_node_id(id), 513);
-    assert_eq!(generator.extract_sequence(id), 2_117);
 }
 
 #[test]
-fn test_snowflake_generator_rejects_invalid_node_and_parts() {
+fn test_snowflake_generator_rejects_invalid_node() {
     assert!(matches!(
         SnowflakeGenerator::new(1_024),
         Err(IdError::NodeOutOfRange {
             node_id: 1_024,
             max: 1_023,
         })
-    ));
-
-    let generator =
-        SnowflakeGenerator::new(1).expect("node id should be valid");
-    assert!(matches!(
-        generator.compose(generator.max_timestamp() + 1, 0),
-        Err(IdError::TimestampOverflow {
-            timestamp,
-            max,
-        }) if timestamp == generator.max_timestamp() + 1
-            && max == generator.max_timestamp()
-    ));
-    assert!(matches!(
-        generator.compose(0, generator.max_sequence() + 1),
-        Err(IdError::SequenceOverflow {
-            sequence,
-            max,
-        }) if sequence == generator.max_sequence() + 1
-            && max == generator.max_sequence()
     ));
 }
 
@@ -98,7 +73,7 @@ fn test_snowflake_generator_next_string_uses_numeric_string() {
         .next_string()
         .expect("string id should generate after numeric id");
 
-    assert_eq!(generator.extract_timestamp(id), 77);
+    assert_eq!(SnowflakeLayout::decode(id).timestamp(), 77);
     assert_eq!(next_string, (id + 1).to_string());
 }
 
@@ -189,8 +164,9 @@ fn test_snowflake_generator_wait_next_slice_delays_first_allocation() {
             panic!("unexpected retry after {duration:?}")
         }
     };
-    assert_eq!(generator.extract_timestamp(id), 11);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = SnowflakeLayout::decode(id);
+    assert_eq!(parts.timestamp(), 11);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -214,8 +190,9 @@ fn test_snowflake_generator_next_id_uses_injected_blocking_sleeper() {
         .join()
         .expect("generator worker should finish")
         .expect("next slice should allocate");
-    assert_eq!(generator.extract_timestamp(id), 11);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = SnowflakeLayout::decode(id);
+    assert_eq!(parts.timestamp(), 11);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -229,7 +206,7 @@ fn test_snowflake_generator_reports_rollback_while_waiting() {
         .build()
         .expect("configuration should be valid");
 
-    for _ in 0..=generator.max_sequence() {
+    for _ in 0..=generator.layout().max_sequence() {
         generator.next_id().expect("sequence should be available");
     }
     assert_eq!(
@@ -269,7 +246,7 @@ fn test_snowflake_generator_waits_when_sequence_overflows() {
 
     for expected_sequence in 0..=4_095 {
         let id = generator.next_id().expect("id should generate");
-        assert_eq!(generator.extract_sequence(id), expected_sequence);
+        assert_eq!(SnowflakeLayout::decode(id).sequence(), expected_sequence);
     }
     assert_eq!(
         generator
@@ -285,8 +262,9 @@ fn test_snowflake_generator_waits_when_sequence_overflows() {
         .expect("generator worker should finish")
         .expect("generator should wait for the next millisecond");
 
-    assert_eq!(generator.extract_timestamp(wrapped), 11);
-    assert_eq!(generator.extract_sequence(wrapped), 0);
+    let parts = SnowflakeLayout::decode(wrapped);
+    assert_eq!(parts.timestamp(), 11);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -302,7 +280,7 @@ fn test_snowflake_generator_concurrent_overflow_is_unique() {
             .expect("configuration should be valid"),
     );
 
-    for _ in 0..=generator.max_sequence() {
+    for _ in 0..=generator.layout().max_sequence() {
         generator.next_id().expect("id should generate");
     }
 
@@ -325,11 +303,11 @@ fn test_snowflake_generator_concurrent_overflow_is_unique() {
         .collect::<Vec<_>>();
     let timestamps = ids
         .iter()
-        .map(|id| generator.extract_timestamp(*id))
+        .map(|id| SnowflakeLayout::decode(*id).timestamp())
         .collect::<HashSet<_>>();
     let sequences = ids
         .iter()
-        .map(|id| generator.extract_sequence(*id))
+        .map(|id| SnowflakeLayout::decode(*id).sequence())
         .collect::<HashSet<_>>();
 
     assert_eq!(timestamps, HashSet::from([11]));
@@ -373,8 +351,9 @@ fn test_snowflake_generator_first_id_uses_current_time_slice() {
         .next_id()
         .expect("first id should generate immediately");
 
-    assert_eq!(generator.extract_timestamp(id), 10);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = SnowflakeLayout::decode(id);
+    assert_eq!(parts.timestamp(), 10);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -383,7 +362,7 @@ fn test_snowflake_generator_recovers_after_clock_panics() {
     let generator = SnowflakeGenerator::builder(9)
         .epoch(epoch)
         .wall_clock(Arc::new(PanickingWallClock::new(
-            0,
+            1,
             epoch + Duration::from_millis(10),
         )))
         .build()
@@ -395,28 +374,30 @@ fn test_snowflake_generator_recovers_after_clock_panics() {
     let id = generator
         .next_id()
         .expect("generator should recover after the clock panic");
-    assert_eq!(generator.extract_timestamp(id), 10);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = SnowflakeLayout::decode(id);
+    assert_eq!(parts.timestamp(), 10);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
 fn test_snowflake_generator_reports_timestamp_overflow_from_clock() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
+    let expires_at = epoch + Duration::from_millis(1_u64 << 41);
+    let time = ManualTime::new(expires_at - Duration::from_nanos(1));
     let generator = SnowflakeGenerator::builder(9)
         .epoch(epoch)
-        .wall_clock(Arc::new(FixedWallClock::new(
-            epoch + Duration::from_millis((1_u64 << 41) + 1),
-        )))
+        .wall_clock(time.wall_clock())
         .build()
         .expect("configuration should be valid");
+    time.reanchor(expires_at + Duration::from_millis(1));
 
     assert!(matches!(
         generator.next_id(),
         Err(IdError::TimestampOverflow {
             timestamp,
             max,
-        }) if timestamp == generator.max_timestamp() + 2
-            && max == generator.max_timestamp()
+        }) if timestamp == generator.layout().max_timestamp() + 2
+            && max == generator.layout().max_timestamp()
     ));
 }
 

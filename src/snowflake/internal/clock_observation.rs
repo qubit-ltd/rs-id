@@ -16,6 +16,7 @@ use crate::IdError;
 
 /// Raw and quantized time observed during one allocation attempt.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[must_use]
 pub(crate) struct ClockObservation {
     /// Unquantized duration since the configured reference time.
     pub(crate) elapsed: Duration,
@@ -82,6 +83,7 @@ impl ClockObservation {
 /// # Returns
 ///
 /// The equivalent duration.
+#[must_use]
 #[inline]
 fn duration_from_nanos(nanos: u128) -> Duration {
     const NANOS_PER_SECOND: u128 = 1_000_000_000;

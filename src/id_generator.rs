@@ -69,6 +69,7 @@ pub trait IdGenerator {
     /// # Returns
     ///
     /// String representation of `id`.
+    #[must_use]
     fn format_id(&self, id: &Self::Id) -> String;
 
     /// Generates the next ID and formats it as a string.

@@ -8,7 +8,20 @@
 //! ID ordering mode for Qubit snowflake IDs.
 
 /// Ordering mode encoded in a Qubit snowflake ID.
+///
+/// # Must use
+///
+/// Query results on ID configuration values must not be silently discarded.
+///
+/// ```compile_fail
+/// #![deny(unused_must_use)]
+/// use qubit_id::{IdMode, TimestampPrecision};
+///
+/// IdMode::Sequential.ordinal();
+/// TimestampPrecision::Millisecond.sequence_bits();
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[must_use]
 pub enum IdMode {
     /// Timestamp bits are stored in normal order, producing time-ordered IDs.
     Sequential,
@@ -29,19 +42,6 @@ pub enum IdMode {
 }
 
 impl IdMode {
-    /// Returns the one-bit ordinal used by the Qubit layout.
-    ///
-    /// # Returns
-    ///
-    /// `0` for [`IdMode::Sequential`] and `1` for [`IdMode::Spread`].
-    #[inline(always)]
-    pub const fn ordinal(self) -> u64 {
-        match self {
-            Self::Sequential => 0,
-            Self::Spread => 1,
-        }
-    }
-
     /// Decodes an ID mode from a one-bit value.
     ///
     /// # Arguments
@@ -52,12 +52,26 @@ impl IdMode {
     ///
     /// [`IdMode::Sequential`] for `0`; [`IdMode::Spread`] for every non-zero
     /// value after masking by callers.
-    #[inline(always)]
+    #[inline]
     pub const fn from_bit(bit: u64) -> Self {
         if bit == 0 {
             Self::Sequential
         } else {
             Self::Spread
+        }
+    }
+
+    /// Returns the one-bit ordinal used by the Qubit layout.
+    ///
+    /// # Returns
+    ///
+    /// `0` for [`IdMode::Sequential`] and `1` for [`IdMode::Spread`].
+    #[must_use]
+    #[inline(always)]
+    pub const fn ordinal(self) -> u64 {
+        match self {
+            Self::Sequential => 0,
+            Self::Spread => 1,
         }
     }
 }

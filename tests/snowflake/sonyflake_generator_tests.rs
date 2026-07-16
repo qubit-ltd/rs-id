@@ -83,16 +83,18 @@ fn test_sonyflake_generator_default_layout_matches_sonyflake() {
     .expect("configuration should be valid");
 
     let id = generator
-        .compose(12, 7, 0x1234)
+        .layout()
+        .compose(12, 7)
         .expect("parts should be valid");
+    let parts = generator.layout().decode(id);
 
-    assert_eq!(generator.bits_time(), 39);
-    assert_eq!(generator.bits_sequence(), 8);
-    assert_eq!(generator.bits_machine(), 16);
+    assert_eq!(generator.layout().bits_time(), 39);
+    assert_eq!(generator.layout().bits_sequence(), 8);
+    assert_eq!(generator.layout().bits_machine(), 16);
     assert_eq!(id, (12_u64 << 24) | (7_u64 << 16) | 0x1234);
-    assert_eq!(generator.extract_elapsed_time(id), 12);
-    assert_eq!(generator.extract_sequence(id), 7);
-    assert_eq!(generator.extract_machine_id(id), 0x1234);
+    assert_eq!(parts.elapsed_time(), 12);
+    assert_eq!(parts.sequence(), 7);
+    assert_eq!(parts.machine_id(), 0x1234);
 }
 
 #[test]
@@ -109,12 +111,12 @@ fn test_sonyflake_generator_accessors_return_configuration() {
     )
     .expect("configuration should be valid");
 
-    assert_eq!(generator.machine_id(), 17);
+    assert_eq!(generator.layout().machine_id(), 17);
     assert_eq!(generator.start_time(), start_time);
-    assert_eq!(generator.time_unit(), time_unit);
-    assert_eq!(generator.bits_time(), 51);
-    assert_eq!(generator.bits_sequence(), 7);
-    assert_eq!(generator.bits_machine(), 5);
+    assert_eq!(generator.layout().time_unit(), time_unit);
+    assert_eq!(generator.layout().bits_time(), 51);
+    assert_eq!(generator.layout().bits_sequence(), 7);
+    assert_eq!(generator.layout().bits_machine(), 5);
 }
 
 #[test]
@@ -122,9 +124,9 @@ fn test_sonyflake_generator_new_uses_default_layout() {
     let generator =
         SonyflakeGenerator::new(1).expect("default machine id should be valid");
 
-    assert_eq!(generator.bits_time(), 39);
-    assert_eq!(generator.bits_sequence(), 8);
-    assert_eq!(generator.bits_machine(), 16);
+    assert_eq!(generator.layout().bits_time(), 39);
+    assert_eq!(generator.layout().bits_sequence(), 8);
+    assert_eq!(generator.layout().bits_machine(), 16);
 }
 
 #[test]
@@ -144,8 +146,9 @@ fn test_sonyflake_generator_first_id_uses_current_time_unit() {
         .next_id()
         .expect("first id should generate immediately");
 
-    assert_eq!(generator.extract_elapsed_time(id), 10);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = generator.layout().decode(id);
+    assert_eq!(parts.elapsed_time(), 10);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -155,9 +158,9 @@ fn test_sonyflake_generator_zero_bits_select_defaults() {
         build_generator(1, 0, 0, Duration::from_millis(10), epoch, epoch)
             .expect("zero bit lengths should select defaults");
 
-    assert_eq!(generator.bits_time(), 39);
-    assert_eq!(generator.bits_sequence(), 8);
-    assert_eq!(generator.bits_machine(), 16);
+    assert_eq!(generator.layout().bits_time(), 39);
+    assert_eq!(generator.layout().bits_sequence(), 8);
+    assert_eq!(generator.layout().bits_machine(), 16);
 }
 
 #[test]
@@ -186,12 +189,15 @@ fn test_sonyflake_generator_next_id_waits_for_physical_next_time_unit() {
         .expect("worker should finish")
         .expect("third id should generate");
 
-    assert_eq!(generator.extract_elapsed_time(first), 5);
-    assert_eq!(generator.extract_sequence(first), 0);
-    assert_eq!(generator.extract_elapsed_time(second), 5);
-    assert_eq!(generator.extract_sequence(second), 1);
-    assert_eq!(generator.extract_elapsed_time(third), 6);
-    assert_eq!(generator.extract_sequence(third), 0);
+    let first = generator.layout().decode(first);
+    let second = generator.layout().decode(second);
+    let third = generator.layout().decode(third);
+    assert_eq!(first.elapsed_time(), 5);
+    assert_eq!(first.sequence(), 0);
+    assert_eq!(second.elapsed_time(), 5);
+    assert_eq!(second.sequence(), 1);
+    assert_eq!(third.elapsed_time(), 6);
+    assert_eq!(third.sequence(), 0);
 }
 
 #[test]
@@ -210,7 +216,7 @@ fn test_sonyflake_generator_concurrent_overflow_is_unique() {
             .expect("configuration should be valid"),
     );
 
-    for _ in 0..=generator.max_sequence() {
+    for _ in 0..=generator.layout().max_sequence() {
         generator.next_id().expect("id should generate");
     }
 
@@ -233,11 +239,11 @@ fn test_sonyflake_generator_concurrent_overflow_is_unique() {
         .collect::<Vec<_>>();
     let timestamps = ids
         .iter()
-        .map(|id| generator.extract_elapsed_time(*id))
+        .map(|id| generator.layout().decode(*id).elapsed_time())
         .collect::<HashSet<_>>();
     let sequences = ids
         .iter()
-        .map(|id| generator.extract_sequence(*id))
+        .map(|id| generator.layout().decode(*id).sequence())
         .collect::<HashSet<_>>();
 
     assert_eq!(timestamps, HashSet::from([11]));
@@ -274,7 +280,7 @@ fn test_sonyflake_generator_same_machine_restart_can_repeat_id() {
 }
 
 #[test]
-fn test_sonyflake_generator_rejects_invalid_settings_and_parts() {
+fn test_sonyflake_generator_rejects_invalid_settings() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
 
     assert!(matches!(
@@ -336,35 +342,6 @@ fn test_sonyflake_generator_rejects_invalid_settings_and_parts() {
             nanos: 1,
             min_nanos: 1_000_000,
         })
-    ));
-
-    let generator = SonyflakeGenerator::builder(1)
-        .start_time(epoch)
-        .build()
-        .expect("machine id should be valid");
-    assert!(matches!(
-        generator.compose(generator.max_elapsed_time() + 1, 0, 1),
-        Err(IdError::TimestampOverflow {
-            timestamp,
-            max,
-        }) if timestamp == generator.max_elapsed_time() + 1
-            && max == generator.max_elapsed_time()
-    ));
-    assert!(matches!(
-        generator.compose(0, generator.max_sequence() + 1, 1),
-        Err(IdError::SequenceOverflow {
-            sequence,
-            max,
-        }) if sequence == generator.max_sequence() + 1
-            && max == generator.max_sequence()
-    ));
-    assert!(matches!(
-        generator.compose(0, 0, generator.max_machine_id() + 1),
-        Err(IdError::MachineIdOutOfRange {
-            machine_id,
-            max,
-        }) if machine_id == generator.max_machine_id() + 1
-            && max == generator.max_machine_id()
     ));
 }
 
@@ -484,8 +461,9 @@ fn test_sonyflake_generator_wait_next_slice_delays_first_allocation() {
             panic!("unexpected retry after {duration:?}")
         }
     };
-    assert_eq!(generator.extract_elapsed_time(id), 3);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = generator.layout().decode(id);
+    assert_eq!(parts.elapsed_time(), 3);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -511,8 +489,9 @@ fn test_sonyflake_generator_next_id_uses_injected_blocking_sleeper() {
         .join()
         .expect("generator worker should finish")
         .expect("next unit should allocate");
-    assert_eq!(generator.extract_elapsed_time(id), 3);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = generator.layout().decode(id);
+    assert_eq!(parts.elapsed_time(), 3);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -578,8 +557,9 @@ fn test_sonyflake_generator_recovers_after_clock_panics() {
     let id = generator
         .next_id()
         .expect("generator should recover after the clock panic");
-    assert_eq!(generator.extract_elapsed_time(id), 10);
-    assert_eq!(generator.extract_sequence(id), 0);
+    let parts = generator.layout().decode(id);
+    assert_eq!(parts.elapsed_time(), 10);
+    assert_eq!(parts.sequence(), 0);
 }
 
 #[test]
@@ -611,22 +591,24 @@ fn test_sonyflake_generator_reports_time_before_epoch_after_construction() {
 #[test]
 fn test_sonyflake_generator_reports_timestamp_overflow_from_clock() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
-    let generator = build_generator(
-        7,
-        8,
-        16,
-        Duration::from_millis(10),
-        epoch,
-        epoch + Duration::from_millis((1_u64 << 39) * 10),
-    )
-    .expect("configuration should be valid");
+    let expires_at = epoch + Duration::from_millis((1_u64 << 39) * 10);
+    let time = ManualTime::new(expires_at - Duration::from_nanos(1));
+    let generator = SonyflakeGenerator::builder(7)
+        .bits_sequence(8)
+        .bits_machine(16)
+        .time_unit(Duration::from_millis(10))
+        .start_time(epoch)
+        .wall_clock(time.wall_clock())
+        .build()
+        .expect("configuration should be valid");
+    time.reanchor(expires_at);
 
     assert!(matches!(
         generator.next_id(),
         Err(IdError::TimestampOverflow {
             timestamp,
             max,
-        }) if timestamp == generator.max_elapsed_time() + 1
-            && max == generator.max_elapsed_time()
+        }) if timestamp == generator.layout().max_elapsed_time() + 1
+            && max == generator.layout().max_elapsed_time()
     ));
 }

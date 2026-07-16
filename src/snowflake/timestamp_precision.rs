@@ -16,6 +16,7 @@ use super::constants::{
 
 /// Timestamp precision encoded in a Qubit snowflake ID.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[must_use]
 pub enum TimestampPrecision {
     /// Millisecond precision with 41 timestamp bits and 12 sequence bits.
     Millisecond,
@@ -24,19 +25,6 @@ pub enum TimestampPrecision {
 }
 
 impl TimestampPrecision {
-    /// Returns the one-bit ordinal used by the Qubit layout.
-    ///
-    /// # Returns
-    ///
-    /// `0` for millisecond precision and `1` for second precision.
-    #[inline(always)]
-    pub const fn ordinal(self) -> u64 {
-        match self {
-            Self::Millisecond => 0,
-            Self::Second => 1,
-        }
-    }
-
     /// Decodes timestamp precision from a one-bit value.
     ///
     /// # Arguments
@@ -48,7 +36,7 @@ impl TimestampPrecision {
     /// [`TimestampPrecision::Millisecond`] for `0`;
     /// [`TimestampPrecision::Second`] for every non-zero value after
     /// masking by callers.
-    #[inline(always)]
+    #[inline]
     pub const fn from_bit(bit: u64) -> Self {
         if bit == 0 {
             Self::Millisecond
@@ -57,11 +45,26 @@ impl TimestampPrecision {
         }
     }
 
+    /// Returns the one-bit ordinal used by the Qubit layout.
+    ///
+    /// # Returns
+    ///
+    /// `0` for millisecond precision and `1` for second precision.
+    #[must_use]
+    #[inline(always)]
+    pub const fn ordinal(self) -> u64 {
+        match self {
+            Self::Millisecond => 0,
+            Self::Second => 1,
+        }
+    }
+
     /// Returns the number of timestamp bits for this precision.
     ///
     /// # Returns
     ///
     /// Timestamp bit length.
+    #[must_use]
     #[inline(always)]
     pub const fn timestamp_bits(self) -> u8 {
         match self {
@@ -75,6 +78,7 @@ impl TimestampPrecision {
     /// # Returns
     ///
     /// Sequence bit length.
+    #[must_use]
     #[inline(always)]
     pub const fn sequence_bits(self) -> u8 {
         match self {
@@ -88,6 +92,7 @@ impl TimestampPrecision {
     /// # Returns
     ///
     /// `1` for millisecond precision and `1000` for second precision.
+    #[must_use]
     #[inline(always)]
     pub const fn divisor_millis(self) -> u64 {
         match self {

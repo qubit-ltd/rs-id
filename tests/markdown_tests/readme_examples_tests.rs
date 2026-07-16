@@ -190,7 +190,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-qubit-id = {{ path = "{manifest_path}" }}
+qubit-id = {{ path = "{manifest_path}", default-features = false, features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid"] }}
 "#
     )
 }
@@ -253,7 +253,66 @@ fn test_build_markdown_doctest_manifest_escapes_windows_dependency_path() {
     );
 
     assert!(
-        manifest.contains(r#"qubit-id = { path = "D:\\a\\rs-id\\rs-id" }"#),
+        manifest.contains(r#"path = "D:\\a\\rs-id\\rs-id""#),
         "Windows backslashes must be escaped in the generated TOML manifest:\n{manifest}"
     );
+}
+
+/// Verifies that README examples can use every feature-gated public API.
+#[test]
+fn test_build_markdown_doctest_manifest_enables_all_example_features() {
+    let manifest = build_markdown_doctest_manifest(
+        "readme_en",
+        Path::new("/workspace/rs-id"),
+    );
+
+    assert!(
+        manifest.contains(
+            r#"features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid"]"#,
+        ),
+        "README dependency must enable every documented feature:\n{manifest}"
+    );
+}
+
+/// Verifies that both READMEs explain feature selection, generator lifetime,
+/// and the UUID comparison benchmark.
+#[test]
+fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let readmes = [
+        (
+            "README.md",
+            "The default feature set enables only `qubit-snowflake`.",
+            "`expires_at()` returns the exclusive expiration boundary.",
+        ),
+        (
+            "README.zh_CN.md",
+            "默认 feature 集合只启用 `qubit-snowflake`。",
+            "`expires_at()` 返回排他的到期边界。",
+        ),
+    ];
+    let common_fragments = [
+        r#"default-features = false, features = ["classic-snowflake"]"#,
+        r#"default-features = false, features = ["sonyflake"]"#,
+        r#"default-features = false, features = ["uuid"]"#,
+        "`now >= expires_at`",
+        "cargo bench --no-default-features --features uuid --bench uuid_comparison",
+    ];
+
+    for (name, feature_summary, lifetime_summary) in readmes {
+        let content = fs::read_to_string(manifest_dir.join(name))
+            .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
+        for fragment in [feature_summary, lifetime_summary] {
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
+        }
+        for fragment in common_fragments {
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
+        }
+    }
 }

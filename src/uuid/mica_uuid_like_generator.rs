@@ -52,6 +52,7 @@ const HEX_DIGIT_MASK: u128 = 0x0f;
 /// The Java source also points to Mica's UUID benchmark notes:
 /// <https://github.com/lets-mica/mica-jmh/wiki/uuid>.
 #[derive(Debug, Default, Clone, Copy)]
+#[must_use]
 pub struct MicaUuidLikeGenerator;
 
 impl MicaUuidLikeGenerator {
@@ -74,6 +75,7 @@ impl MicaUuidLikeGenerator {
     /// # Returns
     ///
     /// UUID-like text in `8-4-4-4-12` lowercase hexadecimal form.
+    #[must_use]
     #[inline]
     pub fn format_uuid_like(value: u128) -> String {
         let mut output = String::with_capacity(36);
@@ -98,6 +100,7 @@ impl MicaUuidLikeGenerator {
     /// # Returns
     ///
     /// UUID-like text as 32 lowercase hexadecimal digits without separators.
+    #[must_use]
     #[inline]
     pub fn format_simple_uuid_like(value: u128) -> String {
         let mut output = String::with_capacity(32);
@@ -214,6 +217,7 @@ fn push_hex(output: &mut String, value: u128, digits: usize) {
 /// # Errors
 ///
 /// Returns [`IdError::RandomSourceUnavailable`] when the random source fails.
+#[inline]
 fn generate_id() -> Result<u128, IdError> {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes)

@@ -597,15 +597,18 @@ fn test_qubit_snowflake_generator_recovers_after_clock_panics() {
         epoch,
         DEFAULT_MAX_CLOCK_SKEW,
         move || match clock_calls.fetch_add(1, Ordering::SeqCst) {
-            0 => panic!("test clock panic"),
-            1 => epoch + Duration::from_millis(10),
-            _ => epoch + Duration::from_millis(11),
+            0 => epoch + Duration::from_millis(10),
+            1 => panic!("test clock panic"),
+            _ => epoch + Duration::from_millis(10),
         },
     )
     .expect("configuration should be valid");
 
     let panic = catch_unwind(AssertUnwindSafe(|| generator.next_id()));
-    assert!(panic.is_err(), "the first clock call should panic");
+    assert!(
+        panic.is_err(),
+        "the first allocation clock call should panic"
+    );
 
     let id = generator
         .next_id()

@@ -19,14 +19,16 @@ use qubit_clock::{
     WallClock,
 };
 
-use super::constants::DEFAULT_QUBIT_EPOCH_MILLIS;
 use super::internal::{
+    DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
     default_blocking_sleeper,
     default_wall_clock,
+    panic_if_expired,
 };
 use super::{
     RestartPolicy,
     SnowflakeGenerator,
+    SnowflakeLayout,
 };
 use crate::IdError;
 
@@ -34,6 +36,7 @@ use crate::IdError;
 ///
 /// Unspecified options use the default Qubit epoch,
 /// [`RestartPolicy::Immediate`], and standard clock and sleeper capabilities.
+#[must_use = "builders do nothing unless built"]
 pub struct SnowflakeGeneratorBuilder {
     /// Node identifier encoded in generated IDs.
     node_id: u64,
@@ -65,7 +68,7 @@ impl SnowflakeGeneratorBuilder {
         Self {
             node_id,
             epoch: UNIX_EPOCH
-                + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS),
+                + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
             blocking_sleeper: default_blocking_sleeper(),
@@ -81,7 +84,6 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
@@ -97,7 +99,6 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
@@ -113,7 +114,6 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
@@ -129,7 +129,6 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn blocking_sleeper(
         mut self,
@@ -148,15 +147,27 @@ impl SnowflakeGeneratorBuilder {
     /// # Errors
     ///
     /// Returns [`IdError::NodeOutOfRange`] when the node identifier does not
-    /// fit the classic 10-bit node field.
-    #[inline(always)]
+    /// fit the classic 10-bit node field, or
+    /// [`IdError::ExpirationTimeOverflow`] when the exclusive expiration
+    /// cannot be represented.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the configured wall clock is equal to or later than the
+    /// exclusive expiration boundary.
+    #[inline]
     pub fn build(self) -> Result<SnowflakeGenerator, IdError> {
-        SnowflakeGenerator::from_config(
-            self.node_id,
+        let layout = SnowflakeLayout::new(self.node_id)?;
+        let expires_at = layout.expires_at(self.epoch)?;
+        let current_time = self.wall_clock.now();
+        panic_if_expired("classic Snowflake", current_time, expires_at);
+        Ok(SnowflakeGenerator::from_config(
+            layout,
             self.epoch,
+            expires_at,
             self.restart_policy,
             self.wall_clock,
             self.blocking_sleeper,
-        )
+        ))
     }
 }

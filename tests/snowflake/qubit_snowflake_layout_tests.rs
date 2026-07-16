@@ -7,6 +7,12 @@
 // =============================================================================
 //! Tests for the Qubit snowflake layout.
 
+use std::time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH,
+};
+
 use qubit_id::{
     HOST_MAX,
     HOST_MIN,
@@ -27,6 +33,32 @@ const BOUNDARY_IDS: [u64; 8] = [
     1_u64 << 63,
     u64::MAX,
 ];
+
+/// Finds the latest whole-second time representable by [`SystemTime`].
+///
+/// # Returns
+///
+/// The latest representable time on or after [`UNIX_EPOCH`] whose subsecond
+/// component is zero.
+fn latest_representable_whole_second() -> SystemTime {
+    let mut low = 0_u64;
+    let mut high = u64::MAX;
+    while low < high {
+        let difference = high - low;
+        let middle = low + difference / 2 + difference % 2;
+        if UNIX_EPOCH
+            .checked_add(Duration::from_secs(middle))
+            .is_some()
+        {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+    UNIX_EPOCH
+        .checked_add(Duration::from_secs(low))
+        .expect("binary search must retain a representable time")
+}
 
 /// Produces a deterministic pseudo-random value with the SplitMix64 mixer.
 ///
@@ -184,6 +216,50 @@ fn test_default_and_getters_match_qubit_defaults() {
     assert_eq!(layout.host(), 0);
     assert_eq!(layout.max_timestamp(), (1_u64 << 31) - 1);
     assert_eq!(layout.max_sequence(), (1_u64 << 22) - 1);
+}
+
+/// Tests the exclusive lifetime for both Qubit timestamp precisions.
+#[test]
+fn test_qubit_snowflake_layout_calculates_exclusive_expiration() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+
+    for (precision, lifetime) in [
+        (
+            TimestampPrecision::Millisecond,
+            Duration::from_millis(1_u64 << 41),
+        ),
+        (TimestampPrecision::Second, Duration::from_secs(1_u64 << 31)),
+    ] {
+        let layout =
+            QubitSnowflakeLayout::new(IdMode::Sequential, precision, 17)
+                .expect("Qubit layout must be valid");
+
+        assert_eq!(
+            layout
+                .expires_at(epoch)
+                .expect("Qubit expiration must be representable"),
+            epoch + lifetime,
+        );
+    }
+}
+
+/// Tests that an unrepresentable Qubit expiration is a configuration error.
+#[test]
+fn test_qubit_snowflake_layout_reports_expiration_time_overflow() {
+    let origin = latest_representable_whole_second();
+    let layout = QubitSnowflakeLayout::default();
+    let time_unit = Duration::from_secs(1);
+
+    assert!(matches!(
+        layout.expires_at(origin),
+        Err(IdError::ExpirationTimeOverflow {
+            origin: actual_origin,
+            time_unit: actual_time_unit,
+            max_timestamp,
+        }) if actual_origin == origin
+            && actual_time_unit == time_unit
+            && max_timestamp == layout.max_timestamp()
+    ));
 }
 
 /// Tests that decoding derives its layout from the ID header.
