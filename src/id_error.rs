@@ -7,17 +7,19 @@
 // =============================================================================
 //! Error type returned by ID generators.
 
-use std::error::Error;
-use std::fmt::{
-    self,
-    Display,
-    Formatter,
+use std::time::{
+    Duration,
+    SystemTime,
 };
 
+use thiserror::Error;
+
 /// Error returned when an ID generator cannot create or compose an ID.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[non_exhaustive]
+#[derive(Debug, Error)]
 pub enum IdError {
     /// A Qubit snowflake host identifier is outside its bit range.
+    #[error("host id {host} is out of range 0..={max}")]
     HostOutOfRange {
         /// Provided host identifier.
         host: u64,
@@ -25,6 +27,7 @@ pub enum IdError {
         max: u64,
     },
     /// A classic snowflake node identifier is outside its bit range.
+    #[error("node id {node_id} is out of range 0..={max}")]
     NodeOutOfRange {
         /// Provided node identifier.
         node_id: u64,
@@ -32,6 +35,7 @@ pub enum IdError {
         max: u64,
     },
     /// A Sonyflake machine identifier is outside its bit range.
+    #[error("machine id {machine_id} is out of range 0..={max}")]
     MachineIdOutOfRange {
         /// Provided machine identifier.
         machine_id: u64,
@@ -39,6 +43,7 @@ pub enum IdError {
         max: u64,
     },
     /// A timestamp or elapsed time is too large for the configured bit layout.
+    #[error("timestamp {timestamp} exceeds maximum {max}")]
     TimestampOverflow {
         /// Provided timestamp or elapsed time.
         timestamp: u64,
@@ -46,6 +51,7 @@ pub enum IdError {
         max: u64,
     },
     /// A sequence number is too large for the configured bit layout.
+    #[error("sequence {sequence} exceeds maximum {max}")]
     SequenceOverflow {
         /// Provided sequence number.
         sequence: u64,
@@ -53,21 +59,40 @@ pub enum IdError {
         max: u64,
     },
     /// The observed clock moved backwards beyond the configured tolerance.
+    #[error(
+        "clock moved backwards from {last_elapsed:?} to {current_elapsed:?}; \
+         skew {skew:?} exceeds maximum {max_skew:?}"
+    )]
     ClockMovedBackwards {
-        /// Last timestamp seen by the generator.
-        last_timestamp: u64,
-        /// Current timestamp reported by the clock.
-        current_timestamp: u64,
-        /// Backwards skew in milliseconds.
-        skew_millis: u64,
-        /// Maximum tolerated backwards skew in milliseconds.
-        max_skew_millis: u64,
+        /// Greatest elapsed time observed by the generator.
+        last_elapsed: Duration,
+        /// Elapsed time reported by the current wall-clock observation.
+        current_elapsed: Duration,
+        /// Difference between the last and current elapsed times.
+        skew: Duration,
+        /// Maximum tolerated backwards movement.
+        max_skew: Duration,
     },
     /// The requested time is before the configured epoch.
-    TimeBeforeEpoch,
+    #[error("time {time:?} is before the configured epoch {epoch:?}")]
+    TimeBeforeEpoch {
+        /// Wall time that could not be represented relative to the epoch.
+        time: SystemTime,
+        /// Configured epoch or Sonyflake start time.
+        epoch: SystemTime,
+    },
     /// The configured Sonyflake start time is ahead of the generator clock.
-    StartTimeAhead,
+    #[error(
+        "start time {start_time:?} is ahead of generator clock {current_time:?}"
+    )]
+    StartTimeAhead {
+        /// Configured Sonyflake start time.
+        start_time: SystemTime,
+        /// Wall time observed while validating the builder.
+        current_time: SystemTime,
+    },
     /// A Sonyflake bit length setting is invalid.
+    #[error("invalid bit length for {name}: {bits}; {reason}")]
     InvalidBitLength {
         /// Name of the invalid bit field.
         name: &'static str,
@@ -77,6 +102,7 @@ pub enum IdError {
         reason: &'static str,
     },
     /// A Sonyflake time unit is invalid.
+    #[error("invalid time unit {nanos} ns; minimum is {min_nanos} ns")]
     InvalidTimeUnit {
         /// Provided time unit in nanoseconds.
         nanos: u128,
@@ -84,67 +110,17 @@ pub enum IdError {
         min_nanos: u128,
     },
     /// The operating system random source could not provide random ID bytes.
-    RandomSourceUnavailable,
+    #[error("operating system random source is unavailable")]
+    RandomSourceUnavailable {
+        /// Error returned by `getrandom`.
+        #[source]
+        source: getrandom::Error,
+    },
+    /// The injected blocking sleeper could not complete a retry wait.
+    #[error("failed to wait before retrying ID generation")]
+    SleepFailed {
+        /// Error returned by the injected blocking sleeper.
+        #[source]
+        source: qubit_clock::TimeError,
+    },
 }
-
-impl Display for IdError {
-    /// Formats the error with enough context for diagnostics.
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::HostOutOfRange { host, max } => {
-                write!(formatter, "host id {host} is out of range 0..={max}")
-            }
-            Self::NodeOutOfRange { node_id, max } => {
-                write!(formatter, "node id {node_id} is out of range 0..={max}")
-            }
-            Self::MachineIdOutOfRange { machine_id, max } => {
-                write!(
-                    formatter,
-                    "machine id {machine_id} is out of range 0..={max}"
-                )
-            }
-            Self::TimestampOverflow { timestamp, max } => {
-                write!(formatter, "timestamp {timestamp} exceeds maximum {max}")
-            }
-            Self::SequenceOverflow { sequence, max } => {
-                write!(formatter, "sequence {sequence} exceeds maximum {max}")
-            }
-            Self::ClockMovedBackwards {
-                last_timestamp,
-                current_timestamp,
-                skew_millis,
-                max_skew_millis,
-            } => write!(
-                formatter,
-                "clock moved backwards from {last_timestamp} to {current_timestamp}; \
-                 skew {skew_millis} ms exceeds maximum {max_skew_millis} ms"
-            ),
-            Self::TimeBeforeEpoch => {
-                write!(formatter, "time is before the configured epoch")
-            }
-            Self::StartTimeAhead => {
-                write!(formatter, "start time is ahead of the generator clock")
-            }
-            Self::InvalidBitLength { name, bits, reason } => {
-                write!(
-                    formatter,
-                    "invalid bit length for {name}: {bits}; {reason}"
-                )
-            }
-            Self::InvalidTimeUnit { nanos, min_nanos } => {
-                write!(
-                    formatter,
-                    "invalid time unit {nanos} ns; minimum is {min_nanos} ns"
-                )
-            }
-            Self::RandomSourceUnavailable => {
-                write!(
-                    formatter,
-                    "operating system random source is unavailable"
-                )
-            }
-        }
-    }
-}
-
-impl Error for IdError {}

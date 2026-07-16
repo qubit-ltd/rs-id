@@ -15,6 +15,7 @@
 //! [Mica UUID benchmark notes]: https://github.com/lets-mica/mica-jmh/wiki/uuid
 
 use crate::{
+    GenerationOutcome,
     IdError,
     IdGenerator,
 };
@@ -57,17 +58,21 @@ impl MicaUuidLikeGenerator {
     /// Creates a Mica-style UUID-like generator.
     ///
     /// # Returns
+    ///
     /// A Mica-style UUID-like generator.
+    #[inline(always)]
     pub const fn new() -> Self {
         Self
     }
 
     /// Formats a `u128` as canonical lowercase UUID-like text.
     ///
-    /// # Parameters
-    /// - `value`: 128-bit ID value.
+    /// # Arguments
+    ///
+    /// * `value` - 128-bit ID value.
     ///
     /// # Returns
+    ///
     /// UUID-like text in `8-4-4-4-12` lowercase hexadecimal form.
     pub fn format_uuid_like(value: u128) -> String {
         let mut output = String::with_capacity(36);
@@ -85,10 +90,12 @@ impl MicaUuidLikeGenerator {
 
     /// Formats a `u128` as compact lowercase UUID-like text.
     ///
-    /// # Parameters
-    /// - `value`: 128-bit ID value.
+    /// # Arguments
+    ///
+    /// * `value` - 128-bit ID value.
     ///
     /// # Returns
+    ///
     /// UUID-like text as 32 lowercase hexadecimal digits without separators.
     pub fn format_simple_uuid_like(value: u128) -> String {
         let mut output = String::with_capacity(32);
@@ -97,19 +104,51 @@ impl MicaUuidLikeGenerator {
     }
 }
 
-impl IdGenerator<u128> for MicaUuidLikeGenerator {
+impl IdGenerator for MicaUuidLikeGenerator {
+    type Id = u128;
     type Error = IdError;
 
+    /// Performs one random UUID-like allocation attempt without sleeping.
+    ///
+    /// # Returns
+    ///
+    /// A generated random 128-bit value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::RandomSourceUnavailable`] when the operating system
+    /// random source fails.
+    #[inline(always)]
+    fn try_next_id(&self) -> Result<GenerationOutcome<Self::Id>, Self::Error> {
+        generate_id().map(GenerationOutcome::Generated)
+    }
+
     /// Generates the next random 128-bit UUID-like value.
-    fn next_id(&self) -> Result<u128, Self::Error> {
-        let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes)
-            .map_err(|_| IdError::RandomSourceUnavailable)?;
-        Ok(u128::from_be_bytes(bytes))
+    ///
+    /// # Returns
+    ///
+    /// A generated random 128-bit value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::RandomSourceUnavailable`] when the operating system
+    /// random source fails.
+    #[inline(always)]
+    fn next_id(&self) -> Result<Self::Id, Self::Error> {
+        generate_id()
     }
 
     /// Formats an ID value with canonical UUID separators.
-    fn format_id(&self, id: &u128) -> String {
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Random ID value to format.
+    ///
+    /// # Returns
+    ///
+    /// Canonical lowercase UUID-like text.
+    #[inline(always)]
+    fn format_id(&self, id: &Self::Id) -> String {
         Self::format_uuid_like(*id)
     }
 }
@@ -117,11 +156,14 @@ impl IdGenerator<u128> for MicaUuidLikeGenerator {
 /// Generates a canonical lowercase UUID-like random string.
 ///
 /// # Returns
+///
 /// UUID-like text in `8-4-4-4-12` lowercase hexadecimal form.
 ///
 /// # Errors
+///
 /// Returns [`IdError::RandomSourceUnavailable`] when the operating system
 /// random source cannot fill 16 bytes.
+#[inline(always)]
 pub fn fast_uuid_like() -> Result<String, IdError> {
     MicaUuidLikeGenerator::new().next_string()
 }
@@ -129,11 +171,14 @@ pub fn fast_uuid_like() -> Result<String, IdError> {
 /// Generates a compact lowercase UUID-like random string.
 ///
 /// # Returns
+///
 /// UUID-like text as 32 lowercase hexadecimal digits without separators.
 ///
 /// # Errors
+///
 /// Returns [`IdError::RandomSourceUnavailable`] when the operating system
 /// random source cannot fill 16 bytes.
+#[inline(always)]
 pub fn fast_simple_uuid_like() -> Result<String, IdError> {
     let id = MicaUuidLikeGenerator::new().next_id()?;
     Ok(MicaUuidLikeGenerator::format_simple_uuid_like(id))
@@ -141,13 +186,35 @@ pub fn fast_simple_uuid_like() -> Result<String, IdError> {
 
 /// Appends fixed-width lowercase hexadecimal digits to a string.
 ///
-/// # Parameters
-/// - `output`: Destination string.
-/// - `value`: Source value; only the lowest `digits * 4` bits are used.
-/// - `digits`: Number of hexadecimal digits to append.
+/// # Arguments
+///
+/// * `output` - Destination string.
+/// * `value` - Source value; only the lowest `digits * 4` bits are used.
+/// * `digits` - Number of hexadecimal digits to append, at most 32.
+///
+/// # Panics
+///
+/// Panics when `digits` exceeds the 32 hexadecimal digits representable by a
+/// `u128`.
 fn push_hex(output: &mut String, value: u128, digits: usize) {
     for index in (0..digits).rev() {
         let nibble = ((value >> (index * 4)) & HEX_DIGIT_MASK) as usize;
         output.push(char::from(HEX[nibble]));
     }
+}
+
+/// Reads one random UUID-like value from the operating system.
+///
+/// # Returns
+///
+/// A uniformly random 128-bit value.
+///
+/// # Errors
+///
+/// Returns [`IdError::RandomSourceUnavailable`] when the random source fails.
+fn generate_id() -> Result<u128, IdError> {
+    let mut bytes = [0_u8; 16];
+    getrandom::fill(&mut bytes)
+        .map_err(|source| IdError::RandomSourceUnavailable { source })?;
+    Ok(u128::from_be_bytes(bytes))
 }
