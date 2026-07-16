@@ -302,6 +302,45 @@ fn test_qubit_snowflake_generator_wait_next_slice_delays_first_allocation() {
 }
 
 #[test]
+fn test_qubit_snowflake_generator_wait_next_slice_can_repeat_after_cross_restart_clock_rollback()
+ {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let predecessor_time = ManualTime::new(epoch + Duration::from_secs(10));
+    let predecessor = QubitSnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Second)
+        .epoch(epoch)
+        .wall_clock(predecessor_time.wall_clock())
+        .build()
+        .expect("predecessor configuration should be valid");
+    let predecessor_id = predecessor
+        .next_id()
+        .expect("predecessor should allocate in slice ten");
+    drop(predecessor);
+
+    let replacement_time = ManualTime::new(epoch + Duration::from_secs(9));
+    let replacement = QubitSnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Second)
+        .epoch(epoch)
+        .restart_policy(RestartPolicy::WaitNextSlice)
+        .wall_clock(replacement_time.wall_clock())
+        .build()
+        .expect("replacement configuration should be valid");
+    assert_eq!(
+        replacement
+            .try_next_id()
+            .expect("first replacement attempt should be retryable"),
+        GenerationOutcome::RetryAfter(Duration::from_secs(1))
+    );
+
+    replacement_time.advance(Duration::from_secs(1));
+    let replacement_id = replacement
+        .next_id()
+        .expect("replacement should allocate after its startup fence");
+
+    assert_eq!(replacement_id, predecessor_id);
+}
+
+#[test]
 fn test_qubit_snowflake_generator_next_id_uses_injected_blocking_sleeper() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10_250));
