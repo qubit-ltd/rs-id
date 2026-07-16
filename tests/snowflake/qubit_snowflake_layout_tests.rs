@@ -114,6 +114,30 @@ fn test_compose_all_fixed_header_layouts() {
     }
 }
 
+/// Tests that every spread-mode layout sets the high bit of composed IDs.
+#[test]
+fn test_compose_spread_ids_always_set_bit_63() {
+    for precision in
+        [TimestampPrecision::Millisecond, TimestampPrecision::Second]
+    {
+        let layout = QubitSnowflakeLayout::new(IdMode::Spread, precision, 317)
+            .expect("host should be accepted");
+        for (timestamp, sequence) in
+            [(0, 0), (layout.max_timestamp(), layout.max_sequence())]
+        {
+            let id = layout
+                .compose(timestamp, sequence)
+                .expect("boundary parts should fit");
+
+            assert_eq!(id >> 63, 1, "spread ID {id:#018x} must set bit 63");
+            assert!(
+                id > i64::MAX as u64,
+                "spread ID {id:#018x} must exceed i64::MAX"
+            );
+        }
+    }
+}
+
 /// Tests layout validation at every public numeric boundary.
 #[test]
 fn test_new_and_compose_reject_out_of_range_parts() {
