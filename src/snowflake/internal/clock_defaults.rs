@@ -12,7 +12,6 @@ use std::sync::Arc;
 use qubit_clock::{
     BlockingSleeper,
     StdBlockingSleeper,
-    StdMonotonicClock,
     StdWallClock,
     WallClock,
 };
@@ -34,6 +33,5 @@ pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
 /// A shared blocking-sleeper trait object backed by standard monotonic time.
 #[inline]
 pub(crate) fn default_blocking_sleeper() -> Arc<dyn BlockingSleeper> {
-    let clock = Arc::new(StdMonotonicClock::new());
-    Arc::new(StdBlockingSleeper::from_clock(clock))
+    Arc::new(StdBlockingSleeper::new())
 }

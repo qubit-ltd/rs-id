@@ -134,7 +134,8 @@ impl ManualTime {
                 .wait_for_waiters(expected, Duration::from_secs(1)),
             "blocking generators should register {expected} deadlines"
         );
-        self.monotonic_clock
+        let _ = self
+            .monotonic_clock
             .advance_to_next_deadline()
             .expect("a future deadline should be registered");
     }
