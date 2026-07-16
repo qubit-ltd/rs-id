@@ -61,10 +61,12 @@ pub(super) const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
 /// same logical time unit, and use overlapping sequence ranges.
 ///
 /// [`crate::RestartPolicy::WaitNextSlice`] waits until after the first observed
-/// time unit. It protects sequential replacement only; it does not coordinate
-/// concurrent same-identity instances, which can cross the fence together and
-/// allocate overlapping sequence ranges. Such deployments require external
-/// exclusivity.
+/// time unit. It reduces sequential-replacement risk only when that unit is not
+/// earlier than the predecessor's last allocated unit. Because predecessor
+/// state is not persisted, clock rollback across a restart can still repeat
+/// IDs. The policy also does not coordinate concurrent same-identity instances,
+/// which can cross the fence together and allocate overlapping sequence ranges.
+/// Such deployments require external exclusivity.
 ///
 /// # Blocking and clock behavior
 ///

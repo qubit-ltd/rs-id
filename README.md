@@ -110,11 +110,14 @@ identity is `host`, `node_id`, or `machine_id`; the reference time is the epoch
 or Sonyflake start time.
 
 `RestartPolicy::WaitNextSlice` records the first slice observed by a fresh
-generator and waits for a later slice before allocating. It protects only a
-sequential replacement, where the old instance has stopped before the new one
-starts. It does not coordinate concurrently running instances with the same
-effective identity: such instances can cross the fence together and allocate
-overlapping sequence ranges. Concurrent same-identity deployment still
+generator and waits for a later slice before allocating. It reduces duplicate
+risk only for a sequential replacement where the replacement's first observed
+slice is not earlier than the predecessor's last allocated slice. The crate does
+not persist that predecessor watermark, so clock rollback across a restart can
+make the replacement re-enter a slice already used by its predecessor and
+repeat IDs. It also does not coordinate concurrently running instances with the
+same effective identity: such instances can cross the fence together and
+allocate overlapping sequence ranges. Concurrent same-identity deployment still
 requires an external exclusive lease or equivalent coordination. This crate
 does not provide persistent allocation state or cross-process coordination.
 
