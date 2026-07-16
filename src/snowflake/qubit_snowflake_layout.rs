@@ -34,9 +34,9 @@ use crate::IdError;
 /// [`IdMode::Spread`] reversibly obscures the numeric relationship between
 /// adjacent timestamp slices. It is intended to make simple ordering and
 /// volume inference from public IDs harder, not to provide encryption.
-/// Spread IDs may set bit 63 and therefore exceed `i64::MAX`. Store them as
-/// unsigned 64-bit values, decimal strings, or binary data; use strings when
-/// crossing JavaScript-style safe-integer boundaries.
+/// Spread IDs always set bit 63 and therefore always exceed `i64::MAX`. Store
+/// them as unsigned 64-bit values, decimal strings, or binary data; use
+/// strings when crossing JavaScript-style safe-integer boundaries.
 ///
 /// The 64-bit layout reserves neither a sign bit nor a version field. This is
 /// an intentional capacity and throughput trade-off. A future incompatible
