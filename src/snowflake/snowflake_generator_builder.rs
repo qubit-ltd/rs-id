@@ -60,6 +60,7 @@ impl SnowflakeGeneratorBuilder {
     ///
     /// A builder using the default Qubit epoch, immediate restart policy, and
     /// standard clocks.
+    #[inline]
     pub(crate) fn new(node_id: u64) -> Self {
         Self {
             node_id,

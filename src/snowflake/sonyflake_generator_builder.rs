@@ -71,6 +71,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// A builder using the Sonyflake-style defaults and standard clocks.
+    #[inline]
     pub(crate) fn new(machine_id: u64) -> Self {
         Self {
             machine_id,

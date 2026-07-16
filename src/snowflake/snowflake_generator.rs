@@ -301,6 +301,7 @@ impl SnowflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
+    #[inline(always)]
     fn observation_for(
         &self,
         time: SystemTime,

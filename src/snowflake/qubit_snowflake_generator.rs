@@ -210,6 +210,7 @@ impl QubitSnowflakeGenerator {
     /// epoch. Returns [`IdError::TimestampOverflow`] or
     /// [`IdError::SequenceOverflow`] when the computed timestamp or provided
     /// sequence does not fit the layout.
+    #[inline(always)]
     pub fn generate_at(
         &self,
         time: SystemTime,
@@ -232,6 +233,7 @@ impl QubitSnowflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
+    #[inline(always)]
     fn observation_for(
         &self,
         time: SystemTime,
