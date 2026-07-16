@@ -312,7 +312,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 这个布局优先保证头部自描述，便于在解析时直接识别 ID 的 mode 和 precision。
 
-Qubit 打散模式的 ID 可能设置第 63 位，因此数值可能超过 `i64::MAX`。应使用
+Qubit 打散模式的 ID 必然设置第 63 位，因此数值必然超过 `i64::MAX`。应使用
 无符号 64 位整数、十进制字符串或二进制数据存储；跨越 JavaScript 风格的
 安全整数边界时，应使用字符串。
 

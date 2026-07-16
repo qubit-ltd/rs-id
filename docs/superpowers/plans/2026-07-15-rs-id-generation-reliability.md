@@ -1532,9 +1532,9 @@ the wall clock to progress.
 English requirements:
 
 ```markdown
-Qubit Spread IDs may set bit 63 and therefore may exceed `i64::MAX`. Store
-them as unsigned 64-bit values, decimal strings, or binary data; use strings
-when crossing JavaScript-style safe-integer boundaries.
+Qubit Spread IDs always set bit 63 and therefore always exceed `i64::MAX`.
+Store them as unsigned 64-bit values, decimal strings, or binary data; use
+strings when crossing JavaScript-style safe-integer boundaries.
 
 The 64-bit layout reserves neither a sign bit nor a version field. This is an
 intentional capacity and throughput trade-off. A future incompatible layout
