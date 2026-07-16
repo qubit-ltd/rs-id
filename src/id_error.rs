@@ -109,7 +109,21 @@ pub enum IdError {
         /// Minimum allowed time unit in nanoseconds.
         min_nanos: u128,
     },
+    /// The exclusive expiration cannot be represented by [`SystemTime`].
+    #[error(
+        "expiration time overflows SystemTime for origin {origin:?}, time unit \
+         {time_unit:?}, and maximum timestamp {max_timestamp}"
+    )]
+    ExpirationTimeOverflow {
+        /// Configured timestamp origin.
+        origin: SystemTime,
+        /// Duration represented by one encoded timestamp unit.
+        time_unit: Duration,
+        /// Maximum encoded timestamp supported by the layout.
+        max_timestamp: u64,
+    },
     /// The operating system random source could not provide random ID bytes.
+    #[cfg(feature = "uuid")]
     #[error("operating system random source is unavailable")]
     RandomSourceUnavailable {
         /// Error returned by `getrandom`.
@@ -117,6 +131,11 @@ pub enum IdError {
         source: getrandom::Error,
     },
     /// The injected blocking sleeper could not complete a retry wait.
+    #[cfg(any(
+        feature = "qubit-snowflake",
+        feature = "classic-snowflake",
+        feature = "sonyflake",
+    ))]
     #[error("failed to wait before retrying ID generation")]
     SleepFailed {
         /// Error returned by the injected blocking sleeper.

@@ -19,13 +19,12 @@ use qubit_clock::{
     WallClock,
 };
 
-use super::constants::{
-    DEFAULT_MAX_CLOCK_SKEW,
-    DEFAULT_QUBIT_EPOCH_MILLIS,
-};
+use super::constants::DEFAULT_MAX_CLOCK_SKEW;
 use super::internal::{
+    DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
     default_blocking_sleeper,
     default_wall_clock,
+    panic_if_expired,
 };
 use super::qubit_snowflake_generator::QubitSnowflakeGenerator;
 use super::{
@@ -42,6 +41,7 @@ use crate::IdError;
 /// options use Qubit defaults: sequential mode, second precision, epoch
 /// `2018-12-02T00:00:00Z`, the default clock-skew tolerance,
 /// [`RestartPolicy::Immediate`], and standard clock and sleeper capabilities.
+#[must_use = "builders do nothing unless built"]
 pub struct QubitSnowflakeGeneratorBuilder {
     /// ID ordering mode encoded in generated IDs.
     mode: IdMode,
@@ -80,7 +80,7 @@ impl QubitSnowflakeGeneratorBuilder {
             precision: TimestampPrecision::Second,
             host,
             epoch: UNIX_EPOCH
-                + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS),
+                + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             max_clock_skew: DEFAULT_MAX_CLOCK_SKEW,
             restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
@@ -97,7 +97,6 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn mode(mut self, mode: IdMode) -> Self {
         self.mode = mode;
@@ -113,7 +112,6 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn precision(mut self, precision: TimestampPrecision) -> Self {
         self.precision = precision;
@@ -129,7 +127,6 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
@@ -145,7 +142,6 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn max_clock_skew(mut self, max_clock_skew: Duration) -> Self {
         self.max_clock_skew = max_clock_skew;
@@ -161,7 +157,6 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
@@ -177,7 +172,6 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
@@ -193,7 +187,6 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use]
     #[inline(always)]
     pub fn blocking_sleeper(
         mut self,
@@ -212,14 +205,24 @@ impl QubitSnowflakeGeneratorBuilder {
     /// # Errors
     ///
     /// Returns [`IdError::HostOutOfRange`] when the configured host does not
-    /// fit the Qubit host field.
-    #[inline(always)]
+    /// fit the Qubit host field, or [`IdError::ExpirationTimeOverflow`] when
+    /// the exclusive expiration cannot be represented.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the configured wall clock is equal to or later than the
+    /// exclusive expiration boundary.
+    #[inline]
     pub fn build(self) -> Result<QubitSnowflakeGenerator, IdError> {
         let layout =
             QubitSnowflakeLayout::new(self.mode, self.precision, self.host)?;
+        let expires_at = layout.expires_at(self.epoch)?;
+        let current_time = self.wall_clock.now();
+        panic_if_expired("Qubit Snowflake", current_time, expires_at);
         Ok(QubitSnowflakeGenerator::from_config(
             layout,
             self.epoch,
+            expires_at,
             self.max_clock_skew,
             self.restart_policy,
             self.wall_clock,

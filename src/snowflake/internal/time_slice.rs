@@ -9,6 +9,7 @@
 
 /// Mutable timestamp and sequence pair protected by each generator lock.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[must_use]
 pub(crate) struct TimeSlice {
     /// Encoded logical timestamp.
     pub(crate) timestamp: u64,

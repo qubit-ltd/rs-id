@@ -7,11 +7,17 @@
 // =============================================================================
 //! Tests for the Qubit snowflake generator builder.
 
+use std::panic::{
+    AssertUnwindSafe,
+    catch_unwind,
+};
+use std::sync::Arc;
 use std::time::{
     Duration,
     UNIX_EPOCH,
 };
 
+use qubit_clock::FixedWallClock;
 use qubit_id::{
     IdError,
     IdGenerator,
@@ -65,4 +71,42 @@ fn test_qubit_snowflake_generator_builder_rejects_invalid_host() {
             max: 511,
         })
     ));
+}
+
+/// Tests the exclusive expiration getter and construction boundary.
+#[test]
+fn test_qubit_snowflake_generator_builder_enforces_expiration() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let layout = QubitSnowflakeLayout::new(
+        IdMode::Sequential,
+        TimestampPrecision::Second,
+        17,
+    )
+    .expect("Qubit layout must be valid");
+    let expires_at = layout
+        .expires_at(epoch)
+        .expect("Qubit expiration must be representable");
+    let last_valid_time = expires_at - Duration::from_nanos(1);
+
+    let generator = QubitSnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .wall_clock(Arc::new(FixedWallClock::new(last_valid_time)))
+        .build()
+        .expect("the instant before expiration must remain valid");
+    assert_eq!(generator.expires_at(), expires_at);
+
+    for current_time in [expires_at, expires_at + Duration::from_nanos(1)] {
+        let panic = catch_unwind(AssertUnwindSafe(|| {
+            QubitSnowflakeGenerator::builder(17)
+                .epoch(epoch)
+                .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+                .build()
+                .expect("expired configuration must panic before returning")
+        }));
+
+        assert!(
+            panic.is_err(),
+            "construction at {current_time:?} must panic"
+        );
+    }
 }

@@ -36,8 +36,5 @@ pub const TIMESTAMP_BITS_IN_SECOND: u8 = 31;
 /// Sequence bits used by second precision.
 pub const SEQUENCE_BITS_IN_SECOND: u8 = 22;
 
-/// Default Qubit epoch: 2018-12-02T00:00:00Z.
-pub const DEFAULT_QUBIT_EPOCH_MILLIS: u64 = 1_543_708_800_000;
-
 /// Default maximum tolerated raw wall-clock rollback.
 pub const DEFAULT_MAX_CLOCK_SKEW: Duration = Duration::from_secs(3);

@@ -21,7 +21,8 @@ use qubit_clock::{
 /// # Returns
 ///
 /// A shared wall-clock trait object backed by [`std::time::SystemTime`].
-#[inline]
+#[must_use]
+#[inline(always)]
 pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
     Arc::new(StdWallClock::new())
 }
@@ -31,7 +32,8 @@ pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
 /// # Returns
 ///
 /// A shared blocking-sleeper trait object backed by standard monotonic time.
-#[inline]
+#[must_use]
+#[inline(always)]
 pub(crate) fn default_blocking_sleeper() -> Arc<dyn BlockingSleeper> {
     Arc::new(StdBlockingSleeper::new())
 }

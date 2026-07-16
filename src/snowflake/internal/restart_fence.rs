@@ -11,6 +11,7 @@ use super::super::RestartPolicy;
 
 /// Tracks whether a restarted generator may allocate in the observed slice.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[must_use]
 pub(crate) enum RestartFence {
     /// Allocation may begin immediately.
     Disabled,
@@ -51,7 +52,7 @@ impl RestartFence {
     /// # Returns
     ///
     /// `true` while the restart fence remains active; otherwise `false`.
-    #[inline]
+    #[must_use]
     pub(crate) fn should_wait(&mut self, timestamp: u64) -> bool {
         match *self {
             Self::Disabled => false,

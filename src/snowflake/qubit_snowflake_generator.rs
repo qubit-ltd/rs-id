@@ -74,11 +74,14 @@ use crate::{
 /// clock movement within `max_clock_skew` is retried after waiting; a larger
 /// movement returns
 /// [`IdError::ClockMovedBackwards`].
+#[must_use]
 pub struct QubitSnowflakeGenerator {
     /// Bit layout used to compose generated IDs.
     layout: QubitSnowflakeLayout,
     /// Timestamp origin used by encoded timestamps.
     epoch: SystemTime,
+    /// Exclusive timestamp expiration boundary.
+    expires_at: SystemTime,
     /// Maximum tolerated raw wall-clock rollback.
     max_clock_skew: Duration,
     /// Wall clock sampled by allocation attempts.
@@ -104,6 +107,11 @@ impl QubitSnowflakeGenerator {
     ///
     /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the host
     /// field.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the current wall time is equal to or later than the
+    /// layout's exclusive expiration boundary.
     #[inline(always)]
     pub fn new(host: u64) -> Result<Self, IdError> {
         Self::builder(host).build()
@@ -121,7 +129,6 @@ impl QubitSnowflakeGenerator {
     /// # Returns
     ///
     /// A configurable Qubit snowflake generator builder.
-    #[must_use]
     #[inline(always)]
     pub fn builder(host: u64) -> QubitSnowflakeGeneratorBuilder {
         QubitSnowflakeGeneratorBuilder::new(host)
@@ -133,6 +140,7 @@ impl QubitSnowflakeGenerator {
     ///
     /// * `layout` - Validated Qubit bit layout.
     /// * `epoch` - Timestamp origin used by the generator.
+    /// * `expires_at` - Exclusive timestamp expiration boundary.
     /// * `max_clock_skew` - Largest raw clock rollback that may be retried.
     /// * `restart_policy` - Policy controlling the first allocation.
     /// * `wall_clock` - Wall clock sampled during allocation.
@@ -145,6 +153,7 @@ impl QubitSnowflakeGenerator {
     pub(super) fn from_config(
         layout: QubitSnowflakeLayout,
         epoch: SystemTime,
+        expires_at: SystemTime,
         max_clock_skew: Duration,
         restart_policy: RestartPolicy,
         wall_clock: Arc<dyn WallClock>,
@@ -153,6 +162,7 @@ impl QubitSnowflakeGenerator {
         Self {
             layout,
             epoch,
+            expires_at,
             max_clock_skew,
             wall_clock,
             blocking_sleeper,
@@ -175,9 +185,24 @@ impl QubitSnowflakeGenerator {
     /// # Returns
     ///
     /// Timestamp origin.
+    #[must_use]
     #[inline(always)]
     pub const fn epoch(&self) -> SystemTime {
         self.epoch
+    }
+
+    /// Returns the exclusive timestamp expiration boundary.
+    ///
+    /// The generator is expired when the wall clock is equal to or later than
+    /// this time.
+    ///
+    /// # Returns
+    ///
+    /// Exclusive expiration boundary.
+    #[must_use]
+    #[inline(always)]
+    pub const fn expires_at(&self) -> SystemTime {
+        self.expires_at
     }
 
     /// Returns the maximum tolerated backwards clock movement.
@@ -185,6 +210,7 @@ impl QubitSnowflakeGenerator {
     /// # Returns
     ///
     /// Maximum tolerated raw wall-clock rollback.
+    #[must_use]
     #[inline(always)]
     pub const fn max_clock_skew(&self) -> Duration {
         self.max_clock_skew
