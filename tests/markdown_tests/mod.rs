@@ -5,9 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Integration tests for `qubit-id`.
+//! Tests for Markdown documentation.
 
-mod markdown_tests;
-mod snowflake;
-mod support;
-mod uuid;
+mod readme_examples_tests;
