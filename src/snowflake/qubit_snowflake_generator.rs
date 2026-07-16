@@ -56,10 +56,12 @@ use crate::{
 /// time slice, and use overlapping sequence ranges.
 ///
 /// [`RestartPolicy::WaitNextSlice`] waits until after the first observed time
-/// slice. It protects sequential replacement only; it does not coordinate
-/// concurrent same-identity instances, which can cross the fence together and
-/// allocate overlapping sequence ranges. Such deployments require external
-/// exclusivity.
+/// slice. It reduces sequential-replacement risk only when that slice is not
+/// earlier than the predecessor's last allocated slice. Because predecessor
+/// state is not persisted, clock rollback across a restart can still repeat
+/// IDs. The policy also does not coordinate concurrent same-identity instances,
+/// which can cross the fence together and allocate overlapping sequence ranges.
+/// Such deployments require external exclusivity.
 ///
 /// # Blocking and clock behavior
 ///

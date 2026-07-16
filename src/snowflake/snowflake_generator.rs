@@ -57,10 +57,13 @@ const MAX_NODE_ID: u64 = (1_u64 << NODE_BITS) - 1;
 /// overlapping sequence ranges.
 ///
 /// [`RestartPolicy::WaitNextSlice`] waits until after the first observed
-/// millisecond. It protects sequential replacement only; it does not
-/// coordinate concurrent same-identity instances, which can cross the fence
-/// together and allocate overlapping sequence ranges. Such deployments
-/// require external exclusivity.
+/// millisecond. It reduces sequential-replacement risk only when that
+/// millisecond is not earlier than the predecessor's last allocated
+/// millisecond. Because predecessor state is not persisted, clock rollback
+/// across a restart can still repeat IDs. The policy also does not coordinate
+/// concurrent same-identity instances, which can cross the fence together and
+/// allocate overlapping sequence ranges. Such deployments require external
+/// exclusivity.
 ///
 /// # Blocking and clock behavior
 ///

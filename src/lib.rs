@@ -15,8 +15,10 @@
 //! invoking a sleeper. [`IdGenerator::next_id`] may adapt a retry outcome into
 //! a blocking wait. For Snowflake-family generators, configure
 //! [`RestartPolicy::WaitNextSlice`] when a fresh instance should skip its first
-//! observed logical time slice; the default [`RestartPolicy::Immediate`] can
-//! repeat IDs after same-slice allocation state is lost.
+//! observed logical time slice. This policy does not know the predecessor's
+//! allocation watermark, so clock rollback across a restart can still repeat
+//! IDs. The default [`RestartPolicy::Immediate`] can repeat IDs after
+//! same-slice allocation state is lost.
 //!
 //! This crate does not persist allocation state, coordinate generator
 //! identities across processes, reserve a layout version field, or provide an
