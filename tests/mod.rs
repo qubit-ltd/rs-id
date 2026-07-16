@@ -7,7 +7,6 @@
 // =============================================================================
 //! Integration tests for `qubit-id`.
 
-mod error;
-mod id_generator;
 mod snowflake;
+mod support;
 mod uuid;

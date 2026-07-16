@@ -7,6 +7,8 @@
 // =============================================================================
 //! Constants shared by Qubit ID generators.
 
+use std::time::Duration;
+
 /// Number of bits used for the host field in Qubit snowflake IDs.
 pub const HOST_BITS: u8 = 9;
 
@@ -28,20 +30,14 @@ pub const TIMESTAMP_BITS_IN_MILLISECOND: u8 = 41;
 /// Sequence bits used by millisecond precision.
 pub const SEQUENCE_BITS_IN_MILLISECOND: u8 = 12;
 
-/// Sleep duration used while waiting for the next millisecond time slice.
-pub const WAIT_DURATION_IN_MILLISECOND: u64 = 1;
-
 /// Timestamp bits used by second precision.
 pub const TIMESTAMP_BITS_IN_SECOND: u8 = 31;
 
 /// Sequence bits used by second precision.
 pub const SEQUENCE_BITS_IN_SECOND: u8 = 22;
 
-/// Sleep duration used while waiting for the next second time slice.
-pub const WAIT_DURATION_IN_SECOND: u64 = 500;
-
 /// Default Qubit epoch: 2018-12-02T00:00:00Z.
 pub const DEFAULT_QUBIT_EPOCH_MILLIS: u64 = 1_543_708_800_000;
 
-/// Default maximum tolerated clock skew in milliseconds.
-pub const DEFAULT_MAX_SKEW_MILLIS: u64 = 3_000;
+/// Default maximum tolerated raw wall-clock rollback.
+pub const DEFAULT_MAX_CLOCK_SKEW: Duration = Duration::from_secs(3);

@@ -32,7 +32,9 @@ impl IdMode {
     /// Returns the one-bit ordinal used by the Qubit layout.
     ///
     /// # Returns
+    ///
     /// `0` for [`IdMode::Sequential`] and `1` for [`IdMode::Spread`].
+    #[inline(always)]
     pub const fn ordinal(self) -> u64 {
         match self {
             Self::Sequential => 0,
@@ -42,12 +44,15 @@ impl IdMode {
 
     /// Decodes an ID mode from a one-bit value.
     ///
-    /// # Parameters
-    /// - `bit`: Encoded one-bit mode value.
+    /// # Arguments
+    ///
+    /// * `bit` - Encoded one-bit mode value.
     ///
     /// # Returns
+    ///
     /// [`IdMode::Sequential`] for `0`; [`IdMode::Spread`] for every non-zero
     /// value after masking by callers.
+    #[inline(always)]
     pub const fn from_bit(bit: u64) -> Self {
         if bit == 0 {
             Self::Sequential

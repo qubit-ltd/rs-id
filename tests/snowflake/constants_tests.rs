@@ -5,8 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::time::Duration;
+
 use qubit_id::{
-    DEFAULT_MAX_SKEW_MILLIS,
+    DEFAULT_MAX_CLOCK_SKEW,
     HOST_BITS,
     HOST_MAX,
     HOST_MIN,
@@ -20,5 +22,5 @@ fn test_snowflake_public_constants_match_layout() {
     assert_eq!(HOST_MIN, 0);
     assert_eq!(HOST_MAX, 511);
     assert_eq!(PRECISION_BITS, 1);
-    assert_eq!(DEFAULT_MAX_SKEW_MILLIS, 3_000);
+    assert_eq!(DEFAULT_MAX_CLOCK_SKEW, Duration::from_secs(3));
 }

@@ -8,22 +8,26 @@
 //! Classic 41/10/12 Snowflake generator.
 
 use std::sync::Arc;
-use std::thread;
 use std::time::{
     Duration,
     SystemTime,
-    UNIX_EPOCH,
 };
 
 use parking_lot::Mutex;
-
-use super::constants::DEFAULT_QUBIT_EPOCH_MILLIS;
-use super::time_slice::TimeSlice;
-use super::time_slice_reservation::{
-    TimeSliceReservation,
-    reserve_next,
+use qubit_clock::{
+    BlockingSleeper,
+    WallClock,
 };
+
+use super::RestartPolicy;
+use super::internal::{
+    ClockObservation,
+    GenerationState,
+    block_until_generated,
+};
+use super::snowflake_generator_builder::SnowflakeGeneratorBuilder;
 use crate::{
+    GenerationOutcome,
     IdError,
     IdGenerator,
 };
@@ -37,6 +41,7 @@ const MAX_NODE_ID: u64 = (1_u64 << NODE_BITS) - 1;
 /// bits.
 ///
 /// # Uniqueness
+///
 /// The generator is thread-safe. Successful [`IdGenerator::next_id`] and
 /// [`IdGenerator::next_string`] calls on one shared live instance never return
 /// the same ID. A process should share one instance for each ID namespace.
@@ -44,84 +49,105 @@ const MAX_NODE_ID: u64 = (1_u64 << NODE_BITS) - 1;
 /// an exclusive node identifier when its epoch can produce IDs in the same
 /// namespace.
 ///
-/// The first generation call allocates sequence zero in the currently observed
-/// millisecond without waiting. Allocation state is not persisted, so
-/// replacing an instance with the same node and epoch inside one millisecond
-/// can repeat IDs. Applications that reuse nodes across restarts must
-/// coordinate node leases, wait outside the generator, or persist allocation
-/// state.
+/// The default [`RestartPolicy::Immediate`] allocates sequence zero in the
+/// currently observed millisecond without waiting. Allocation state is not
+/// persisted. State loss or replacement can repeat an ID only when the
+/// instances use the same effective identity (`node_id`), layout, and
+/// reference time (`epoch`), allocate in the same logical millisecond, and use
+/// overlapping sequence ranges.
+///
+/// [`RestartPolicy::WaitNextSlice`] waits until after the first observed
+/// millisecond. It protects sequential replacement only; it does not
+/// coordinate concurrent same-identity instances, which can cross the fence
+/// together and allocate overlapping sequence ranges. Such deployments
+/// require external exclusivity.
 ///
 /// # Blocking and clock behavior
-/// A call after sequence exhaustion can block for approximately one
-/// millisecond while the clock advances normally. A stalled clock can block
-/// indefinitely. A backwards clock movement returns
+///
+/// [`IdGenerator::try_next_id`] performs one attempt and never sleeps for clock
+/// progress or invokes the configured sleeper, although it can briefly contend
+/// for the internal mutex. [`IdGenerator::next_id`] and
+/// [`IdGenerator::next_string`] wait across retry outcomes. They may wait
+/// indefinitely when the wall clock stalls or
+/// the injected sleeper does not cause wall time to progress. A backwards
+/// clock movement returns
 /// [`IdError::ClockMovedBackwards`] immediately.
 pub struct SnowflakeGenerator {
+    /// Node identifier encoded in generated IDs.
     node_id: u64,
+    /// Timestamp origin used by encoded timestamps.
     epoch: SystemTime,
-    clock: Arc<dyn Fn() -> SystemTime + Send + Sync>,
-    state: Mutex<Option<TimeSlice>>,
+    /// Wall clock sampled by allocation attempts.
+    wall_clock: Arc<dyn WallClock>,
+    /// Sleeper used only by blocking generation.
+    blocking_sleeper: Arc<dyn BlockingSleeper>,
+    /// Synchronized raw-clock and sequence allocation state.
+    state: Mutex<GenerationState>,
 }
 
 impl SnowflakeGenerator {
     /// Creates a classic Snowflake generator with the default Qubit epoch.
     ///
-    /// # Parameters
-    /// - `node_id`: Node identifier in `0..=1023`.
+    /// # Arguments
+    ///
+    /// * `node_id` - Node identifier in `0..=1023`.
     ///
     /// # Returns
+    ///
     /// A configured generator.
     ///
     /// # Errors
+    ///
     /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10
     /// bits.
+    #[inline(always)]
     pub fn new(node_id: u64) -> Result<Self, IdError> {
-        Self::with_epoch(
-            node_id,
-            UNIX_EPOCH + Duration::from_millis(DEFAULT_QUBIT_EPOCH_MILLIS),
-        )
+        Self::builder(node_id).build()
     }
 
-    /// Creates a classic Snowflake generator with an explicit epoch.
+    /// Creates a configurable builder for the specified node identifier.
     ///
-    /// # Parameters
-    /// - `node_id`: Node identifier in `0..=1023`.
-    /// - `epoch`: Timestamp origin.
+    /// Node validation is performed when [`SnowflakeGeneratorBuilder::build`]
+    /// is called.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - Node identifier to encode in generated IDs.
     ///
     /// # Returns
-    /// A configured generator using the system clock.
+    ///
+    /// A configurable classic Snowflake generator builder.
+    #[must_use]
+    #[inline(always)]
+    pub fn builder(node_id: u64) -> SnowflakeGeneratorBuilder {
+        SnowflakeGeneratorBuilder::new(node_id)
+    }
+
+    /// Constructs a generator from a complete builder configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - Node identifier to encode in generated IDs.
+    /// * `epoch` - Timestamp origin used by the generator.
+    /// * `restart_policy` - Policy controlling the first allocation.
+    /// * `wall_clock` - Wall clock sampled during allocation.
+    /// * `blocking_sleeper` - Sleeper used by blocking generation.
+    ///
+    /// # Returns
+    ///
+    /// A generator containing the complete builder configuration.
     ///
     /// # Errors
+    ///
     /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10
     /// bits.
-    pub fn with_epoch(
+    pub(super) fn from_config(
         node_id: u64,
         epoch: SystemTime,
+        restart_policy: RestartPolicy,
+        wall_clock: Arc<dyn WallClock>,
+        blocking_sleeper: Arc<dyn BlockingSleeper>,
     ) -> Result<Self, IdError> {
-        Self::with_clock(node_id, epoch, SystemTime::now)
-    }
-
-    /// Creates a classic Snowflake generator with an explicit clock.
-    ///
-    /// # Parameters
-    /// - `node_id`: Node identifier in `0..=1023`.
-    /// - `epoch`: Timestamp origin.
-    /// - `clock`: Function returning the current time.
-    ///
-    /// # Returns
-    /// A configured generator.
-    ///
-    /// # Errors
-    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit in 10
-    /// bits.
-    pub fn with_clock<F>(
-        node_id: u64,
-        epoch: SystemTime,
-        clock: F,
-    ) -> Result<Self, IdError>
-    where
-        F: Fn() -> SystemTime + Send + Sync + 'static,
-    {
         if node_id > MAX_NODE_ID {
             return Err(IdError::NodeOutOfRange {
                 node_id,
@@ -131,15 +157,18 @@ impl SnowflakeGenerator {
         Ok(Self {
             node_id,
             epoch,
-            clock: Arc::new(clock),
-            state: Mutex::new(None),
+            wall_clock,
+            blocking_sleeper,
+            state: Mutex::new(GenerationState::new(restart_policy)),
         })
     }
 
     /// Returns the configured node identifier.
     ///
     /// # Returns
+    ///
     /// Node identifier.
+    #[inline(always)]
     pub const fn node_id(&self) -> u64 {
         self.node_id
     }
@@ -147,7 +176,9 @@ impl SnowflakeGenerator {
     /// Returns the configured epoch.
     ///
     /// # Returns
+    ///
     /// Timestamp origin.
+    #[inline(always)]
     pub const fn epoch(&self) -> SystemTime {
         self.epoch
     }
@@ -155,7 +186,9 @@ impl SnowflakeGenerator {
     /// Returns the maximum representable timestamp.
     ///
     /// # Returns
+    ///
     /// Maximum timestamp in milliseconds since the epoch.
+    #[inline(always)]
     pub const fn max_timestamp(&self) -> u64 {
         (1_u64 << TIMESTAMP_BITS) - 1
     }
@@ -163,7 +196,9 @@ impl SnowflakeGenerator {
     /// Returns the maximum representable sequence.
     ///
     /// # Returns
+    ///
     /// Maximum sequence number.
+    #[inline(always)]
     pub const fn max_sequence(&self) -> u64 {
         (1_u64 << SEQUENCE_BITS) - 1
     }
@@ -173,14 +208,17 @@ impl SnowflakeGenerator {
     /// This method is stateless. Repeating its inputs repeats the ID, so it
     /// provides no uniqueness guarantee.
     ///
-    /// # Parameters
-    /// - `timestamp`: Milliseconds elapsed since the epoch.
-    /// - `sequence`: Sequence value inside the timestamp millisecond.
+    /// # Arguments
+    ///
+    /// * `timestamp` - Milliseconds elapsed since the epoch.
+    /// * `sequence` - Sequence value inside the timestamp millisecond.
     ///
     /// # Returns
+    ///
     /// Encoded ID.
     ///
     /// # Errors
+    ///
     /// Returns [`IdError::TimestampOverflow`] or [`IdError::SequenceOverflow`]
     /// when a part does not fit the classic Snowflake layout.
     pub fn compose(
@@ -207,112 +245,131 @@ impl SnowflakeGenerator {
 
     /// Extracts the timestamp part from an ID.
     ///
-    /// # Parameters
-    /// - `id`: ID generated by this layout.
+    /// # Arguments
+    ///
+    /// * `id` - ID generated by this layout.
     ///
     /// # Returns
+    ///
     /// Milliseconds elapsed since the epoch.
+    #[inline(always)]
     pub const fn extract_timestamp(&self, id: u64) -> u64 {
         id >> (NODE_BITS + SEQUENCE_BITS)
     }
 
     /// Extracts the node identifier from an ID.
     ///
-    /// # Parameters
-    /// - `id`: ID generated by this layout.
+    /// # Arguments
+    ///
+    /// * `id` - ID generated by this layout.
     ///
     /// # Returns
+    ///
     /// Node identifier.
+    #[inline(always)]
     pub const fn extract_node_id(&self, id: u64) -> u64 {
         (id >> SEQUENCE_BITS) & MAX_NODE_ID
     }
 
     /// Extracts the sequence number from an ID.
     ///
-    /// # Parameters
-    /// - `id`: ID generated by this layout.
+    /// # Arguments
+    ///
+    /// * `id` - ID generated by this layout.
     ///
     /// # Returns
+    ///
     /// Sequence number.
+    #[inline(always)]
     pub const fn extract_sequence(&self, id: u64) -> u64 {
         id & ((1_u64 << SEQUENCE_BITS) - 1)
     }
 
-    /// Converts a clock time into milliseconds since the epoch.
+    /// Converts a clock time into a raw millisecond observation.
     ///
-    /// # Parameters
-    /// - `time`: Time to convert.
+    /// # Arguments
+    ///
+    /// * `time` - Time to convert.
     ///
     /// # Returns
-    /// Milliseconds elapsed since the epoch.
+    ///
+    /// Raw elapsed time and encoded milliseconds since the epoch.
     ///
     /// # Errors
+    ///
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
-    fn timestamp_for(&self, time: SystemTime) -> Result<u64, IdError> {
-        let elapsed = time
-            .duration_since(self.epoch)
-            .map_err(|_| IdError::TimeBeforeEpoch)?;
-        let timestamp = elapsed.as_millis();
-        if timestamp > u128::from(self.max_timestamp()) {
-            return Err(IdError::TimestampOverflow {
-                timestamp: u64::try_from(timestamp).unwrap_or(u64::MAX),
-                max: self.max_timestamp(),
-            });
-        }
-        Ok(timestamp as u64)
-    }
-
-    /// Reads the current timestamp from the configured clock.
-    ///
-    /// # Returns
-    /// Current timestamp in milliseconds.
-    ///
-    /// # Errors
-    /// Returns [`IdError::TimeBeforeEpoch`] when the clock is before the epoch.
-    fn current_timestamp(&self) -> Result<u64, IdError> {
-        self.timestamp_for((self.clock)())
-    }
-
-    /// Waits once before retrying allocation through the shared transition.
-    ///
-    /// The next clock reading is handled by [`reserve_next`] so a rollback
-    /// observed while waiting is reported consistently.
-    fn wait_before_retry() {
-        thread::sleep(Duration::from_millis(1));
+    fn observation_for(
+        &self,
+        time: SystemTime,
+    ) -> Result<ClockObservation, IdError> {
+        ClockObservation::from_time(
+            time,
+            self.epoch,
+            Duration::from_millis(1),
+            self.max_timestamp(),
+        )
     }
 }
 
-impl IdGenerator<u64> for SnowflakeGenerator {
+impl IdGenerator for SnowflakeGenerator {
+    type Id = u64;
     type Error = IdError;
 
-    /// Generates the next classic Snowflake ID.
-    fn next_id(&self) -> Result<u64, Self::Error> {
-        loop {
-            let reservation = {
-                let mut state = self.state.lock();
-                let timestamp = self.current_timestamp()?;
-                reserve_next(&mut state, timestamp, self.max_sequence())
-            };
-            match reservation {
-                TimeSliceReservation::Allocated(time_slice) => {
-                    return self
-                        .compose(time_slice.timestamp, time_slice.sequence);
-                }
-                TimeSliceReservation::WaitForNext => {
-                    Self::wait_before_retry();
-                }
-                TimeSliceReservation::ClockMovedBackwards {
-                    last_timestamp,
-                    current_timestamp,
-                } => {
-                    return Err(IdError::ClockMovedBackwards {
-                        last_timestamp,
-                        current_timestamp,
-                        skew_millis: last_timestamp - current_timestamp,
-                        max_skew_millis: 0,
-                    });
-                }
+    /// Performs one classic Snowflake allocation attempt without sleeping.
+    ///
+    /// # Returns
+    ///
+    /// A generated ID or the positive duration before another attempt.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IdError`] when the clock or encoded timestamp is invalid.
+    fn try_next_id(&self) -> Result<GenerationOutcome<Self::Id>, Self::Error> {
+        let outcome = {
+            let mut state = self.state.lock();
+            let observation = self.observation_for(self.wall_clock.now())?;
+            state.reserve(observation, self.max_sequence(), Duration::ZERO)?
+        };
+        match outcome {
+            GenerationOutcome::Generated(time_slice) => self
+                .compose(time_slice.timestamp, time_slice.sequence)
+                .map(GenerationOutcome::Generated),
+            GenerationOutcome::RetryAfter(duration) => {
+                Ok(GenerationOutcome::RetryAfter(duration))
             }
         }
+    }
+
+    /// Generates the next classic Snowflake ID.
+    ///
+    /// This method blocks across retryable sequence exhaustion.
+    ///
+    /// # Returns
+    ///
+    /// The next generated classic Snowflake ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns an allocation error or [`IdError::SleepFailed`] when a retry
+    /// delay cannot be completed.
+    #[inline(always)]
+    fn next_id(&self) -> Result<Self::Id, Self::Error> {
+        block_until_generated(self.blocking_sleeper.as_ref(), || {
+            self.try_next_id()
+        })
+    }
+
+    /// Formats a classic Snowflake ID as unsigned decimal text.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Classic Snowflake ID to format.
+    ///
+    /// # Returns
+    ///
+    /// Unsigned decimal text for `id`.
+    #[inline(always)]
+    fn format_id(&self, id: &Self::Id) -> String {
+        id.to_string()
     }
 }
