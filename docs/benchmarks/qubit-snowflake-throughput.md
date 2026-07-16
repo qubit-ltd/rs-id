@@ -9,11 +9,12 @@ systems, Rust versions, or workloads.
 
 ## Environment
 
-- Date: 2026-07-15
-- Branch: `dev-starfish`
-- Repository base revision: `e1fd56924fa4b6117a67646bddb68118e7fdc83f`
-- Working tree: base revision plus the generator, benchmark, tests, and
-  documentation described in this report
+- Date: 2026-07-16
+- Branch: `codex/rs-id-generation-reliability`
+- Repository base revision: `8f278f854833ab49cd9d613f5129b211e6409a95`
+- Working tree: base revision plus the restart-policy, non-sleeping generation,
+  raw rollback detection, `qubit-clock` injection, tests, benchmark
+  organization, and documentation changes described in this report
 - Operating system: Linux 6.17.0-35-generic, x86-64
 - CPU: Intel Core i5-9600K at 3.70 GHz, up to 4.60 GHz
 - Topology: 1 socket, 6 physical cores, 6 logical CPUs, no SMT
@@ -51,45 +52,62 @@ RUSTFLAGS="-C target-cpu=native" \
     cargo bench --bench qubit_snowflake_throughput
 ```
 
+The run reported this configuration:
+
+```text
+configuration throughput_samples=3 startup_samples=10000 warm_up_ids=100000
+```
+
 ## Sustained Throughput Results
 
 | Precision | Threads | Samples | Slices/sample | Capacity/sample | Median IDs | Median utilization | Median elapsed | Min IDs/s | Median IDs/s | Max IDs/s |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Millisecond | 1 | 3 | 2,000 | 8,192,000 | 6,458,930 | 78.84% | 2.000098 s | 3,062,183 | 3,229,306 | 3,273,197 |
-| Millisecond | 2 | 3 | 2,000 | 8,192,000 | 6,322,251 | 77.18% | 2.000974 s | 3,002,746 | 3,159,587 | 3,351,284 |
-| Millisecond | 4 | 3 | 2,000 | 8,192,000 | 5,932,524 | 72.42% | 2.001102 s | 2,920,390 | 2,964,628 | 3,232,600 |
-| Millisecond | 6 | 3 | 2,000 | 8,192,000 | 5,977,238 | 72.96% | 2.000974 s | 2,635,216 | 2,987,165 | 3,306,038 |
-| Second | 1 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.157073 s | 3,493,656 | 3,888,885 | 4,012,241 |
-| Second | 2 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.005250 s | 4,121,096 | 4,183,322 | 4,192,669 |
-| Second | 4 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.120366 s | 3,709,480 | 3,956,208 | 3,984,761 |
-| Second | 6 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.447360 s | 3,424,117 | 3,427,615 | 3,461,218 |
+| Millisecond | 1 | 3 | 2,000 | 8,192,000 | 8,159,878 | 99.61% | 2.000126 s | 4,067,147 | 4,079,682 | 4,081,306 |
+| Millisecond | 2 | 3 | 2,000 | 8,192,000 | 8,192,000 | 100.00% | 2.000169 s | 4,095,415 | 4,095,653 | 4,095,740 |
+| Millisecond | 4 | 3 | 2,000 | 8,192,000 | 8,191,174 | 99.99% | 2.000144 s | 4,089,869 | 4,095,291 | 4,095,355 |
+| Millisecond | 6 | 3 | 2,000 | 8,192,000 | 8,192,000 | 100.00% | 2.000183 s | 4,091,859 | 4,095,625 | 4,095,792 |
+| Second | 1 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 1.999694 s | 4,194,205 | 4,194,945 | 4,195,563 |
+| Second | 2 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 1.999821 s | 4,193,891 | 4,194,679 | 4,194,700 |
+| Second | 4 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 1.999574 s | 4,194,172 | 4,195,197 | 4,195,524 |
+| Second | 6 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.000073 s | 4,193,560 | 4,194,150 | 4,194,206 |
 
 ## Startup Latency Results
 
 | Precision | Samples | Minimum | Median | Maximum |
 |---|---:|---:|---:|---:|
-| Millisecond | 10,000 | 81 ns | 83 ns | 2,588 ns |
-| Second | 10,000 | 81 ns | 84 ns | 349 ns |
+| Millisecond | 10,000 | 117 ns | 131 ns | 25,997 ns |
+| Second | 10,000 | 117 ns | 122 ns | 25,892 ns |
 
 ## Interpretation
 
-Millisecond mode reached its highest median result with one worker, at
-approximately 3.23 million IDs/s. More callers did not improve median
-throughput because they contend for the same generator mutex. The observed
-min-to-max ranges also show why one benchmark sample is not sufficient for
-comparing small differences between worker counts.
+Millisecond mode reached approximately 4.08 million IDs/s with one worker and
+4.096 million IDs/s with two, four, and six workers. The two-worker sample had
+the highest median, but the two-, four-, and six-worker min-to-max ranges
+overlap and all three configurations are effectively at the 4,096 IDs/ms
+layout limit. More callers cannot raise that hard limit and still contend for
+the same generator mutex.
 
-Second mode is sequence-capacity-bound. Every sample consumed the complete
-22-bit sequence space for both measured slices. The best median result was
-approximately 4.18 million IDs/s with two workers, close to the hard limit of
-4,194,304 IDs per second. Once the sequence space is exhausted, thread
-scheduling around the next clock boundary affects elapsed time but cannot
-increase capacity.
+Second mode is also sequence-capacity-bound. Every sample consumed the complete
+22-bit sequence space for both measured slices, and every median was
+approximately 4.194 million IDs/s. Differences among worker counts are inside
+their observed ranges. Once the sequence space is exhausted, thread scheduling
+around the next clock boundary can affect elapsed time but cannot increase
+capacity.
 
-The median build-plus-first-ID latency was below 100 ns for both precisions on
-this run. This confirms that first generation no longer includes a one-second
-startup fence. Tail values remain sensitive to scheduling and interruption, so
-applications should not treat these observations as latency guarantees.
+The median build-plus-first-ID latency was 131 ns in millisecond mode and 122 ns
+in second mode, compared with 83 ns and 84 ns in the previous record. The
+constructor now creates separate Arc-backed standard wall-clock, monotonic
+clock, and blocking-sleeper objects instead of one clock closure, so a modest
+startup-cost increase is expected. The min-to-max ranges overlap because tail
+values are sensitive to scheduling and interruption; this run is not enough to
+claim a general latency regression. Immediate first allocation still avoids a
+time-slice startup fence.
+
+For every throughput case, this run's complete min-to-max range was above the
+corresponding previously recorded range on the same machine and unchanged
+measurement method. That is an observed improvement for this working tree, not
+a causal isolation of one implementation change or a guarantee for other
+loads.
 
 Reducing the sequence field by one bit would halve the hard limit to 2,048,000
 IDs/s in millisecond mode and 2,097,152 IDs/s in second mode. That is a material
