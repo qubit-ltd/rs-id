@@ -5,4 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-mod sonyflake_generator_tests;
+//! Defines an opaque ID fixture without a `Display` implementation.
+
+/// Opaque test ID whose formatting belongs to its generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OpaqueId {
+    /// Numeric payload used by the fixture formatter.
+    pub(crate) value: u64,
+}

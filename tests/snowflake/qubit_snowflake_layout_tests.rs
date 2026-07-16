@@ -29,6 +29,15 @@ const BOUNDARY_IDS: [u64; 8] = [
 ];
 
 /// Produces a deterministic pseudo-random value with the SplitMix64 mixer.
+///
+/// # Arguments
+///
+/// * `state` - Mutable SplitMix64 state advanced by this call.
+///
+/// # Returns
+///
+/// The next deterministically mixed value.
+#[inline]
 fn next_property_value(state: &mut u64) -> u64 {
     *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
     let mut value = *state;
@@ -38,6 +47,14 @@ fn next_property_value(state: &mut u64) -> u64 {
 }
 
 /// Asserts that decoding and recomposing an arbitrary bit pattern is lossless.
+///
+/// # Arguments
+///
+/// * `id` - Arbitrary 64-bit pattern to round-trip.
+///
+/// # Panics
+///
+/// Panics when decoded fields cannot construct a layout or recompose to `id`.
 fn assert_id_round_trip(id: u64) {
     let parts = QubitSnowflakeLayout::decode(id);
     let layout = QubitSnowflakeLayout::new(
@@ -48,8 +65,10 @@ fn assert_id_round_trip(id: u64) {
     .expect("a decoded host must fit its field");
 
     assert_eq!(
-        layout.compose(parts.timestamp(), parts.sequence()),
-        Ok(id),
+        layout
+            .compose(parts.timestamp(), parts.sequence())
+            .expect("decoded parts should recompose"),
+        id,
         "round trip failed for ID {id:#018x}",
     );
 }
@@ -85,7 +104,12 @@ fn test_compose_all_fixed_header_layouts() {
                 | (host << sequence_bits)
                 | sequence;
 
-            assert_eq!(layout.compose(timestamp, sequence), Ok(expected));
+            assert_eq!(
+                layout
+                    .compose(timestamp, sequence)
+                    .expect("fixed parts should fit"),
+                expected
+            );
         }
     }
 }
@@ -95,33 +119,35 @@ fn test_compose_all_fixed_header_layouts() {
 fn test_new_and_compose_reject_out_of_range_parts() {
     assert_eq!(HOST_MIN, 0);
     assert_eq!(HOST_MAX, 511);
-    assert_eq!(
+    assert!(matches!(
         QubitSnowflakeLayout::new(
             IdMode::Sequential,
             TimestampPrecision::Second,
             HOST_MAX + 1,
         ),
         Err(IdError::HostOutOfRange {
-            host: HOST_MAX + 1,
-            max: HOST_MAX,
-        })
-    );
+            host,
+            max,
+        }) if host == HOST_MAX + 1 && max == HOST_MAX
+    ));
 
     let layout = QubitSnowflakeLayout::default();
-    assert_eq!(
+    assert!(matches!(
         layout.compose(layout.max_timestamp() + 1, 0),
         Err(IdError::TimestampOverflow {
-            timestamp: layout.max_timestamp() + 1,
-            max: layout.max_timestamp(),
-        })
-    );
-    assert_eq!(
+            timestamp,
+            max,
+        }) if timestamp == layout.max_timestamp() + 1
+            && max == layout.max_timestamp()
+    ));
+    assert!(matches!(
         layout.compose(0, layout.max_sequence() + 1),
         Err(IdError::SequenceOverflow {
-            sequence: layout.max_sequence() + 1,
-            max: layout.max_sequence(),
-        })
-    );
+            sequence,
+            max,
+        }) if sequence == layout.max_sequence() + 1
+            && max == layout.max_sequence()
+    ));
 }
 
 /// Tests layout getters and default values.

@@ -34,11 +34,14 @@ doctest = true
 
 [[bench]]
 name = "qubit_snowflake_throughput"
+path = "benches/qubit_snowflake_throughput/main.rs"
 harness = false
 
 [dependencies]
 getrandom = "0.4"
 parking_lot = "0.12"
+qubit-clock = { version = "0.9", path = "../rs-clock" }
+thiserror = "2.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

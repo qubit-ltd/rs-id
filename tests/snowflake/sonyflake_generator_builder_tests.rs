@@ -17,17 +17,21 @@ use qubit_id::{
     SonyflakeGenerator,
 };
 
+use crate::support::ManualTime;
+
 /// Tests that every configurable Sonyflake option is applied.
 #[test]
 fn test_sonyflake_generator_builder_builds_configuration() {
     let start_time = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
     let time_unit = Duration::from_millis(5);
+    let time = ManualTime::new(start_time + Duration::from_millis(100));
     let generator = SonyflakeGenerator::builder(17)
         .bits_sequence(7)
         .bits_machine(5)
         .time_unit(time_unit)
         .start_time(start_time)
-        .clock(move || start_time + Duration::from_millis(100))
+        .wall_clock(time.wall_clock())
+        .blocking_sleeper(time.blocking_sleeper())
         .build()
         .expect("configuration should be valid");
 
