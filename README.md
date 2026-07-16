@@ -12,7 +12,8 @@ Documentation: [API Reference](https://docs.rs/qubit-id)
 
 `qubit-id` provides ID generation utilities for Rust services.
 
-It includes one common `IdGenerator<T>` trait plus generators for
+It includes one common `IdGenerator` trait with associated ID and error types,
+plus generators for
 database-friendly Snowflake IDs, Sonyflake-style IDs, and fast UUID-like random
 identifiers.
 
@@ -36,12 +37,22 @@ qubit-id = "0.3"
 ## Quick Start
 
 ```rust
-use qubit_id::{IdGenerator, MicaUuidLikeGenerator, QubitSnowflakeGenerator};
+use qubit_id::{
+    GenerationOutcome, IdGenerator, MicaUuidLikeGenerator,
+    QubitSnowflakeGenerator,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let snowflake = QubitSnowflakeGenerator::new(1)?;
     let id: u64 = snowflake.next_id()?;
     let id_text = snowflake.next_string()?;
+
+    match snowflake.try_next_id()? {
+        GenerationOutcome::Generated(id) => println!("{id}"),
+        GenerationOutcome::RetryAfter(duration) => {
+            println!("retry after {duration:?}");
+        }
+    }
 
     let uuid_like = MicaUuidLikeGenerator::new();
     let uuid_like_value: u128 = uuid_like.next_id()?;
@@ -56,12 +67,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 | Type | Purpose |
 | --- | --- |
-| `IdGenerator<T>` | Common trait for typed ID generation and string formatting. |
+| `IdGenerator` | Common trait with associated ID and error types for generation and string formatting. |
+| `GenerationOutcome<T>` | Result of one non-sleeping generation attempt: an ID or a retry delay. |
+| `RestartPolicy` | Controls whether a fresh Snowflake generator allocates immediately or waits for the next time slice. |
 | `QubitSnowflakeGenerator` | Qubit fixed-header Snowflake generator. |
 | `QubitSnowflakeGeneratorBuilder` | Configures a Qubit Snowflake generator. |
 | `QubitSnowflakeLayout` | Composes Qubit Snowflake IDs and decodes any Qubit layout from its fixed header. |
 | `QubitSnowflakeParts` | Fields returned by `QubitSnowflakeLayout::decode`. |
 | `SnowflakeGenerator` | Classic 41-bit time, 10-bit node, 12-bit sequence Snowflake generator. |
+| `SnowflakeGeneratorBuilder` | Configures a classic Snowflake generator. |
 | `SonyflakeGenerator` | Sonyflake-style generator with configurable sequence and machine bits. |
 | `SonyflakeGeneratorBuilder` | Configures a Sonyflake-style generator. |
 | `MicaUuidLikeGenerator` | Mica-style random 128-bit UUID-like generator. |
@@ -86,23 +100,40 @@ The crate does not allocate or coordinate these identities. Different epochs,
 start times, or bit layouts can also overlap numerically, so deployment
 configuration is part of the ID namespace.
 
-The first call allocates sequence zero in the currently observed time slice and
-does not wait for the next slice. Allocation state is not persisted, so a
-replacement instance using the same identity and epoch/start time can repeat an
-ID when it starts inside a time slice used by the previous instance. Reusing an
-identity across restarts therefore requires an external lease, an external
-cooldown, or persisted allocation state.
+The default restart policy is `RestartPolicy::Immediate`: the first call
+allocates sequence zero in the currently observed logical time slice without
+waiting. Allocation state is not persisted. State loss or replacement can
+repeat an ID only when all three conditions hold: the instances use the same
+effective identity, layout, and reference time; they allocate in the same
+logical time slice; and their allocated sequence ranges overlap. The effective
+identity is `host`, `node_id`, or `machine_id`; the reference time is the epoch
+or Sonyflake start time.
 
-A call after sequence exhaustion can block for approximately one configured
-time unit while the clock advances normally, and a stalled clock can block
-indefinitely. Qubit Snowflake retries rollback within its configured tolerance
-and rejects larger skew; classic Snowflake and Sonyflake reject any observed
-rollback immediately. No asynchronous generation API is provided because the
-normal wait is only one small time unit.
+`RestartPolicy::WaitNextSlice` records the first slice observed by a fresh
+generator and waits for a later slice before allocating. It protects only a
+sequential replacement, where the old instance has stopped before the new one
+starts. It does not coordinate concurrently running instances with the same
+effective identity: such instances can cross the fence together and allocate
+overlapping sequence ranges. Concurrent same-identity deployment still
+requires an external exclusive lease or equivalent coordination. This crate
+does not provide persistent allocation state or cross-process coordination.
+
+`try_next_id()` and `try_next_string()` perform one allocation attempt and
+never sleep for clock progress or invoke the configured sleeper. A synchronized
+generator can still wait briefly to acquire its internal mutex. `next_id()` and
+`next_string()` adapt retry outcomes into blocking waits. After sequence
+exhaustion or a tolerated
+Qubit clock rollback, they normally wait for approximately one configured time
+unit, but they may wait indefinitely when the wall clock stalls or an injected
+sleeper does not cause the wall clock to progress. Qubit Snowflake retries
+rollback within its configured tolerance and rejects larger skew; classic
+Snowflake and Sonyflake reject any observed rollback immediately.
 
 `compose`, `generate_at`, and `decode` are stateless transformations and do not
-guarantee uniqueness. `MicaUuidLikeGenerator` uses 128 random bits, so its
-uniqueness is probabilistic and a theoretical collision remains possible.
+guarantee uniqueness. Decoding an arbitrary `u64` only extracts fields; it does
+not authenticate or validate the value. `MicaUuidLikeGenerator` uses 128 random
+bits, so its uniqueness is probabilistic and a theoretical collision remains
+possible.
 
 ## Generator Examples
 
@@ -134,14 +165,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 Configure the Qubit layout explicitly when you need spread mode or millisecond
-precision.
+precision. The example also selects `WaitNextSlice`; omit that setter to keep
+the default `Immediate` policy.
 
 ```rust
 use std::time::{Duration, UNIX_EPOCH};
 
 use qubit_id::{
     IdGenerator, IdMode, QubitSnowflakeGenerator, QubitSnowflakeLayout,
-    TimestampPrecision,
+    RestartPolicy, TimestampPrecision,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -149,6 +181,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .mode(IdMode::Spread)
         .precision(TimestampPrecision::Millisecond)
         .epoch(UNIX_EPOCH + Duration::from_millis(1_543_708_800_000))
+        .restart_policy(RestartPolicy::WaitNextSlice)
         .build()?;
 
     let id = generator.next_id()?;
@@ -294,6 +327,18 @@ without knowing the timestamp and sequence widths first.
 
 This layout prioritizes a self-describing header, so the ID mode and precision
 can be identified directly during parsing.
+
+Qubit Spread IDs may set bit 63 and therefore may exceed `i64::MAX`. Store
+them as unsigned 64-bit values, decimal strings, or binary data; use strings
+when crossing JavaScript-style safe-integer boundaries.
+
+The 64-bit layout reserves neither a sign bit nor a version field. This is an
+intentional capacity and throughput trade-off. A future incompatible layout
+must use a new explicit type or API rather than silently changing this one.
+
+Decoding an arbitrary `u64` only extracts fields according to the layout. It
+does not prove that the value was produced by this generator and is not an
+authenticity or format-validation operation.
 
 ### Choosing A Snowflake Generator
 
