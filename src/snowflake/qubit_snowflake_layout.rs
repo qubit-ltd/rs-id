@@ -34,33 +34,58 @@ use crate::IdError;
 /// [`IdMode::Spread`] reversibly obscures the numeric relationship between
 /// adjacent timestamp slices. It is intended to make simple ordering and
 /// volume inference from public IDs harder, not to provide encryption.
+/// Spread IDs may set bit 63 and therefore exceed `i64::MAX`. Store them as
+/// unsigned 64-bit values, decimal strings, or binary data; use strings when
+/// crossing JavaScript-style safe-integer boundaries.
+///
+/// The 64-bit layout reserves neither a sign bit nor a version field. This is
+/// an intentional capacity and throughput trade-off. A future incompatible
+/// layout must use a new explicit type or API rather than silently changing
+/// this one.
+///
+/// Decoding an arbitrary `u64` only extracts fields according to the layout.
+/// It does not prove that the value was produced by this generator and is not
+/// an authenticity or format-validation operation.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct QubitSnowflakeLayout {
+    /// ID ordering mode encoded in the high-bit header.
     mode: IdMode,
+    /// Timestamp precision encoded in the high-bit header.
     precision: TimestampPrecision,
+    /// Host identifier encoded in composed IDs.
     host: u64,
+    /// Number of low bits below the timestamp field.
     timestamp_shift: u8,
+    /// Number of low bits below the host field.
     host_shift: u8,
+    /// Width of the timestamp field.
     timestamp_bits: u8,
+    /// Maximum timestamp representable by the layout.
     max_timestamp: u64,
+    /// Maximum sequence representable by the layout.
     max_sequence: u64,
+    /// Precomputed mode, precision, and host bit fields.
     fixed_data: u64,
 }
 
 impl QubitSnowflakeLayout {
     /// Creates a Qubit snowflake layout.
     ///
-    /// # Parameters
-    /// - `mode`: Encoded ID ordering mode.
-    /// - `precision`: Encoded timestamp precision.
-    /// - `host`: Host identifier in `0..=511`.
+    /// # Arguments
+    ///
+    /// * `mode` - Encoded ID ordering mode.
+    /// * `precision` - Encoded timestamp precision.
+    /// * `host` - Host identifier in `0..=511`.
     ///
     /// # Returns
+    ///
     /// A configured layout.
     ///
     /// # Errors
+    ///
     /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the
     /// 9-bit host field.
+    #[inline]
     pub fn new(
         mode: IdMode,
         precision: TimestampPrecision,
@@ -77,13 +102,16 @@ impl QubitSnowflakeLayout {
 
     /// Creates a layout after the caller has validated the host field.
     ///
-    /// # Parameters
-    /// - `mode`: Encoded ID ordering mode.
-    /// - `precision`: Encoded timestamp precision.
-    /// - `host`: Valid host identifier.
+    /// # Arguments
+    ///
+    /// * `mode` - Encoded ID ordering mode.
+    /// * `precision` - Encoded timestamp precision.
+    /// * `host` - Valid host identifier.
     ///
     /// # Returns
+    ///
     /// A configured layout.
+    #[inline]
     fn new_unchecked(
         mode: IdMode,
         precision: TimestampPrecision,
@@ -115,30 +143,50 @@ impl QubitSnowflakeLayout {
     }
 
     /// Returns the encoded mode.
+    ///
+    /// # Returns
+    ///
+    /// ID ordering mode encoded by this layout.
     #[inline(always)]
     pub const fn mode(&self) -> IdMode {
         self.mode
     }
 
     /// Returns the encoded timestamp precision.
+    ///
+    /// # Returns
+    ///
+    /// Timestamp precision encoded by this layout.
     #[inline(always)]
     pub const fn precision(&self) -> TimestampPrecision {
         self.precision
     }
 
     /// Returns the encoded host identifier.
+    ///
+    /// # Returns
+    ///
+    /// Host identifier encoded by this layout.
     #[inline(always)]
     pub const fn host(&self) -> u64 {
         self.host
     }
 
     /// Returns the maximum representable timestamp.
+    ///
+    /// # Returns
+    ///
+    /// Maximum timestamp accepted by [`Self::compose`].
     #[inline(always)]
     pub const fn max_timestamp(&self) -> u64 {
         self.max_timestamp
     }
 
     /// Returns the maximum representable sequence number.
+    ///
+    /// # Returns
+    ///
+    /// Maximum sequence accepted by [`Self::compose`].
     #[inline(always)]
     pub const fn max_sequence(&self) -> u64 {
         self.max_sequence
@@ -148,15 +196,18 @@ impl QubitSnowflakeLayout {
     ///
     /// This method is stateless and does not guarantee uniqueness.
     ///
-    /// # Parameters
-    /// - `timestamp`: Timestamp measured from the configured epoch in the
+    /// # Arguments
+    ///
+    /// * `timestamp` - Timestamp measured from the configured epoch in the
     ///   configured precision.
-    /// - `sequence`: Sequence value inside the timestamp slice.
+    /// * `sequence` - Sequence value inside the timestamp slice.
     ///
     /// # Returns
+    ///
     /// Encoded ID.
     ///
     /// # Errors
+    ///
     /// Returns [`IdError::TimestampOverflow`] or
     /// [`IdError::SequenceOverflow`] when a part does not fit.
     pub fn compose(
@@ -190,12 +241,16 @@ impl QubitSnowflakeLayout {
     ///
     /// Mode and precision are read from the fixed high-bit header before the
     /// remaining field widths are derived. Every `u64` value is a structurally
-    /// valid Qubit bit pattern, so decoding is infallible.
+    /// decodable Qubit bit pattern, so decoding is infallible. Decoding only
+    /// extracts fields; it does not authenticate the value or prove that a
+    /// generator produced it.
     ///
-    /// # Parameters
-    /// - `id`: Qubit snowflake bit pattern to decode.
+    /// # Arguments
+    ///
+    /// * `id` - Qubit snowflake bit pattern to decode.
     ///
     /// # Returns
+    ///
     /// All fields decoded using the layout encoded in `id`.
     pub fn decode(id: u64) -> QubitSnowflakeParts {
         let mode_shift = u64::BITS as u8 - MODE_BITS;
@@ -218,13 +273,16 @@ impl QubitSnowflakeLayout {
 
     /// Applies the reversible timestamp transform for the configured mode.
     ///
-    /// # Parameters
-    /// - `mode`: Timestamp storage mode.
-    /// - `timestamp_bits`: Width of the timestamp field.
-    /// - `timestamp`: Timestamp to transform.
+    /// # Arguments
+    ///
+    /// * `mode` - Timestamp storage mode.
+    /// * `timestamp_bits` - Width of the timestamp field.
+    /// * `timestamp` - Timestamp to transform.
     ///
     /// # Returns
+    ///
     /// Transformed timestamp restricted to `timestamp_bits` significant bits.
+    #[inline]
     fn transform_timestamp(
         mode: IdMode,
         timestamp_bits: u8,
@@ -241,6 +299,10 @@ impl QubitSnowflakeLayout {
 
 impl Default for QubitSnowflakeLayout {
     /// Creates the default Qubit layout.
+    ///
+    /// # Returns
+    ///
+    /// Sequential, second-precision layout for host zero.
     #[inline(always)]
     fn default() -> Self {
         Self::new_unchecked(IdMode::Sequential, TimestampPrecision::Second, 0)

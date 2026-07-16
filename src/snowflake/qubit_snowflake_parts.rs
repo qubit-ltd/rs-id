@@ -15,24 +15,31 @@ use super::{
 /// Fields decoded from a Qubit snowflake ID.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct QubitSnowflakeParts {
+    /// Decoded ID ordering mode.
     mode: IdMode,
+    /// Decoded timestamp precision.
     precision: TimestampPrecision,
+    /// Decoded timestamp in the encoded precision.
     timestamp: u64,
+    /// Decoded host identifier.
     host: u64,
+    /// Decoded sequence number.
     sequence: u64,
 }
 
 impl QubitSnowflakeParts {
     /// Creates decoded Qubit snowflake parts.
     ///
-    /// # Parameters
-    /// - `mode`: Decoded ordering mode.
-    /// - `precision`: Decoded timestamp precision.
-    /// - `timestamp`: Decoded timestamp.
-    /// - `host`: Decoded host identifier.
-    /// - `sequence`: Decoded sequence number.
+    /// # Arguments
+    ///
+    /// * `mode` - Decoded ordering mode.
+    /// * `precision` - Decoded timestamp precision.
+    /// * `timestamp` - Decoded timestamp.
+    /// * `host` - Decoded host identifier.
+    /// * `sequence` - Decoded sequence number.
     ///
     /// # Returns
+    ///
     /// A decoded parts value.
     #[inline]
     pub(crate) const fn new(
@@ -54,6 +61,7 @@ impl QubitSnowflakeParts {
     /// Returns the encoded ID ordering mode.
     ///
     /// # Returns
+    ///
     /// ID ordering mode.
     #[inline(always)]
     pub const fn mode(self) -> IdMode {
@@ -63,6 +71,7 @@ impl QubitSnowflakeParts {
     /// Returns the encoded timestamp precision.
     ///
     /// # Returns
+    ///
     /// Timestamp precision.
     #[inline(always)]
     pub const fn precision(self) -> TimestampPrecision {
@@ -72,6 +81,7 @@ impl QubitSnowflakeParts {
     /// Returns the timestamp measured in the encoded precision.
     ///
     /// # Returns
+    ///
     /// Timestamp since the generator epoch.
     #[inline(always)]
     pub const fn timestamp(self) -> u64 {
@@ -81,6 +91,7 @@ impl QubitSnowflakeParts {
     /// Returns the encoded host identifier.
     ///
     /// # Returns
+    ///
     /// Host identifier.
     #[inline(always)]
     pub const fn host(self) -> u64 {
@@ -90,6 +101,7 @@ impl QubitSnowflakeParts {
     /// Returns the sequence number inside the timestamp slice.
     ///
     /// # Returns
+    ///
     /// Sequence number.
     #[inline(always)]
     pub const fn sequence(self) -> u64 {

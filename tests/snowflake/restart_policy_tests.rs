@@ -5,4 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-mod id_generator_tests;
+//! Tests for Snowflake restart policy defaults.
+
+use qubit_id::RestartPolicy;
+
+#[test]
+fn test_restart_policy_default_is_immediate() {
+    assert_eq!(RestartPolicy::Immediate, RestartPolicy::default());
+}
