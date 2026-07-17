@@ -173,7 +173,7 @@ fn test_sonyflake_generator_next_id_waits_for_physical_next_time_unit() {
         .time_unit(Duration::from_millis(1))
         .start_time(epoch)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -211,7 +211,7 @@ fn test_sonyflake_generator_concurrent_overflow_is_unique() {
             .time_unit(Duration::from_millis(1))
             .start_time(epoch)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );
@@ -378,7 +378,7 @@ fn test_sonyflake_generator_reports_clock_backwards() {
         .time_unit(Duration::from_millis(1))
         .start_time(epoch)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -408,7 +408,7 @@ fn test_sonyflake_generator_detects_raw_rollback_inside_time_unit() {
         .time_unit(Duration::from_millis(10))
         .start_time(start_time)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -444,7 +444,7 @@ fn test_sonyflake_generator_wait_next_slice_delays_first_allocation() {
         .start_time(start_time)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -467,7 +467,7 @@ fn test_sonyflake_generator_wait_next_slice_delays_first_allocation() {
 }
 
 #[test]
-fn test_sonyflake_generator_next_id_uses_injected_blocking_sleeper() {
+fn test_sonyflake_generator_next_id_uses_injected_timer() {
     let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(start_time + Duration::from_millis(25));
     let generator = Arc::new(
@@ -477,7 +477,7 @@ fn test_sonyflake_generator_next_id_uses_injected_blocking_sleeper() {
             .start_time(start_time)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );
@@ -504,7 +504,7 @@ fn test_sonyflake_generator_reports_rollback_while_waiting() {
         .time_unit(Duration::from_millis(1))
         .start_time(epoch)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -572,7 +572,7 @@ fn test_sonyflake_generator_reports_time_before_epoch_after_construction() {
         .time_unit(Duration::from_millis(10))
         .start_time(epoch)
         .wall_clock(manual_time.wall_clock())
-        .blocking_sleeper(manual_time.blocking_sleeper())
+        .timer(manual_time.timer())
         .build()
         .expect("construction clock should be at epoch");
 

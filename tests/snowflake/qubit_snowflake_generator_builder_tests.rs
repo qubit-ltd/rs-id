@@ -40,7 +40,7 @@ fn test_qubit_snowflake_generator_builder_builds_configuration() {
         .epoch(epoch)
         .max_clock_skew(Duration::from_millis(37))
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 

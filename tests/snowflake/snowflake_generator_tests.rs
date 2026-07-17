@@ -84,7 +84,7 @@ fn test_snowflake_generator_reports_clock_backwards() {
     let generator = SnowflakeGenerator::builder(9)
         .epoch(epoch)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -112,7 +112,7 @@ fn test_snowflake_generator_detects_raw_rollback_inside_millisecond() {
     let generator = SnowflakeGenerator::builder(11)
         .epoch(epoch)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -146,7 +146,7 @@ fn test_snowflake_generator_wait_next_slice_delays_first_allocation() {
         .epoch(epoch)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -170,7 +170,7 @@ fn test_snowflake_generator_wait_next_slice_delays_first_allocation() {
 }
 
 #[test]
-fn test_snowflake_generator_next_id_uses_injected_blocking_sleeper() {
+fn test_snowflake_generator_next_id_uses_injected_timer() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_micros(10_250));
     let generator = Arc::new(
@@ -178,7 +178,7 @@ fn test_snowflake_generator_next_id_uses_injected_blocking_sleeper() {
             .epoch(epoch)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );
@@ -202,7 +202,7 @@ fn test_snowflake_generator_reports_rollback_while_waiting() {
     let generator = SnowflakeGenerator::builder(9)
         .epoch(epoch)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -239,7 +239,7 @@ fn test_snowflake_generator_waits_when_sequence_overflows() {
         SnowflakeGenerator::builder(9)
             .epoch(epoch)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );
@@ -275,7 +275,7 @@ fn test_snowflake_generator_concurrent_overflow_is_unique() {
         SnowflakeGenerator::builder(9)
             .epoch(epoch)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );

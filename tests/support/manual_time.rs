@@ -14,10 +14,10 @@ use std::time::{
 };
 
 use qubit_clock::{
-    BlockingSleeper,
-    ManualBlockingSleeper,
     ManualMonotonicClock,
     ManualWallClock,
+    MonotonicClock,
+    Timer,
     WallClock,
 };
 
@@ -27,8 +27,8 @@ pub(crate) struct ManualTime {
     monotonic_clock: Arc<ManualMonotonicClock>,
     /// Wall-time projection used by generators.
     wall_clock: Arc<ManualWallClock>,
-    /// Blocking sleeper registered on the same monotonic timeline.
-    blocking_sleeper: Arc<ManualBlockingSleeper>,
+    /// Timer registered on the same monotonic timeline.
+    timer: Arc<dyn Timer>,
 }
 
 impl ManualTime {
@@ -44,11 +44,11 @@ impl ManualTime {
     pub(crate) fn new(now: SystemTime) -> Self {
         let monotonic_clock = ManualMonotonicClock::new_shared();
         let wall_clock = monotonic_clock.new_wall_clock(now);
-        let blocking_sleeper = monotonic_clock.new_blocking_sleeper();
+        let timer = monotonic_clock.new_timer();
         Self {
             monotonic_clock,
             wall_clock,
-            blocking_sleeper,
+            timer,
         }
     }
 
@@ -62,14 +62,14 @@ impl ManualTime {
         self.wall_clock.clone()
     }
 
-    /// Returns the sleeper as its public trait object.
+    /// Returns the timer as its public trait object.
     ///
     /// # Returns
     ///
-    /// A shared blocking-sleeper handle on the manual timeline.
+    /// A shared timer handle on the manual timeline.
     #[inline(always)]
-    pub(crate) fn blocking_sleeper(&self) -> Arc<dyn BlockingSleeper> {
-        self.blocking_sleeper.clone()
+    pub(crate) fn timer(&self) -> Arc<dyn Timer> {
+        Arc::clone(&self.timer)
     }
 
     /// Reanchors wall time without moving monotonic time.

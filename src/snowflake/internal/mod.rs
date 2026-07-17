@@ -19,7 +19,7 @@ mod time_slice;
 
 pub(crate) use block_until_generated::block_until_generated;
 pub(crate) use clock_defaults::{
-    default_blocking_sleeper,
+    default_timer,
     default_wall_clock,
 };
 pub(crate) use clock_observation::ClockObservation;

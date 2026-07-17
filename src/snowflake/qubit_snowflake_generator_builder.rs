@@ -15,14 +15,14 @@ use std::time::{
 };
 
 use qubit_clock::{
-    BlockingSleeper,
+    Timer,
     WallClock,
 };
 
 use super::constants::DEFAULT_MAX_CLOCK_SKEW;
 use super::internal::{
     DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
-    default_blocking_sleeper,
+    default_timer,
     default_wall_clock,
     panic_if_expired,
 };
@@ -57,8 +57,8 @@ pub struct QubitSnowflakeGeneratorBuilder {
     restart_policy: RestartPolicy,
     /// Wall clock sampled by allocation attempts.
     wall_clock: Arc<dyn WallClock>,
-    /// Sleeper used only by blocking generation.
-    blocking_sleeper: Arc<dyn BlockingSleeper>,
+    /// Timer adapted only by blocking generation.
+    timer: Arc<dyn Timer>,
 }
 
 impl QubitSnowflakeGeneratorBuilder {
@@ -84,7 +84,7 @@ impl QubitSnowflakeGeneratorBuilder {
             max_clock_skew: DEFAULT_MAX_CLOCK_SKEW,
             restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
-            blocking_sleeper: default_blocking_sleeper(),
+            timer: default_timer(),
         }
     }
 
@@ -178,21 +178,18 @@ impl QubitSnowflakeGeneratorBuilder {
         self
     }
 
-    /// Sets the blocking sleeper used by [`crate::IdGenerator::next_id`].
+    /// Sets the timer used by [`crate::IdGenerator::next_id`].
     ///
     /// # Arguments
     ///
-    /// * `blocking_sleeper` - Shared sleeper used for retry delays.
+    /// * `timer` - Shared timer used for retry delays.
     ///
     /// # Returns
     ///
     /// The updated builder.
     #[inline(always)]
-    pub fn blocking_sleeper(
-        mut self,
-        blocking_sleeper: Arc<dyn BlockingSleeper>,
-    ) -> Self {
-        self.blocking_sleeper = blocking_sleeper;
+    pub fn timer(mut self, timer: Arc<dyn Timer>) -> Self {
+        self.timer = timer;
         self
     }
 
@@ -226,7 +223,7 @@ impl QubitSnowflakeGeneratorBuilder {
             self.max_clock_skew,
             self.restart_policy,
             self.wall_clock,
-            self.blocking_sleeper,
+            self.timer,
         ))
     }
 }

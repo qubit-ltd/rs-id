@@ -33,7 +33,7 @@ use crate::{
 /// Returns an error from `attempt`, or [`IdError::SleepFailed`] when the
 /// sleeper cannot complete a retry delay.
 pub(crate) fn block_until_generated<T, F>(
-    sleeper: &dyn BlockingSleeper,
+    sleeper: &BlockingSleeper,
     mut attempt: F,
 ) -> Result<T, IdError>
 where

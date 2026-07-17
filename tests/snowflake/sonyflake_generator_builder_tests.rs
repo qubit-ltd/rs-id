@@ -38,7 +38,7 @@ fn test_sonyflake_generator_builder_builds_configuration() {
         .time_unit(time_unit)
         .start_time(start_time)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
