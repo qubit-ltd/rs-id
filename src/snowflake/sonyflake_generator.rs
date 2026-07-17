@@ -87,7 +87,7 @@ pub struct SonyflakeGenerator {
     /// Wall clock sampled by allocation attempts.
     wall_clock: Arc<dyn WallClock>,
     /// Sleeper used only by blocking generation.
-    blocking_sleeper: Arc<dyn BlockingSleeper>,
+    blocking_sleeper: BlockingSleeper,
     /// Synchronized raw-clock and sequence allocation state.
     state: Mutex<GenerationState>,
 }
@@ -164,7 +164,7 @@ impl SonyflakeGenerator {
             start_time,
             restart_policy,
             wall_clock,
-            blocking_sleeper,
+            timer,
         } = builder;
         let layout = SonyflakeLayout::new(
             machine_id,
@@ -188,7 +188,7 @@ impl SonyflakeGenerator {
             start_time,
             expires_at,
             wall_clock,
-            blocking_sleeper,
+            blocking_sleeper: BlockingSleeper::new(timer),
             state: Mutex::new(GenerationState::new(restart_policy)),
         })
     }
@@ -303,9 +303,7 @@ impl IdGenerator for SonyflakeGenerator {
     /// delay cannot be completed.
     #[inline(always)]
     fn next_id(&self) -> Result<Self::Id, Self::Error> {
-        block_until_generated(self.blocking_sleeper.as_ref(), || {
-            self.try_next_id()
-        })
+        block_until_generated(&self.blocking_sleeper, || self.try_next_id())
     }
 
     /// Formats a Sonyflake ID as unsigned decimal text.

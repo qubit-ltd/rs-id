@@ -34,7 +34,7 @@ fn test_snowflake_generator_builder_builds_configuration() {
     let generator = SnowflakeGenerator::builder(17)
         .epoch(epoch)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 

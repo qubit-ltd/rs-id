@@ -5,28 +5,29 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Defines a blocking sleeper that always fails.
+//! Defines a timer that always fails registration.
 
 use qubit_clock::{
-    BlockingSleeper,
     MonotonicClock,
     MonotonicInstant,
     StdMonotonicClock,
     TimeError,
+    Timer,
+    TimerFuture,
 };
 
-/// Blocking sleeper used to verify error-source propagation.
-pub(crate) struct FailingBlockingSleeper {
-    /// Monotonic clock returned by the sleeper contract.
+/// Timer used to verify error-source propagation.
+pub(crate) struct FailingTimer {
+    /// Monotonic clock returned by the timer contract.
     clock: StdMonotonicClock,
 }
 
-impl FailingBlockingSleeper {
-    /// Creates a sleeper that always reports instant overflow.
+impl FailingTimer {
+    /// Creates a timer that always reports instant overflow.
     ///
     /// # Returns
     ///
-    /// A failing sleeper with its own monotonic clock domain.
+    /// A failing timer with its own monotonic clock domain.
     #[inline]
     pub(crate) fn new() -> Self {
         Self {
@@ -35,20 +36,20 @@ impl FailingBlockingSleeper {
     }
 }
 
-impl BlockingSleeper for FailingBlockingSleeper {
+impl Timer for FailingTimer {
     /// Returns the fixture's monotonic clock.
     ///
     /// # Returns
     ///
-    /// The monotonic clock required by the sleeper contract.
+    /// The monotonic clock required by the timer contract.
     #[inline(always)]
     fn clock(&self) -> &dyn MonotonicClock {
         &self.clock
     }
 
-    /// Returns a stable error without blocking.
+    /// Returns a stable error without registering a deadline.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `_deadline` - Ignored deadline in the fixture's clock domain.
     ///
@@ -60,10 +61,10 @@ impl BlockingSleeper for FailingBlockingSleeper {
     ///
     /// Always returns [`TimeError::InstantOverflow`].
     #[inline]
-    fn sleep_until(
+    fn at(
         &self,
         _deadline: MonotonicInstant,
-    ) -> Result<(), TimeError> {
+    ) -> Result<TimerFuture, TimeError> {
         Err(TimeError::InstantOverflow)
     }
 }

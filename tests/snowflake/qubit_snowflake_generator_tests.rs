@@ -39,7 +39,7 @@ use qubit_id::{
 
 use crate::support::{
     ClosureWallClock,
-    FailingBlockingSleeper,
+    FailingTimer,
     ManualTime,
 };
 
@@ -271,7 +271,7 @@ fn test_qubit_snowflake_generator_wait_next_slice_delays_first_allocation() {
         .epoch(epoch)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -341,7 +341,7 @@ fn test_qubit_snowflake_generator_wait_next_slice_can_repeat_after_cross_restart
 }
 
 #[test]
-fn test_qubit_snowflake_generator_next_id_uses_injected_blocking_sleeper() {
+fn test_qubit_snowflake_generator_next_id_uses_injected_timer() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10_250));
     let generator = Arc::new(
@@ -350,7 +350,7 @@ fn test_qubit_snowflake_generator_next_id_uses_injected_blocking_sleeper() {
             .epoch(epoch)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );
@@ -376,7 +376,7 @@ fn test_qubit_snowflake_generator_next_id_preserves_sleep_failure_source() {
         .epoch(epoch)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(Arc::new(FailingBlockingSleeper::new()))
+        .timer(Arc::new(FailingTimer::new()))
         .build()
         .expect("configuration should be valid");
 
@@ -397,7 +397,7 @@ fn test_qubit_snowflake_generator_reports_rollback_while_waiting() {
         .epoch(epoch)
         .max_clock_skew(Duration::ZERO)
         .wall_clock(time.wall_clock())
-        .blocking_sleeper(time.blocking_sleeper())
+        .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
@@ -436,7 +436,7 @@ fn test_qubit_snowflake_generator_waits_for_small_clock_backwards() {
             .epoch(epoch)
             .max_clock_skew(Duration::from_millis(2))
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );
@@ -464,7 +464,7 @@ fn test_qubit_snowflake_generator_waits_when_sequence_overflows() {
             .precision(TimestampPrecision::Millisecond)
             .epoch(epoch)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );
@@ -518,7 +518,7 @@ fn test_qubit_snowflake_generator_concurrent_overflow_is_unique() {
             .precision(TimestampPrecision::Millisecond)
             .epoch(epoch)
             .wall_clock(time.wall_clock())
-            .blocking_sleeper(time.blocking_sleeper())
+            .timer(time.timer())
             .build()
             .expect("configuration should be valid"),
     );

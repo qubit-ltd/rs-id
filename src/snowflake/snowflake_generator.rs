@@ -16,6 +16,7 @@ use std::time::{
 use parking_lot::Mutex;
 use qubit_clock::{
     BlockingSleeper,
+    Timer,
     WallClock,
 };
 
@@ -82,7 +83,7 @@ pub struct SnowflakeGenerator {
     /// Wall clock sampled by allocation attempts.
     wall_clock: Arc<dyn WallClock>,
     /// Sleeper used only by blocking generation.
-    blocking_sleeper: Arc<dyn BlockingSleeper>,
+    blocking_sleeper: BlockingSleeper,
     /// Synchronized raw-clock and sequence allocation state.
     state: Mutex<GenerationState>,
 }
@@ -138,7 +139,7 @@ impl SnowflakeGenerator {
     /// * `expires_at` - Exclusive timestamp expiration boundary.
     /// * `restart_policy` - Policy controlling the first allocation.
     /// * `wall_clock` - Wall clock sampled during allocation.
-    /// * `blocking_sleeper` - Sleeper used by blocking generation.
+    /// * `timer` - Timer adapted for blocking generation.
     ///
     /// # Returns
     ///
@@ -150,14 +151,14 @@ impl SnowflakeGenerator {
         expires_at: SystemTime,
         restart_policy: RestartPolicy,
         wall_clock: Arc<dyn WallClock>,
-        blocking_sleeper: Arc<dyn BlockingSleeper>,
+        timer: Arc<dyn Timer>,
     ) -> Self {
         Self {
             layout,
             epoch,
             expires_at,
             wall_clock,
-            blocking_sleeper,
+            blocking_sleeper: BlockingSleeper::new(timer),
             state: Mutex::new(GenerationState::new(restart_policy)),
         }
     }
@@ -272,9 +273,7 @@ impl IdGenerator for SnowflakeGenerator {
     /// delay cannot be completed.
     #[inline(always)]
     fn next_id(&self) -> Result<Self::Id, Self::Error> {
-        block_until_generated(self.blocking_sleeper.as_ref(), || {
-            self.try_next_id()
-        })
+        block_until_generated(&self.blocking_sleeper, || self.try_next_id())
     }
 
     /// Formats a classic Snowflake ID as unsigned decimal text.
