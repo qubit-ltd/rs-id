@@ -27,6 +27,10 @@
 //! | `sonyflake` | Synchronous and asynchronous Sonyflake generators |
 //! | `uuid` | Numeric and canonical-string UUID v4 generators |
 //!
+//! UUID generators intentionally implement only [`IdGenerator`], because the
+//! operating-system random source may block. Async applications should choose
+//! their runtime-specific blocking boundary explicitly.
+//!
 //! ## Allocation and lifetime
 //!
 //! [`IdGenerator::generate`] may block while a Snowflake generator waits for

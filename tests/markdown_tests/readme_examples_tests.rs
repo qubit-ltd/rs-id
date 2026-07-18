@@ -321,3 +321,56 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         }
     }
 }
+
+/// Verifies that both READMEs describe generation failures as structured
+/// errors rather than panics.
+#[test]
+fn test_readmes_document_structured_generation_failures() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let readmes = [
+        (
+            "README.md",
+            "UUID generation returns `IdError::RandomSourceFailed`",
+            "builders return `IdError::GeneratorExpired` when `now >= expires_at`",
+            ["UUID generation panics", "builders panic"],
+        ),
+        (
+            "README.zh_CN.md",
+            "UUID 生成会返回 `IdError::RandomSourceFailed`",
+            "构建器会在 `now >= expires_at` 时返回 `IdError::GeneratorExpired`",
+            ["UUID 生成会 panic", "构建器会 panic"],
+        ),
+    ];
+
+    for (name, random_failure, expiration_failure, forbidden_fragments) in
+        readmes
+    {
+        let content = fs::read_to_string(manifest_dir.join(name))
+            .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
+        for fragment in [random_failure, expiration_failure] {
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
+        }
+        for fragment in forbidden_fragments {
+            assert!(
+                !content.contains(fragment),
+                "{name} must not contain stale panic contract `{fragment}`"
+            );
+        }
+    }
+}
+
+/// Verifies that docs.rs builds the complete feature-gated public API.
+#[test]
+fn test_docs_rs_build_enables_all_features() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let manifest = fs::read_to_string(manifest_dir.join("Cargo.toml"))
+        .expect("Cargo.toml should be readable");
+
+    assert!(
+        manifest.contains("[package.metadata.docs.rs]\nall-features = true"),
+        "Cargo.toml must enable all features for docs.rs"
+    );
+}

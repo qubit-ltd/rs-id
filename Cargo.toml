@@ -6,7 +6,7 @@ rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/qubit-ltd/rs-id"
-description = "IoC-friendly synchronous and asynchronous ID generators for Snowflake-family IDs and UUID v4"
+description = "IoC-friendly Snowflake-family ID generators and synchronous UUID v4 generators"
 homepage = "https://github.com/qubit-ltd/rs-id"
 documentation = "https://docs.rs/qubit-id"
 readme = "README.md"
@@ -27,6 +27,9 @@ include = [
     "/src/**",
     "/tests/**",
 ]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "qubit_id"

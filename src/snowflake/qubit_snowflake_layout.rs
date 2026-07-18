@@ -350,24 +350,50 @@ impl Default for QubitSnowflakeLayout {
 
 impl SnowflakeLayoutSpec for QubitSnowflakeLayout {
     /// Returns the duration represented by one Qubit timestamp unit.
+    ///
+    /// # Returns
+    ///
+    /// The duration selected by this layout's timestamp precision.
     #[inline(always)]
     fn time_unit(&self) -> Duration {
         Duration::from_millis(self.precision.divisor_millis())
     }
 
     /// Returns the greatest Qubit timestamp accepted by this layout.
+    ///
+    /// # Returns
+    ///
+    /// The maximum encoded timestamp.
     #[inline(always)]
     fn max_timestamp(&self) -> u64 {
         QubitSnowflakeLayout::max_timestamp(self)
     }
 
     /// Returns the greatest Qubit sequence accepted by this layout.
+    ///
+    /// # Returns
+    ///
+    /// The maximum sequence within one timestamp unit.
     #[inline(always)]
     fn max_sequence(&self) -> u64 {
         QubitSnowflakeLayout::max_sequence(self)
     }
 
     /// Composes a Qubit ID from a timestamp and sequence.
+    ///
+    /// # Parameters
+    ///
+    /// * `timestamp` - Encoded timestamp relative to the configured epoch.
+    /// * `sequence` - Sequence allocated within the timestamp unit.
+    ///
+    /// # Returns
+    ///
+    /// The composed Qubit Snowflake ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::TimestampOverflow`] or
+    /// [`IdError::SequenceOverflow`] when a value exceeds its field.
     #[inline(always)]
     fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
         QubitSnowflakeLayout::compose(self, timestamp, sequence)

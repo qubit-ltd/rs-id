@@ -147,6 +147,10 @@ where
     }
 
     /// Returns the configured layout.
+    ///
+    /// # Returns
+    ///
+    /// The layout used to compose generated IDs.
     #[must_use]
     #[inline(always)]
     pub(crate) const fn layout(&self) -> &L {
@@ -154,18 +158,30 @@ where
     }
 
     /// Returns the configured timestamp origin.
+    ///
+    /// # Returns
+    ///
+    /// The timestamp origin represented by timestamp zero.
     #[inline(always)]
     pub(crate) const fn epoch(&self) -> SystemTime {
         self.epoch
     }
 
     /// Returns the exclusive expiration boundary.
+    ///
+    /// # Returns
+    ///
+    /// The first wall time that cannot be represented by this core.
     #[inline(always)]
     pub(crate) const fn expires_at(&self) -> SystemTime {
         self.expires_at
     }
 
     /// Returns the maximum tolerated raw wall-clock rollback.
+    ///
+    /// # Returns
+    ///
+    /// The largest rollback duration accepted by the allocation state.
     #[cfg(feature = "qubit-snowflake")]
     #[inline(always)]
     pub(crate) const fn max_clock_skew(&self) -> Duration {
@@ -173,6 +189,19 @@ where
     }
 
     /// Converts one wall time into a layout-aware clock observation.
+    ///
+    /// # Parameters
+    ///
+    /// * `time` - Wall time to measure from the configured epoch.
+    ///
+    /// # Returns
+    ///
+    /// The raw elapsed duration, encoded timestamp, and retry delay.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::TimeBeforeEpoch`] when `time` precedes the
+    /// configured epoch.
     fn observation_for(
         &self,
         time: SystemTime,
@@ -186,6 +215,19 @@ where
     }
 
     /// Rejects wall times at or beyond the exclusive expiration boundary.
+    ///
+    /// # Parameters
+    ///
+    /// * `observed_at` - Wall time to compare with the cached boundary.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the generator remains active.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::GeneratorExpired`] when `observed_at` is equal to or
+    /// later than the exclusive expiration boundary.
     fn ensure_active(&self, observed_at: SystemTime) -> Result<(), IdError> {
         if observed_at >= self.expires_at {
             return Err(IdError::GeneratorExpired {

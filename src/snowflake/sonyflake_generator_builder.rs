@@ -61,6 +61,15 @@ pub struct SonyflakeGeneratorBuilder {
 
 impl SonyflakeGeneratorBuilder {
     /// Creates a builder for a machine identifier.
+    ///
+    /// # Parameters
+    ///
+    /// * `machine_id` - Machine identifier encoded by generated IDs.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with the default layout, clocks, and restart
+    /// policy.
     #[inline]
     pub(crate) fn new(machine_id: u64) -> Self {
         Self {
@@ -77,6 +86,14 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Sets the sequence field width, using the default when zero.
+    ///
+    /// # Parameters
+    ///
+    /// * `bits_sequence` - Sequence field width, or zero for the default.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn bits_sequence(mut self, bits_sequence: u8) -> Self {
         self.bits_sequence = bits_sequence;
@@ -84,6 +101,14 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Sets the machine field width, using the default when zero.
+    ///
+    /// # Parameters
+    ///
+    /// * `bits_machine` - Machine field width, or zero for the default.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn bits_machine(mut self, bits_machine: u8) -> Self {
         self.bits_machine = bits_machine;
@@ -91,6 +116,14 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Sets the duration represented by one encoded time unit.
+    ///
+    /// # Parameters
+    ///
+    /// * `time_unit` - Duration represented by one elapsed-time unit.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn time_unit(mut self, time_unit: Duration) -> Self {
         self.time_unit = time_unit;
@@ -98,6 +131,14 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Sets the elapsed-time origin encoded by generated IDs.
+    ///
+    /// # Parameters
+    ///
+    /// * `start_time` - Wall time represented by elapsed time zero.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn start_time(mut self, start_time: SystemTime) -> Self {
         self.start_time = start_time;
@@ -105,6 +146,14 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Sets the first-allocation behavior used after construction.
+    ///
+    /// # Parameters
+    ///
+    /// * `restart_policy` - Policy applied to the first allocation attempt.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
@@ -112,6 +161,14 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Sets the wall clock sampled during validation and allocation.
+    ///
+    /// # Parameters
+    ///
+    /// * `wall_clock` - Wall clock sampled by validation and allocation.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
@@ -119,6 +176,14 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Sets the timer used by synchronous or asynchronous retry waits.
+    ///
+    /// # Parameters
+    ///
+    /// * `timer` - Timer adapted by synchronous and asynchronous generators.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn timer(mut self, timer: Arc<dyn Timer>) -> Self {
         self.timer = timer;
@@ -126,6 +191,10 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Validates the configuration and constructs a synchronous generator.
+    ///
+    /// # Returns
+    ///
+    /// A synchronous Sonyflake generator.
     ///
     /// # Errors
     ///
@@ -140,6 +209,10 @@ impl SonyflakeGeneratorBuilder {
 
     /// Validates the configuration and constructs an asynchronous generator.
     ///
+    /// # Returns
+    ///
+    /// An asynchronous Sonyflake generator.
+    ///
     /// # Errors
     ///
     /// Returns an [`IdError`] when a layout, start-time, or lifetime setting is
@@ -152,6 +225,16 @@ impl SonyflakeGeneratorBuilder {
     }
 
     /// Converts the builder into a validated shared core and timer.
+    ///
+    /// # Returns
+    ///
+    /// The validated allocation core and configured timer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IdError`] when a layout, start-time, or lifetime setting is
+    /// invalid, or when the configured wall clock has reached the expiration
+    /// boundary.
     fn into_core(
         self,
     ) -> Result<(SnowflakeCore<SonyflakeLayout>, Arc<dyn Timer>), IdError> {

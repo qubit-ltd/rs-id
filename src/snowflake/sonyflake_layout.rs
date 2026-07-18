@@ -337,24 +337,50 @@ impl SonyflakeLayout {
 
 impl SnowflakeLayoutSpec for SonyflakeLayout {
     /// Returns the configured Sonyflake time unit.
+    ///
+    /// # Returns
+    ///
+    /// The duration of one encoded elapsed-time unit.
     #[inline(always)]
     fn time_unit(&self) -> Duration {
         SonyflakeLayout::time_unit(self)
     }
 
     /// Returns the greatest Sonyflake elapsed-time value.
+    ///
+    /// # Returns
+    ///
+    /// The maximum encoded elapsed-time value.
     #[inline(always)]
     fn max_timestamp(&self) -> u64 {
         self.max_elapsed_time()
     }
 
     /// Returns the greatest Sonyflake sequence value.
+    ///
+    /// # Returns
+    ///
+    /// The maximum sequence within one elapsed-time unit.
     #[inline(always)]
     fn max_sequence(&self) -> u64 {
         SonyflakeLayout::max_sequence(self)
     }
 
     /// Composes a Sonyflake ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `timestamp` - Elapsed-time value relative to the configured origin.
+    /// * `sequence` - Sequence allocated within the elapsed-time unit.
+    ///
+    /// # Returns
+    ///
+    /// The composed Sonyflake ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::TimestampOverflow`] or
+    /// [`IdError::SequenceOverflow`] when a value exceeds its field.
     #[inline(always)]
     fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
         SonyflakeLayout::compose(self, timestamp, sequence)

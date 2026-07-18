@@ -40,6 +40,10 @@ impl<G> SnowflakeStringGenerator<G> {
     }
 
     /// Returns a shared reference to the wrapped numeric generator.
+    ///
+    /// # Returns
+    ///
+    /// The wrapped numeric generator.
     #[must_use]
     #[inline(always)]
     pub const fn inner(&self) -> &G {
@@ -47,6 +51,10 @@ impl<G> SnowflakeStringGenerator<G> {
     }
 
     /// Consumes the adapter and returns the wrapped numeric generator.
+    ///
+    /// # Returns
+    ///
+    /// The wrapped numeric generator.
     #[must_use]
     #[inline(always)]
     pub fn into_inner(self) -> G {

@@ -15,12 +15,24 @@ use crate::IdError;
 /// Supplies the time and bit operations required by the shared allocator.
 pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
     /// Returns the duration represented by one encoded timestamp unit.
+    ///
+    /// # Returns
+    ///
+    /// The duration of one encoded timestamp unit.
     fn time_unit(&self) -> Duration;
 
     /// Returns the greatest encoded timestamp accepted by the layout.
+    ///
+    /// # Returns
+    ///
+    /// The maximum encoded timestamp.
     fn max_timestamp(&self) -> u64;
 
     /// Returns the greatest sequence accepted within one timestamp unit.
+    ///
+    /// # Returns
+    ///
+    /// The maximum sequence within one timestamp unit.
     fn max_sequence(&self) -> u64;
 
     /// Composes an identifier from an encoded timestamp and sequence.

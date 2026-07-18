@@ -78,6 +78,15 @@ impl AsyncQubitSnowflakeGenerator {
     }
 
     /// Creates a public generator from a validated core and timer.
+    ///
+    /// # Parameters
+    ///
+    /// * `core` - Validated allocation core.
+    /// * `timer` - Timer used for asynchronous retry waits.
+    ///
+    /// # Returns
+    ///
+    /// An asynchronous generator backed by `core` and `timer`.
     #[inline]
     pub(super) fn from_core(
         core: SnowflakeCore<QubitSnowflakeLayout>,
@@ -89,6 +98,10 @@ impl AsyncQubitSnowflakeGenerator {
     }
 
     /// Returns the Qubit bit layout.
+    ///
+    /// # Returns
+    ///
+    /// The layout used to compose generated IDs.
     ///
     /// # Examples
     ///
@@ -106,6 +119,10 @@ impl AsyncQubitSnowflakeGenerator {
     }
 
     /// Returns the configured timestamp origin.
+    ///
+    /// # Returns
+    ///
+    /// The timestamp origin represented by timestamp zero.
     #[must_use]
     #[inline(always)]
     pub const fn epoch(&self) -> SystemTime {
@@ -113,6 +130,10 @@ impl AsyncQubitSnowflakeGenerator {
     }
 
     /// Returns the exclusive expiration boundary.
+    ///
+    /// # Returns
+    ///
+    /// The first wall time that cannot be represented by this generator.
     #[must_use]
     #[inline(always)]
     pub const fn expires_at(&self) -> SystemTime {
@@ -120,6 +141,10 @@ impl AsyncQubitSnowflakeGenerator {
     }
 
     /// Returns the maximum tolerated raw wall-clock rollback.
+    ///
+    /// # Returns
+    ///
+    /// The largest rollback duration that the generator may wait through.
     #[must_use]
     #[inline(always)]
     pub const fn max_clock_skew(&self) -> Duration {

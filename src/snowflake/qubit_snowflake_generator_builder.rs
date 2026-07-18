@@ -233,6 +233,18 @@ impl QubitSnowflakeGeneratorBuilder {
     }
 
     /// Converts this builder into a validated shared core and timer.
+    ///
+    /// # Returns
+    ///
+    /// The validated allocation core and configured timer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::HostOutOfRange`] when the configured host does not
+    /// fit the Qubit host field, [`IdError::ExpirationTimeOverflow`] when the
+    /// exclusive expiration cannot be represented, or
+    /// [`IdError::GeneratorExpired`] when the configured wall clock is equal
+    /// to or later than that boundary.
     fn into_core(
         self,
     ) -> Result<(SnowflakeCore<QubitSnowflakeLayout>, Arc<dyn Timer>), IdError>

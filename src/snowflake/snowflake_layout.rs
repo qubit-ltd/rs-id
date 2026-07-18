@@ -184,24 +184,50 @@ impl SnowflakeLayout {
 
 impl SnowflakeLayoutSpec for SnowflakeLayout {
     /// Returns the one-millisecond classic Snowflake time unit.
+    ///
+    /// # Returns
+    ///
+    /// A duration of one millisecond.
     #[inline(always)]
     fn time_unit(&self) -> Duration {
         Duration::from_millis(1)
     }
 
     /// Returns the greatest classic Snowflake timestamp.
+    ///
+    /// # Returns
+    ///
+    /// The maximum encoded millisecond timestamp.
     #[inline(always)]
     fn max_timestamp(&self) -> u64 {
         SnowflakeLayout::max_timestamp(self)
     }
 
     /// Returns the greatest classic Snowflake sequence.
+    ///
+    /// # Returns
+    ///
+    /// The maximum sequence within one millisecond.
     #[inline(always)]
     fn max_sequence(&self) -> u64 {
         SnowflakeLayout::max_sequence(self)
     }
 
     /// Composes a classic Snowflake ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `timestamp` - Milliseconds elapsed since the configured epoch.
+    /// * `sequence` - Sequence allocated within the millisecond.
+    ///
+    /// # Returns
+    ///
+    /// The composed classic Snowflake ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::TimestampOverflow`] or
+    /// [`IdError::SequenceOverflow`] when a value exceeds its field.
     #[inline(always)]
     fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
         SnowflakeLayout::compose(self, timestamp, sequence)
