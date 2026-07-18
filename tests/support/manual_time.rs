@@ -149,6 +149,18 @@ impl ManualTime {
         self.monotonic_clock.wait_for_next_deadline_async().await
     }
 
+    /// Asynchronously waits for and advances to the next timer deadline.
+    ///
+    /// # Returns
+    ///
+    /// The same-domain instant reached on the manual timeline.
+    #[inline(always)]
+    pub(crate) async fn advance_to_next_deadline_async(
+        &self,
+    ) -> MonotonicInstant {
+        self.monotonic_clock.advance_to_next_deadline_async().await
+    }
+
     /// Asynchronously waits until `expected` timer waiters are registered.
     ///
     /// # Arguments

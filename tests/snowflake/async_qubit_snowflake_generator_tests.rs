@@ -124,14 +124,12 @@ async fn test_async_qubit_snowflake_generator_waits_for_sequence_capacity() {
             .await
             .expect("sequence should remain available");
     }
-    let deadline_observer = time.wait_for_next_deadline_async();
     let worker_generator = Arc::clone(&generator);
     let worker =
         tokio::spawn(async move { worker_generator.generate_async().await });
-    let deadline = deadline_observer.await;
+    let deadline = time.advance_to_next_deadline_async().await;
 
     assert_eq!(deadline.elapsed_since_origin(), Duration::from_millis(1));
-    time.advance_to_next_deadline();
     let id = worker
         .await
         .expect("worker should finish")
@@ -194,16 +192,16 @@ async fn test_async_qubit_snowflake_generator_waits_for_small_rollback() {
         .await
         .expect("first ID should generate");
     time.reanchor(epoch + Duration::from_millis(9));
-    let deadline_observer = time.wait_for_next_deadline_async();
     let worker_generator = Arc::clone(&generator);
     let worker =
         tokio::spawn(async move { worker_generator.generate_async().await });
 
     assert_eq!(
-        deadline_observer.await.elapsed_since_origin(),
+        time.advance_to_next_deadline_async()
+            .await
+            .elapsed_since_origin(),
         Duration::from_millis(1)
     );
-    time.advance_to_next_deadline();
     let id = worker
         .await
         .expect("worker should finish")
@@ -239,20 +237,18 @@ async fn test_async_qubit_restart_fence_retries_the_baseline_slice() {
     time.advance_to_next_deadline();
 
     assert_eq!(
-        time.wait_for_next_deadline_async()
+        time.advance_to_next_deadline_async()
             .await
             .elapsed_since_origin(),
         Duration::from_micros(1_250)
     );
-    time.advance_to_next_deadline();
 
     assert_eq!(
-        time.wait_for_next_deadline_async()
+        time.advance_to_next_deadline_async()
             .await
             .elapsed_since_origin(),
         Duration::from_millis(2)
     );
-    time.advance_to_next_deadline();
 
     let id = worker
         .await
