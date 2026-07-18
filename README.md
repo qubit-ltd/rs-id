@@ -155,9 +155,10 @@ fn main() -> Result<(), IdError> {
 ```
 
 `UuidV4Generator` returns `u128`; `UuidV4StringGenerator` returns canonical
-hyphenated text. Both implement the synchronous and asynchronous contracts and
-return `IdError::RandomSourceFailed` if the operating system cannot provide
-random bytes:
+hyphenated text. Both implement the synchronous contract.
+UUID generation returns `IdError::RandomSourceFailed` if the operating system
+cannot provide random bytes. Async applications should place the synchronous
+call behind the blocking boundary supplied by their chosen runtime:
 
 ```rust
 use qubit_id::{
@@ -173,14 +174,12 @@ fn main() -> Result<(), IdError> {
 }
 ```
 
-UUID generation panics if the operating-system random source is unavailable.
-
 ## Lifetime, clocks, and deployment identity
 
 `expires_at()` returns the exclusive expiration boundary. A builder samples
-its injected wall clock and panics when `now >= expires_at`, because that
-configuration cannot serve IDs. A live generator that later reaches the same
-boundary returns `IdError::GeneratorExpired`.
+its injected wall clock; builders return `IdError::GeneratorExpired` when `now >= expires_at`,
+because that configuration cannot serve IDs. A live generator that later
+reaches the same boundary returns the same error.
 
 A small Qubit clock rollback can wait up to `max_clock_skew`; a larger rollback
 returns `IdError::ClockMovedBackwards`. Classic Snowflake and Sonyflake reject

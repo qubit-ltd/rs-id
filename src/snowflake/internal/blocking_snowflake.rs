@@ -78,6 +78,10 @@ where
     }
 
     /// Returns the shared non-waiting allocation core.
+    ///
+    /// # Returns
+    ///
+    /// The allocation core adapted by this blocking driver.
     #[must_use]
     #[inline(always)]
     pub(crate) const fn core(&self) -> &SnowflakeCore<L> {

@@ -150,8 +150,9 @@ fn main() -> Result<(), IdError> {
 ```
 
 `UuidV4Generator` 返回 `u128`，`UuidV4StringGenerator` 返回规范的连字符文本；
-两者都实现同步与异步契约。操作系统无法提供随机字节时会返回
-`IdError::RandomSourceFailed`：
+两者都只实现同步契约。操作系统无法提供随机字节时，
+UUID 生成会返回 `IdError::RandomSourceFailed`。异步应用应使用所选运行时提供的
+阻塞边界包装同步调用：
 
 ```rust
 use qubit_id::{
@@ -167,13 +168,11 @@ fn main() -> Result<(), IdError> {
 }
 ```
 
-如果操作系统随机源不可用，UUID 生成会 panic。
-
 ## 有效期、时钟与部署身份
 
-`expires_at()` 返回排他的到期边界。Builder 会读取注入的 WallClock；当
-`now >= expires_at` 时直接 panic，因为该配置无法继续提供 ID。运行中的生成器
-随后到达相同边界时返回 `IdError::GeneratorExpired`。
+`expires_at()` 返回排他的到期边界。Builder 会读取注入的 WallClock。
+构建器会在 `now >= expires_at` 时返回 `IdError::GeneratorExpired`，因为该配置
+无法继续提供 ID。运行中的生成器随后到达相同边界时返回相同错误。
 
 Qubit 的小幅回拨可以在 `max_clock_skew` 内等待，超过该值时返回
 `IdError::ClockMovedBackwards`。经典 Snowflake 与 Sonyflake 拒绝任何回拨。

@@ -50,6 +50,15 @@ pub struct SnowflakeGeneratorBuilder {
 
 impl SnowflakeGeneratorBuilder {
     /// Creates a builder for a node identifier.
+    ///
+    /// # Parameters
+    ///
+    /// * `node_id` - Node identifier encoded by generated IDs.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with the default epoch, clocks, and restart
+    /// policy.
     #[inline]
     pub(crate) fn new(node_id: u64) -> Self {
         Self {
@@ -63,6 +72,14 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Sets the timestamp origin used by generated IDs.
+    ///
+    /// # Parameters
+    ///
+    /// * `epoch` - Timestamp origin represented by timestamp zero.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
@@ -70,6 +87,14 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Sets the first-allocation behavior used after construction.
+    ///
+    /// # Parameters
+    ///
+    /// * `restart_policy` - Policy applied to the first allocation attempt.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
@@ -77,6 +102,14 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Sets the wall clock sampled by allocation attempts.
+    ///
+    /// # Parameters
+    ///
+    /// * `wall_clock` - Wall clock sampled inside the allocation lock.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
@@ -84,6 +117,14 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Sets the timer used by synchronous or asynchronous retry waits.
+    ///
+    /// # Parameters
+    ///
+    /// * `timer` - Timer adapted by synchronous and asynchronous generators.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline(always)]
     pub fn timer(mut self, timer: Arc<dyn Timer>) -> Self {
         self.timer = timer;
@@ -91,6 +132,10 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Validates the configuration and constructs a synchronous generator.
+    ///
+    /// # Returns
+    ///
+    /// A synchronous classic Snowflake generator.
     ///
     /// # Errors
     ///
@@ -106,6 +151,10 @@ impl SnowflakeGeneratorBuilder {
 
     /// Validates the configuration and constructs an asynchronous generator.
     ///
+    /// # Returns
+    ///
+    /// An asynchronous classic Snowflake generator.
+    ///
     /// # Errors
     ///
     /// Returns [`IdError::NodeOutOfRange`] or
@@ -119,6 +168,17 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Converts the builder into a validated shared core and timer.
+    ///
+    /// # Returns
+    ///
+    /// The validated allocation core and configured timer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::NodeOutOfRange`] or
+    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration, or
+    /// [`IdError::GeneratorExpired`] when the configured wall clock has
+    /// reached the expiration boundary.
     fn into_core(
         self,
     ) -> Result<(SnowflakeCore<SnowflakeLayout>, Arc<dyn Timer>), IdError> {

@@ -75,6 +75,15 @@ impl SnowflakeGenerator {
     }
 
     /// Creates a public generator from a validated core and timer.
+    ///
+    /// # Parameters
+    ///
+    /// * `core` - Validated allocation core.
+    /// * `timer` - Timer adapted to blocking retry waits.
+    ///
+    /// # Returns
+    ///
+    /// A synchronous generator backed by `core` and `timer`.
     #[inline]
     pub(super) fn from_core(
         core: SnowflakeCore<SnowflakeLayout>,
@@ -86,6 +95,10 @@ impl SnowflakeGenerator {
     }
 
     /// Returns the configured classic Snowflake layout.
+    ///
+    /// # Returns
+    ///
+    /// The layout used to compose generated IDs.
     ///
     /// # Examples
     ///
@@ -102,6 +115,10 @@ impl SnowflakeGenerator {
     }
 
     /// Returns the configured timestamp origin.
+    ///
+    /// # Returns
+    ///
+    /// The timestamp origin represented by timestamp zero.
     #[must_use]
     #[inline(always)]
     pub const fn epoch(&self) -> SystemTime {
@@ -109,6 +126,10 @@ impl SnowflakeGenerator {
     }
 
     /// Returns the exclusive expiration boundary.
+    ///
+    /// # Returns
+    ///
+    /// The first wall time that cannot be represented by this generator.
     #[must_use]
     #[inline(always)]
     pub const fn expires_at(&self) -> SystemTime {

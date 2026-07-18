@@ -62,12 +62,29 @@ impl SonyflakeGenerator {
     }
 
     /// Creates a configurable builder for a machine identifier.
+    ///
+    /// # Parameters
+    ///
+    /// * `machine_id` - Machine identifier encoded by generated IDs.
+    ///
+    /// # Returns
+    ///
+    /// A configurable Sonyflake generator builder.
     #[inline(always)]
     pub fn builder(machine_id: u64) -> SonyflakeGeneratorBuilder {
         SonyflakeGeneratorBuilder::new(machine_id)
     }
 
     /// Creates a public generator from a validated core and timer.
+    ///
+    /// # Parameters
+    ///
+    /// * `core` - Validated allocation core.
+    /// * `timer` - Timer adapted to blocking retry waits.
+    ///
+    /// # Returns
+    ///
+    /// A synchronous generator backed by `core` and `timer`.
     #[inline]
     pub(super) fn from_core(
         core: SnowflakeCore<SonyflakeLayout>,
@@ -79,6 +96,10 @@ impl SonyflakeGenerator {
     }
 
     /// Returns the configured Sonyflake layout.
+    ///
+    /// # Returns
+    ///
+    /// The layout used to compose generated IDs.
     ///
     /// # Examples
     ///
@@ -95,6 +116,10 @@ impl SonyflakeGenerator {
     }
 
     /// Returns the configured elapsed-time origin.
+    ///
+    /// # Returns
+    ///
+    /// The wall time represented by elapsed time zero.
     #[must_use]
     #[inline(always)]
     pub const fn start_time(&self) -> SystemTime {
@@ -102,6 +127,10 @@ impl SonyflakeGenerator {
     }
 
     /// Returns the exclusive expiration boundary.
+    ///
+    /// # Returns
+    ///
+    /// The first wall time that cannot be represented by this generator.
     #[must_use]
     #[inline(always)]
     pub const fn expires_at(&self) -> SystemTime {
