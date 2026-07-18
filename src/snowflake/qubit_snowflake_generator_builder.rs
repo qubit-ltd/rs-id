@@ -19,9 +19,11 @@ use qubit_clock::{
     WallClock,
 };
 
+use super::AsyncQubitSnowflakeGenerator;
 use super::constants::DEFAULT_MAX_CLOCK_SKEW;
 use super::internal::{
     DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
+    SnowflakeCore,
     default_timer,
     default_wall_clock,
     panic_if_expired,
@@ -40,7 +42,7 @@ use crate::IdError;
 /// The required host is supplied when the builder is created. Unspecified
 /// options use Qubit defaults: sequential mode, second precision, epoch
 /// `2018-12-02T00:00:00Z`, the default clock-skew tolerance,
-/// [`RestartPolicy::Immediate`], and standard clock and sleeper capabilities.
+/// [`RestartPolicy::Immediate`], and standard clock and timer capabilities.
 #[must_use = "builders do nothing unless built"]
 pub struct QubitSnowflakeGeneratorBuilder {
     /// ID ordering mode encoded in generated IDs.
@@ -57,7 +59,7 @@ pub struct QubitSnowflakeGeneratorBuilder {
     restart_policy: RestartPolicy,
     /// Wall clock sampled by allocation attempts.
     wall_clock: Arc<dyn WallClock>,
-    /// Timer adapted only by blocking generation.
+    /// Timer used by blocking or asynchronous retry waits.
     timer: Arc<dyn Timer>,
 }
 
@@ -178,7 +180,7 @@ impl QubitSnowflakeGeneratorBuilder {
         self
     }
 
-    /// Sets the timer used by [`crate::IdGenerator::next_id`].
+    /// Sets the timer used by synchronous or asynchronous retry waits.
     ///
     /// # Arguments
     ///
@@ -211,19 +213,50 @@ impl QubitSnowflakeGeneratorBuilder {
     /// exclusive expiration boundary.
     #[inline]
     pub fn build(self) -> Result<QubitSnowflakeGenerator, IdError> {
+        let (core, timer) = self.into_core()?;
+        Ok(QubitSnowflakeGenerator::from_core(core, timer))
+    }
+
+    /// Validates the configuration and constructs an asynchronous generator.
+    ///
+    /// # Returns
+    ///
+    /// A configured asynchronous Qubit Snowflake generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::HostOutOfRange`] when the configured host does not
+    /// fit the Qubit host field, or [`IdError::ExpirationTimeOverflow`] when
+    /// the exclusive expiration cannot be represented.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the configured wall clock is equal to or later than the
+    /// exclusive expiration boundary.
+    #[inline]
+    pub fn build_async(self) -> Result<AsyncQubitSnowflakeGenerator, IdError> {
+        let (core, timer) = self.into_core()?;
+        Ok(AsyncQubitSnowflakeGenerator::from_core(core, timer))
+    }
+
+    /// Converts this builder into a validated shared core and timer.
+    fn into_core(
+        self,
+    ) -> Result<(SnowflakeCore<QubitSnowflakeLayout>, Arc<dyn Timer>), IdError>
+    {
         let layout =
             QubitSnowflakeLayout::new(self.mode, self.precision, self.host)?;
         let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
         panic_if_expired("Qubit Snowflake", current_time, expires_at);
-        Ok(QubitSnowflakeGenerator::from_config(
+        let core = SnowflakeCore::new(
             layout,
             self.epoch,
             expires_at,
             self.max_clock_skew,
             self.restart_policy,
             self.wall_clock,
-            self.timer,
-        ))
+        );
+        Ok((core, self.timer))
     }
 }

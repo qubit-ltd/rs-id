@@ -5,11 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Defines an opaque ID fixture without a `Display` implementation.
+//! Shared UUID generation internals.
 
-/// Opaque test ID whose formatting belongs to its generator.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct OpaqueId {
-    /// Numeric payload used by the fixture formatter.
-    pub(crate) value: u64,
-}
+mod generate_uuid_v4;
+
+pub(super) use generate_uuid_v4::generate_uuid_v4;

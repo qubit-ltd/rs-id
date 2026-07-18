@@ -12,7 +12,10 @@ use std::time::{
     SystemTime,
 };
 
-use super::internal::expiration_time;
+use super::internal::{
+    SnowflakeLayoutSpec,
+    expiration_time,
+};
 use super::snowflake_parts::SnowflakeParts;
 use crate::IdError;
 
@@ -176,5 +179,31 @@ impl SnowflakeLayout {
         let node_id = (id >> SEQUENCE_BITS) & MAX_NODE_ID;
         let sequence = id & ((1_u64 << SEQUENCE_BITS) - 1);
         SnowflakeParts::new(timestamp, node_id, sequence)
+    }
+}
+
+impl SnowflakeLayoutSpec for SnowflakeLayout {
+    /// Returns the one-millisecond classic Snowflake time unit.
+    #[inline(always)]
+    fn time_unit(&self) -> Duration {
+        Duration::from_millis(1)
+    }
+
+    /// Returns the greatest classic Snowflake timestamp.
+    #[inline(always)]
+    fn max_timestamp(&self) -> u64 {
+        SnowflakeLayout::max_timestamp(self)
+    }
+
+    /// Returns the greatest classic Snowflake sequence.
+    #[inline(always)]
+    fn max_sequence(&self) -> u64 {
+        SnowflakeLayout::max_sequence(self)
+    }
+
+    /// Composes a classic Snowflake ID.
+    #[inline(always)]
+    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
+        SnowflakeLayout::compose(self, timestamp, sequence)
     }
 }

@@ -41,7 +41,7 @@ fn test_snowflake_generator_builder_builds_configuration() {
     assert_eq!(generator.layout().node_id(), 17);
     assert_eq!(generator.epoch(), epoch);
     let id = generator
-        .next_id()
+        .generate()
         .expect("default immediate policy should allocate");
     let parts = SnowflakeLayout::decode(id);
     assert_eq!(parts.timestamp(), 100);

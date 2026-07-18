@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Synchronous classic 41/10/12 Snowflake generator.
+//! Asynchronous classic 41/10/12 Snowflake generator.
 
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -13,7 +13,7 @@ use std::time::SystemTime;
 use qubit_clock::Timer;
 
 use super::internal::{
-    BlockingSnowflake,
+    AsyncSnowflake,
     SnowflakeCore,
 };
 use super::{
@@ -21,25 +21,20 @@ use super::{
     SnowflakeLayout,
 };
 use crate::{
+    AsyncIdGenerator,
     IdError,
-    IdGenerator,
+    IdGenerationFuture,
 };
 
-/// Generates classic Snowflake IDs with 41 timestamp, 10 node, and 12
-/// sequence bits.
-///
-/// The generator is thread-safe. One shared live instance never returns the
-/// same ID twice, provided its node identifier is exclusive within the ID
-/// namespace. [`IdGenerator::generate`] blocks when sequence capacity is
-/// exhausted until the injected timer allows wall time to advance.
+/// Generates classic Snowflake IDs without blocking an asynchronous executor.
 #[must_use]
-pub struct SnowflakeGenerator {
-    /// Blocking driver over the shared allocation core.
-    inner: BlockingSnowflake<SnowflakeLayout>,
+pub struct AsyncSnowflakeGenerator {
+    /// Asynchronous driver over the shared allocation core.
+    inner: AsyncSnowflake<SnowflakeLayout>,
 }
 
-impl SnowflakeGenerator {
-    /// Creates a generator with the default Qubit epoch.
+impl AsyncSnowflakeGenerator {
+    /// Creates an asynchronous generator with the default Qubit epoch.
     ///
     /// # Arguments
     ///
@@ -47,32 +42,23 @@ impl SnowflakeGenerator {
     ///
     /// # Returns
     ///
-    /// A configured classic Snowflake generator.
+    /// A configured asynchronous generator.
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit the
-    /// 10-bit node field, or [`IdError::ExpirationTimeOverflow`] when the
-    /// lifetime boundary cannot be represented.
+    /// Returns [`IdError::NodeOutOfRange`] or
+    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration.
     ///
     /// # Panics
     ///
-    /// Panics when the current wall time is equal to or later than the
-    /// exclusive expiration boundary.
+    /// Panics when the current wall time has reached the exclusive expiration
+    /// boundary.
     #[inline(always)]
     pub fn new(node_id: u64) -> Result<Self, IdError> {
-        Self::builder(node_id).build()
+        Self::builder(node_id).build_async()
     }
 
-    /// Creates a configurable builder for a node identifier.
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` - Node identifier encoded by generated IDs.
-    ///
-    /// # Returns
-    ///
-    /// A classic Snowflake generator builder.
+    /// Creates a builder shared with the synchronous generator.
     #[inline(always)]
     pub fn builder(node_id: u64) -> SnowflakeGeneratorBuilder {
         SnowflakeGeneratorBuilder::new(node_id)
@@ -85,7 +71,7 @@ impl SnowflakeGenerator {
         timer: Arc<dyn Timer>,
     ) -> Self {
         Self {
-            inner: BlockingSnowflake::new(core, timer),
+            inner: AsyncSnowflake::new(core, timer),
         }
     }
 
@@ -110,19 +96,19 @@ impl SnowflakeGenerator {
     }
 }
 
-impl IdGenerator<u64> for SnowflakeGenerator {
-    /// Generates the next classic Snowflake ID.
+impl AsyncIdGenerator<u64> for AsyncSnowflakeGenerator {
+    /// Generates the next classic Snowflake ID asynchronously.
     ///
     /// # Returns
     ///
-    /// The next generated numeric identifier.
+    /// A cancellation-safe future for the next generated ID.
     ///
     /// # Errors
     ///
-    /// Returns an allocation error or [`IdError::WaitFailed`] when the timer
-    /// cannot complete a retry wait.
+    /// The future resolves to [`IdError`] when allocation or a retry wait
+    /// fails.
     #[inline(always)]
-    fn generate(&self) -> Result<u64, IdError> {
-        self.inner.generate()
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
+        Box::pin(self.inner.generate())
     }
 }

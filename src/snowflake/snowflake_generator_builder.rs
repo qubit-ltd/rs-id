@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Builder for the classic Snowflake generator.
+//! Builder for classic Snowflake generators.
 
 use std::sync::Arc;
 use std::time::{
@@ -21,21 +21,20 @@ use qubit_clock::{
 
 use super::internal::{
     DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
+    SnowflakeCore,
     default_timer,
     default_wall_clock,
     panic_if_expired,
 };
 use super::{
+    AsyncSnowflakeGenerator,
     RestartPolicy,
     SnowflakeGenerator,
     SnowflakeLayout,
 };
 use crate::IdError;
 
-/// Configures and constructs a [`SnowflakeGenerator`].
-///
-/// Unspecified options use the default Qubit epoch,
-/// [`RestartPolicy::Immediate`], and standard clock and sleeper capabilities.
+/// Configures synchronous or asynchronous classic Snowflake generators.
 #[must_use = "builders do nothing unless built"]
 pub struct SnowflakeGeneratorBuilder {
     /// Node identifier encoded in generated IDs.
@@ -46,23 +45,12 @@ pub struct SnowflakeGeneratorBuilder {
     restart_policy: RestartPolicy,
     /// Wall clock sampled by the generator.
     wall_clock: Arc<dyn WallClock>,
-    /// Timer adapted only by blocking generation.
+    /// Timer used by blocking or asynchronous waits.
     timer: Arc<dyn Timer>,
 }
 
 impl SnowflakeGeneratorBuilder {
-    /// Creates a builder for the specified node identifier.
-    ///
-    /// Node validation is deferred until [`Self::build`].
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` - Node identifier to encode in generated IDs.
-    ///
-    /// # Returns
-    ///
-    /// A builder using the default Qubit epoch, immediate restart policy, and
-    /// standard clocks.
+    /// Creates a builder for a node identifier.
     #[inline]
     pub(crate) fn new(node_id: u64) -> Self {
         Self {
@@ -76,14 +64,6 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Sets the timestamp origin used by generated IDs.
-    ///
-    /// # Arguments
-    ///
-    /// * `epoch` - Timestamp origin to configure.
-    ///
-    /// # Returns
-    ///
-    /// The updated builder.
     #[inline(always)]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
@@ -91,14 +71,6 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Sets the first-allocation behavior used after construction.
-    ///
-    /// # Arguments
-    ///
-    /// * `restart_policy` - Policy controlling the first allocation.
-    ///
-    /// # Returns
-    ///
-    /// The updated builder.
     #[inline(always)]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
@@ -106,65 +78,69 @@ impl SnowflakeGeneratorBuilder {
     }
 
     /// Sets the wall clock sampled by allocation attempts.
-    ///
-    /// # Arguments
-    ///
-    /// * `wall_clock` - Shared wall clock to sample.
-    ///
-    /// # Returns
-    ///
-    /// The updated builder.
     #[inline(always)]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
         self
     }
 
-    /// Sets the timer used by [`crate::IdGenerator::next_id`].
-    ///
-    /// # Arguments
-    ///
-    /// * `timer` - Shared timer used for retry delays.
-    ///
-    /// # Returns
-    ///
-    /// The updated builder.
+    /// Sets the timer used by synchronous or asynchronous retry waits.
     #[inline(always)]
     pub fn timer(mut self, timer: Arc<dyn Timer>) -> Self {
         self.timer = timer;
         self
     }
 
-    /// Validates the configuration and constructs a generator.
-    ///
-    /// # Returns
-    ///
-    /// A configured classic Snowflake generator.
+    /// Validates the configuration and constructs a synchronous generator.
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::NodeOutOfRange`] when the node identifier does not
-    /// fit the classic 10-bit node field, or
-    /// [`IdError::ExpirationTimeOverflow`] when the exclusive expiration
-    /// cannot be represented.
+    /// Returns [`IdError::NodeOutOfRange`] or
+    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration.
     ///
     /// # Panics
     ///
-    /// Panics when the configured wall clock is equal to or later than the
-    /// exclusive expiration boundary.
+    /// Panics when the configured wall clock has reached the expiration
+    /// boundary.
     #[inline]
     pub fn build(self) -> Result<SnowflakeGenerator, IdError> {
+        let (core, timer) = self.into_core()?;
+        Ok(SnowflakeGenerator::from_core(core, timer))
+    }
+
+    /// Validates the configuration and constructs an asynchronous generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::NodeOutOfRange`] or
+    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the configured wall clock has reached the expiration
+    /// boundary.
+    #[inline]
+    pub fn build_async(self) -> Result<AsyncSnowflakeGenerator, IdError> {
+        let (core, timer) = self.into_core()?;
+        Ok(AsyncSnowflakeGenerator::from_core(core, timer))
+    }
+
+    /// Converts the builder into a validated shared core and timer.
+    fn into_core(
+        self,
+    ) -> Result<(SnowflakeCore<SnowflakeLayout>, Arc<dyn Timer>), IdError> {
         let layout = SnowflakeLayout::new(self.node_id)?;
         let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
         panic_if_expired("classic Snowflake", current_time, expires_at);
-        Ok(SnowflakeGenerator::from_config(
+        let core = SnowflakeCore::new(
             layout,
             self.epoch,
             expires_at,
+            Duration::ZERO,
             self.restart_policy,
             self.wall_clock,
-            self.timer,
-        ))
+        );
+        Ok((core, self.timer))
     }
 }

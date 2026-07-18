@@ -54,7 +54,7 @@ fn test_qubit_snowflake_generator_builder_builds_configuration() {
     assert_eq!(generator.max_clock_skew(), Duration::from_millis(37));
 
     let id = generator
-        .next_id()
+        .generate()
         .expect("the injected clock should generate an ID");
     let parts = QubitSnowflakeLayout::decode(id);
     assert_eq!(parts.timestamp(), 100);

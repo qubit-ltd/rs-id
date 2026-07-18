@@ -7,10 +7,7 @@
 // =============================================================================
 //! Constructs default wall-clock and timer capabilities.
 
-use std::sync::{
-    Arc,
-    OnceLock,
-};
+use std::sync::Arc;
 
 use qubit_clock::{
     MonotonicClock,
@@ -19,9 +16,6 @@ use qubit_clock::{
     Timer,
     WallClock,
 };
-
-/// Process-wide standard timer used by default generator configurations.
-static DEFAULT_TIMER: OnceLock<Arc<dyn Timer>> = OnceLock::new();
 
 /// Creates the standard system wall clock.
 ///
@@ -34,7 +28,7 @@ pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
     Arc::new(StdWallClock::new())
 }
 
-/// Returns the process-wide standard timer and monotonic clock.
+/// Creates a standard timer and monotonic clock.
 ///
 /// # Returns
 ///
@@ -42,7 +36,5 @@ pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
 #[must_use]
 #[inline(always)]
 pub(crate) fn default_timer() -> Arc<dyn Timer> {
-    Arc::clone(
-        DEFAULT_TIMER.get_or_init(|| StdMonotonicClock::new().new_timer()),
-    )
+    StdMonotonicClock::new().new_timer()
 }
