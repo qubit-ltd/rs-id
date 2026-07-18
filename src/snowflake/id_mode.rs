@@ -44,7 +44,7 @@ pub enum IdMode {
 impl IdMode {
     /// Decodes an ID mode from a one-bit value.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `bit` - Encoded one-bit mode value.
     ///

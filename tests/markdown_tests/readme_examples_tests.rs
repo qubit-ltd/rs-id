@@ -45,7 +45,7 @@ fn test_readme_rust_examples_compile() {
 
 /// Recreates the directory used by temporary Markdown example crates.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `path` - Directory to remove if present and then recreate.
 ///
@@ -63,7 +63,7 @@ fn recreate_dir(path: &Path) {
 
 /// Extracts Rust code fences from a Markdown file.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `path` - Markdown file to read.
 ///
@@ -104,7 +104,7 @@ fn extract_rust_snippets(path: &Path) -> Vec<String> {
 
 /// Returns whether a Markdown fence language identifies Rust source code.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `language` - Text immediately following the opening fence.
 ///
@@ -122,7 +122,7 @@ fn is_rust_fence(language: &str) -> bool {
 
 /// Compiles a README's Rust snippets in an isolated temporary crate.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `manifest_dir` - Root directory of the `qubit-id` crate.
 /// * `output_dir` - Parent directory for generated temporary crates and build
@@ -171,7 +171,7 @@ fn compile_snippets(
 
 /// Builds the temporary Cargo manifest used to compile README snippets.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `name` - Stable suffix identifying the README under test.
 /// * `manifest_dir` - Root directory of the `qubit-id` crate dependency.
@@ -197,7 +197,7 @@ qubit-id = {{ path = "{manifest_path}", default-features = false, features = ["c
 
 /// Escapes a value for use inside a TOML basic string.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `value` - Unescaped string value.
 ///
@@ -227,7 +227,7 @@ fn toml_basic_string(value: &str) -> String {
 
 /// Normalizes a Markdown snippet into a standalone binary source file.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `snippet` - Rust code extracted from a README fence.
 ///

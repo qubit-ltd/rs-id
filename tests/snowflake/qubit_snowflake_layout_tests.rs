@@ -62,7 +62,7 @@ fn latest_representable_whole_second() -> SystemTime {
 
 /// Produces a deterministic pseudo-random value with the SplitMix64 mixer.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `state` - Mutable SplitMix64 state advanced by this call.
 ///
@@ -80,7 +80,7 @@ fn next_property_value(state: &mut u64) -> u64 {
 
 /// Asserts that decoding and recomposing an arbitrary bit pattern is lossless.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `id` - Arbitrary 64-bit pattern to round-trip.
 ///

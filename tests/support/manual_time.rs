@@ -35,7 +35,7 @@ pub(crate) struct ManualTime {
 impl ManualTime {
     /// Creates a fixture whose wall clock initially reads `now`.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `now` - Initial wall time projected from monotonic time zero.
     ///
@@ -75,7 +75,7 @@ impl ManualTime {
 
     /// Reanchors wall time without moving monotonic time.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `now` - New wall time for the current monotonic instant.
     #[inline(always)]
@@ -85,7 +85,7 @@ impl ManualTime {
 
     /// Advances both monotonic time and the wall-time projection.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `duration` - Amount by which to advance the shared timeline.
     ///
@@ -113,7 +113,7 @@ impl ManualTime {
 
     /// Waits for `expected` timer waiters and advances to their next deadline.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `expected` - Number of registered timer waiters required before time
     ///   advances.
@@ -163,7 +163,7 @@ impl ManualTime {
 
     /// Asynchronously waits until `expected` timer waiters are registered.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `expected` - Registration count that completes the observation.
     #[cfg(feature = "qubit-snowflake")]

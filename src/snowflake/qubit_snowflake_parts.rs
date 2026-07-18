@@ -31,7 +31,7 @@ pub struct QubitSnowflakeParts {
 impl QubitSnowflakeParts {
     /// Creates decoded Qubit snowflake parts.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `mode` - Decoded ordering mode.
     /// * `precision` - Decoded timestamp precision.

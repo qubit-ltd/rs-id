@@ -36,7 +36,7 @@ use crate::support::{
 
 /// Builds a deterministic Qubit generator and its shared manual timeline.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `precision` - Timestamp precision used by the generated IDs.
 /// * `host` - Host identifier encoded by the layout.

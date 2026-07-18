@@ -60,7 +60,7 @@ fn main() {
 /// `T` is the generated value and `F` is the operation measured once per
 /// iteration.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `name` - Stable case name included in benchmark output.
 /// * `operation` - Value- or string-generation operation to measure.
@@ -102,7 +102,7 @@ where
 
 /// Executes one operation repeatedly before timing begins.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `operation` - Operation invoked for every warm-up iteration.
 fn warm_up<T, F>(operation: &mut F)
