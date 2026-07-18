@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Constructs default wall-clock and timer capabilities.
 
 use std::sync::Arc;

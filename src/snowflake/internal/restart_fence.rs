@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Defines the first-allocation fence used by restart policies.
 
 use super::super::RestartPolicy;
@@ -27,7 +28,7 @@ pub(crate) enum RestartFence {
 impl RestartFence {
     /// Creates a fence for the configured restart policy.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `policy` - Restart behavior selected for the generator.
     ///
@@ -45,7 +46,7 @@ impl RestartFence {
 
     /// Returns whether allocation must still wait at `timestamp`.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `timestamp` - Logical time slice observed by the current attempt.
     ///

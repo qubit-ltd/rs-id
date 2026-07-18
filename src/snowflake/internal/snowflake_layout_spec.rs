@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Private layout contract shared by Snowflake-family generators.
 
 use std::time::Duration;
@@ -24,7 +25,7 @@ pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
 
     /// Composes an identifier from an encoded timestamp and sequence.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `timestamp` - Encoded timestamp relative to the configured origin.
     /// * `sequence` - Sequence allocated within the timestamp unit.

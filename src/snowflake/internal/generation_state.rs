@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Defines shared allocation state for Snowflake-family generators.
 
 use std::time::Duration;
@@ -35,7 +36,7 @@ pub(crate) struct GenerationState {
 impl GenerationState {
     /// Creates empty allocation state for `restart_policy`.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `restart_policy` - Policy controlling the first allocation.
     ///
@@ -57,7 +58,7 @@ impl GenerationState {
     /// A tolerated rollback leaves all state unchanged so allocation cannot
     /// resume until wall time catches up to the greatest observed value.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `observation` - Raw and quantized wall-clock observation.
     /// * `max_sequence` - Largest sequence supported by the layout.
