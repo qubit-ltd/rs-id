@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use qubit_id::{
-    AsyncIdGenerator,
     IdGenerator,
     UuidV4StringGenerator,
 };
@@ -18,23 +17,6 @@ use uuid::{
     Uuid,
     Variant,
 };
-
-mod concrete_async_tests {
-    use qubit_id::UuidV4StringGenerator;
-
-    /// Tests the allocation-free inherent asynchronous API.
-    #[tokio::test]
-    async fn test_uuid_v4_string_generator_supports_concrete_async_call() {
-        let generator = UuidV4StringGenerator::new();
-
-        let value = generator
-            .generate_async()
-            .await
-            .expect("UUID should generate");
-
-        super::assert_uuid_v4_string(&value);
-    }
-}
 
 /// Asserts that `value` is a canonical hyphenated UUID v4 string.
 ///
@@ -58,19 +40,6 @@ fn test_uuid_v4_string_generator_returns_canonical_string() {
         Arc::new(UuidV4StringGenerator::new());
 
     let value = generator.generate().expect("UUID should generate");
-
-    assert_uuid_v4_string(&value);
-}
-
-#[tokio::test]
-async fn test_uuid_v4_string_generator_supports_async_trait_object() {
-    let generator: Arc<dyn AsyncIdGenerator<String>> =
-        Arc::new(UuidV4StringGenerator::new());
-
-    let value = generator
-        .generate_async()
-        .await
-        .expect("UUID should generate");
 
     assert_uuid_v4_string(&value);
 }
