@@ -9,7 +9,6 @@
 
 use crate::{
     AsyncIdGenerator,
-    IdError,
     IdGenerationFuture,
     IdGenerator,
 };
@@ -28,7 +27,7 @@ pub struct SnowflakeStringGenerator<G> {
 impl<G> SnowflakeStringGenerator<G> {
     /// Creates a decimal-string adapter for `inner`.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `inner` - Numeric Snowflake generator to wrap.
     ///
@@ -53,11 +52,32 @@ impl<G> SnowflakeStringGenerator<G> {
     pub fn into_inner(self) -> G {
         self.inner
     }
+
+    /// Generates a Snowflake ID as unsigned decimal text asynchronously.
+    ///
+    /// Concrete callers use this inherent method without allocating an outer
+    /// boxed future. The wrapped generator controls whether its own future is
+    /// boxed.
+    ///
+    /// # Returns
+    ///
+    /// A future that awaits the wrapped generator and formats its output.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error produced by the wrapped generator.
+    #[inline(always)]
+    pub async fn generate_async<E>(&self) -> Result<String, E>
+    where
+        G: AsyncIdGenerator<u64, E>,
+    {
+        self.inner.generate_async().await.map(|id| id.to_string())
+    }
 }
 
-impl<G> IdGenerator<String> for SnowflakeStringGenerator<G>
+impl<G, E> IdGenerator<String, E> for SnowflakeStringGenerator<G>
 where
-    G: IdGenerator<u64>,
+    G: IdGenerator<u64, E>,
 {
     /// Generates a Snowflake ID as unsigned decimal text.
     ///
@@ -67,16 +87,16 @@ where
     ///
     /// # Errors
     ///
-    /// Returns the [`IdError`] produced by the wrapped generator.
+    /// Returns the error produced by the wrapped generator.
     #[inline(always)]
-    fn generate(&self) -> Result<String, IdError> {
+    fn generate(&self) -> Result<String, E> {
         self.inner.generate().map(|id| id.to_string())
     }
 }
 
-impl<G> AsyncIdGenerator<String> for SnowflakeStringGenerator<G>
+impl<G, E> AsyncIdGenerator<String, E> for SnowflakeStringGenerator<G>
 where
-    G: AsyncIdGenerator<u64>,
+    G: AsyncIdGenerator<u64, E>,
 {
     /// Generates a Snowflake ID as unsigned decimal text asynchronously.
     ///
@@ -86,10 +106,9 @@ where
     ///
     /// # Errors
     ///
-    /// The future resolves to the [`IdError`] produced by the wrapped
-    /// generator.
+    /// The future resolves to the error produced by the wrapped generator.
     #[inline(always)]
-    fn generate_async(&self) -> IdGenerationFuture<'_, String> {
+    fn generate_async(&self) -> IdGenerationFuture<'_, String, E> {
         Box::pin(async move {
             self.inner.generate_async().await.map(|id| id.to_string())
         })

@@ -15,6 +15,6 @@ use crate::IdError;
 /// Object-safe future returned by an asynchronous ID generator.
 ///
 /// The future may borrow its generator for `'a` and is safe to move between
-/// executor threads.
-pub type IdGenerationFuture<'a, T> =
-    Pin<Box<dyn Future<Output = Result<T, IdError>> + Send + 'a>>;
+/// executor threads. `E` defaults to [`IdError`] for built-in generators.
+pub type IdGenerationFuture<'a, T, E = IdError> =
+    Pin<Box<dyn Future<Output = Result<T, E>> + Send + 'a>>;

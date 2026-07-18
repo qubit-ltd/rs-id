@@ -23,7 +23,6 @@ use super::internal::{
     SnowflakeCore,
     default_timer,
     default_wall_clock,
-    panic_if_expired,
 };
 use super::sonyflake_generator::DEFAULT_START_MILLIS;
 use super::sonyflake_layout::{
@@ -131,11 +130,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Errors
     ///
     /// Returns an [`IdError`] when a layout, start-time, or lifetime setting is
-    /// invalid.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the configured wall clock has reached the expiration
+    /// invalid, or when the configured wall clock has reached the expiration
     /// boundary.
     #[inline]
     pub fn build(self) -> Result<SonyflakeGenerator, IdError> {
@@ -148,11 +143,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Errors
     ///
     /// Returns an [`IdError`] when a layout, start-time, or lifetime setting is
-    /// invalid.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the configured wall clock has reached the expiration
+    /// invalid, or when the configured wall clock has reached the expiration
     /// boundary.
     #[inline]
     pub fn build_async(self) -> Result<AsyncSonyflakeGenerator, IdError> {
@@ -178,7 +169,12 @@ impl SonyflakeGeneratorBuilder {
                 current_time,
             });
         }
-        panic_if_expired("Sonyflake", current_time, expires_at);
+        if current_time >= expires_at {
+            return Err(IdError::GeneratorExpired {
+                observed_at: current_time,
+                expires_at,
+            });
+        }
         let core = SnowflakeCore::new(
             layout,
             self.start_time,

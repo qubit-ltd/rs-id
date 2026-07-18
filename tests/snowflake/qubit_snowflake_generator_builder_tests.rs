@@ -7,10 +7,6 @@
 // =============================================================================
 //! Tests for the Qubit snowflake generator builder.
 
-use std::panic::{
-    AssertUnwindSafe,
-    catch_unwind,
-};
 use std::sync::Arc;
 use std::time::{
     Duration,
@@ -96,17 +92,18 @@ fn test_qubit_snowflake_generator_builder_enforces_expiration() {
     assert_eq!(generator.expires_at(), expires_at);
 
     for current_time in [expires_at, expires_at + Duration::from_nanos(1)] {
-        let panic = catch_unwind(AssertUnwindSafe(|| {
-            QubitSnowflakeGenerator::builder(17)
-                .epoch(epoch)
-                .wall_clock(Arc::new(FixedWallClock::new(current_time)))
-                .build()
-                .expect("expired configuration must panic before returning")
-        }));
-
         assert!(
-            panic.is_err(),
-            "construction at {current_time:?} must panic"
+            matches!(
+                QubitSnowflakeGenerator::builder(17)
+                    .epoch(epoch)
+                    .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+                    .build(),
+                Err(IdError::GeneratorExpired {
+                    observed_at,
+                    expires_at: actual_expiration,
+                }) if observed_at == current_time && actual_expiration == expires_at
+            ),
+            "construction at {current_time:?} must return GeneratorExpired"
         );
     }
 }

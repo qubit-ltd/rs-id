@@ -30,10 +30,7 @@ pub(crate) use clock_defaults::{
 pub(crate) use clock_observation::ClockObservation;
 #[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake"))]
 pub(crate) use default_epoch::DEFAULT_SNOWFLAKE_EPOCH_MILLIS;
-pub(crate) use expiration_time::{
-    expiration_time,
-    panic_if_expired,
-};
+pub(crate) use expiration_time::expiration_time;
 pub(crate) use generation_attempt::GenerationAttempt;
 pub(crate) use generation_state::GenerationState;
 pub(crate) use restart_fence::RestartFence;

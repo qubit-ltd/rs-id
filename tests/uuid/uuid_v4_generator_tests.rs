@@ -26,6 +26,24 @@ use uuid::{
     Variant,
 };
 
+mod concrete_async_tests {
+    use qubit_id::UuidV4Generator;
+    use uuid::Uuid;
+
+    /// Tests the allocation-free inherent asynchronous API.
+    #[tokio::test]
+    async fn test_uuid_v4_generator_supports_concrete_async_call() {
+        let generator = UuidV4Generator::new();
+
+        let value = generator
+            .generate_async()
+            .await
+            .expect("UUID should generate");
+
+        assert_eq!(Uuid::from_u128(value).get_version_num(), 4);
+    }
+}
+
 #[test]
 fn test_uuid_v4_generator_returns_standard_uuid_bits() {
     let generator = UuidV4Generator::new();

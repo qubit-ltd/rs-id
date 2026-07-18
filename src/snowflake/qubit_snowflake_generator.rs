@@ -71,7 +71,7 @@ pub struct QubitSnowflakeGenerator {
 impl QubitSnowflakeGenerator {
     /// Creates a generator with Qubit defaults.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `host` - Host identifier in `0..=511`.
     ///
@@ -82,12 +82,9 @@ impl QubitSnowflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::HostOutOfRange`] when `host` does not fit in the host
-    /// field.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the current wall time is equal to or later than the
-    /// layout's exclusive expiration boundary.
+    /// field, [`IdError::ExpirationTimeOverflow`] when the lifetime boundary
+    /// cannot be represented, or [`IdError::GeneratorExpired`] when the
+    /// current wall time has reached that boundary.
     #[inline(always)]
     pub fn new(host: u64) -> Result<Self, IdError> {
         Self::builder(host).build()
@@ -98,7 +95,7 @@ impl QubitSnowflakeGenerator {
     /// Host validation is performed when
     /// [`QubitSnowflakeGeneratorBuilder::build`] is called.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `host` - Host identifier to encode in generated IDs.
     ///
@@ -112,7 +109,7 @@ impl QubitSnowflakeGenerator {
 
     /// Constructs a generator from a validated builder configuration.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `core` - Validated Qubit allocation core.
     /// * `timer` - Timer adapted for blocking generation.
@@ -135,6 +132,16 @@ impl QubitSnowflakeGenerator {
     /// # Returns
     ///
     /// Layout used to compose generated IDs.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use qubit_id::QubitSnowflakeGenerator;
+    /// let generator = QubitSnowflakeGenerator::new(7).expect("valid host");
+    /// generator.layout();
+    /// ```
+    #[must_use = "use the returned layout reference"]
     #[inline(always)]
     pub const fn layout(&self) -> &QubitSnowflakeLayout {
         self.inner.core().layout()
@@ -181,7 +188,7 @@ impl QubitSnowflakeGenerator {
     /// This method is stateless. Repeating its inputs repeats the ID, so it
     /// provides no uniqueness guarantee.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `time` - Time to encode.
     /// * `sequence` - Sequence value inside the encoded time slice.
@@ -193,9 +200,9 @@ impl QubitSnowflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::TimeBeforeEpoch`] if `time` is before the configured
-    /// epoch. Returns [`IdError::TimestampOverflow`] or
-    /// [`IdError::SequenceOverflow`] when the computed timestamp or provided
-    /// sequence does not fit the layout.
+    /// epoch, [`IdError::GeneratorExpired`] if `time` has reached the exclusive
+    /// expiration boundary, or [`IdError::SequenceOverflow`] when `sequence`
+    /// does not fit the layout.
     #[inline(always)]
     pub fn generate_at(
         &self,

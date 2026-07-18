@@ -14,8 +14,9 @@ tests.
 
 ## Highlights
 
-- `IdGenerator<T>` and `AsyncIdGenerator<T>` use `&self`, with state changes
-  synchronized inside each implementation.
+- `IdGenerator<T, E = IdError>` and
+  `AsyncIdGenerator<T, E = IdError>` support provider-specific error types and
+  use `&self`, with state changes synchronized inside each implementation.
 - Qubit Snowflake, classic Snowflake, and Sonyflake share one allocation core
   while using separate blocking and asynchronous wait drivers.
 - Builders accept `Arc<dyn WallClock>` and `Arc<dyn Timer>` from
@@ -41,10 +42,15 @@ qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"]
 qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
 ```
 
-The optional `tokio` feature exposes the Tokio timer integration supplied by
-`qubit-clock`; asynchronous ID generation itself is runtime-neutral.
+Asynchronous ID generation is runtime-neutral. Applications that need the
+Tokio timer enable the corresponding feature directly on their `qubit-clock`
+dependency.
 
 ## IoC contracts
+
+The error parameter defaults to `IdError`, so built-in generators keep the
+short `IdGenerator<T>` spelling. Third-party implementations can retain a
+provider-specific error type with `IdGenerator<T, E>`.
 
 Use `Arc<dyn IdGenerator<u64>>` for a synchronous numeric dependency:
 
@@ -61,9 +67,20 @@ fn main() -> Result<(), IdError> {
 }
 ```
 
-Use `Arc<dyn AsyncIdGenerator<u64>>` when callers must yield during time-based
-waits. The trait returns an object-safe boxed Future and does not require
-Tokio:
+Concrete asynchronous generators expose an allocation-free inherent Future:
+
+```rust
+use qubit_id::{AsyncQubitSnowflakeGenerator, IdError};
+
+async fn allocate_concrete(
+    generator: &AsyncQubitSnowflakeGenerator,
+) -> Result<u64, IdError> {
+    generator.generate_async().await
+}
+```
+
+Use `Arc<dyn AsyncIdGenerator<u64>>` when an object-safe injection boundary is
+required. Dynamic dispatch returns a boxed Future and does not require Tokio:
 
 ```rust
 use std::sync::Arc;
@@ -101,8 +118,8 @@ epoch/start time, restart policy, wall clock, and timer configuration.
 ## Deterministic time injection
 
 Derive the wall clock and timer from the same `ManualMonotonicClock` in tests.
-The same pattern works with `StdWallClock`, `StdMonotonicClock`, and an optional
-Tokio timer:
+The same pattern works with `StdWallClock`, `StdMonotonicClock`, and a Tokio
+timer enabled directly through `qubit-clock`:
 
 ```text
 let clock = ManualMonotonicClock::new_shared();
@@ -138,7 +155,9 @@ fn main() -> Result<(), IdError> {
 ```
 
 `UuidV4Generator` returns `u128`; `UuidV4StringGenerator` returns canonical
-hyphenated text. Both implement the synchronous and asynchronous contracts:
+hyphenated text. Both implement the synchronous and asynchronous contracts and
+return `IdError::RandomSourceFailed` if the operating system cannot provide
+random bytes:
 
 ```rust
 use qubit_id::{

@@ -19,9 +19,26 @@ use uuid::{
     Variant,
 };
 
+mod concrete_async_tests {
+    use qubit_id::UuidV4StringGenerator;
+
+    /// Tests the allocation-free inherent asynchronous API.
+    #[tokio::test]
+    async fn test_uuid_v4_string_generator_supports_concrete_async_call() {
+        let generator = UuidV4StringGenerator::new();
+
+        let value = generator
+            .generate_async()
+            .await
+            .expect("UUID should generate");
+
+        super::assert_uuid_v4_string(&value);
+    }
+}
+
 /// Asserts that `value` is a canonical hyphenated UUID v4 string.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `value` - UUID string to validate.
 fn assert_uuid_v4_string(value: &str) {

@@ -33,6 +33,23 @@ impl UuidV4Generator {
     pub const fn new() -> Self {
         Self
     }
+
+    /// Generates a UUID v4 through an allocation-free concrete future.
+    ///
+    /// Use [`AsyncIdGenerator`] when object-safe dynamic dispatch is required.
+    ///
+    /// # Returns
+    ///
+    /// A future that completes on its first poll with a random UUID v4 value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::RandomSourceFailed`] when the operating-system
+    /// random source cannot provide UUID bytes.
+    #[inline(always)]
+    pub async fn generate_async(&self) -> Result<u128, IdError> {
+        generate_uuid_v4().map(|uuid| uuid.as_u128())
+    }
 }
 
 impl IdGenerator<u128> for UuidV4Generator {
@@ -44,14 +61,11 @@ impl IdGenerator<u128> for UuidV4Generator {
     ///
     /// # Errors
     ///
-    /// This implementation does not return a recoverable generation error.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the operating-system random source is unavailable.
+    /// Returns [`IdError::RandomSourceFailed`] when the operating-system
+    /// random source cannot provide UUID bytes.
     #[inline(always)]
     fn generate(&self) -> Result<u128, IdError> {
-        Ok(generate_uuid_v4().as_u128())
+        generate_uuid_v4().map(|uuid| uuid.as_u128())
     }
 }
 
@@ -64,14 +78,10 @@ impl AsyncIdGenerator<u128> for UuidV4Generator {
     ///
     /// # Errors
     ///
-    /// The future does not resolve to a recoverable generation error.
-    ///
-    /// # Panics
-    ///
-    /// Polling the future panics when the operating-system random source is
-    /// unavailable.
+    /// The future resolves to [`IdError::RandomSourceFailed`] when the
+    /// operating-system random source cannot provide UUID bytes.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u128> {
-        Box::pin(async { Ok(generate_uuid_v4().as_u128()) })
+        Box::pin(UuidV4Generator::generate_async(self))
     }
 }

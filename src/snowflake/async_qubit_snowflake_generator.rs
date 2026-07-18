@@ -44,7 +44,7 @@ pub struct AsyncQubitSnowflakeGenerator {
 impl AsyncQubitSnowflakeGenerator {
     /// Creates an asynchronous generator with Qubit defaults.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `host` - Host identifier in `0..=511`.
     ///
@@ -55,13 +55,9 @@ impl AsyncQubitSnowflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::HostOutOfRange`] when `host` does not fit the host
-    /// field, or [`IdError::ExpirationTimeOverflow`] when the lifetime boundary
-    /// cannot be represented.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the current wall time is equal to or later than the
-    /// exclusive expiration boundary.
+    /// field, [`IdError::ExpirationTimeOverflow`] when the lifetime boundary
+    /// cannot be represented, or [`IdError::GeneratorExpired`] when the
+    /// current wall time has reached that boundary.
     #[inline(always)]
     pub fn new(host: u64) -> Result<Self, IdError> {
         Self::builder(host).build_async()
@@ -69,7 +65,7 @@ impl AsyncQubitSnowflakeGenerator {
 
     /// Creates a configurable builder for an asynchronous Qubit generator.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `host` - Host identifier encoded by generated IDs.
     ///
@@ -93,6 +89,17 @@ impl AsyncQubitSnowflakeGenerator {
     }
 
     /// Returns the Qubit bit layout.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use qubit_id::AsyncQubitSnowflakeGenerator;
+    /// let generator =
+    ///     AsyncQubitSnowflakeGenerator::new(7).expect("valid host");
+    /// generator.layout();
+    /// ```
+    #[must_use = "use the returned layout reference"]
     #[inline(always)]
     pub const fn layout(&self) -> &QubitSnowflakeLayout {
         self.inner.core().layout()
@@ -119,11 +126,29 @@ impl AsyncQubitSnowflakeGenerator {
         self.inner.core().max_clock_skew()
     }
 
+    /// Generates the next Qubit Snowflake ID asynchronously.
+    ///
+    /// Concrete callers use this inherent method without allocating a boxed
+    /// future. Use [`AsyncIdGenerator`] when object-safe dynamic dispatch is
+    /// required.
+    ///
+    /// # Returns
+    ///
+    /// A cancellation-safe future for the next generated ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError`] when allocation or a retry wait fails.
+    #[inline(always)]
+    pub async fn generate_async(&self) -> Result<u64, IdError> {
+        self.inner.generate().await
+    }
+
     /// Generates an ID for an explicit wall time and sequence.
     ///
     /// This operation is stateless and provides no uniqueness guarantee.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `time` - Wall time to encode.
     /// * `sequence` - Sequence to encode within the timestamp unit.
@@ -159,6 +184,6 @@ impl AsyncIdGenerator<u64> for AsyncQubitSnowflakeGenerator {
     /// fails.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
-        Box::pin(self.inner.generate())
+        Box::pin(AsyncQubitSnowflakeGenerator::generate_async(self))
     }
 }

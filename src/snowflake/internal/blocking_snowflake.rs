@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Blocking driver for the shared Snowflake allocation core.
 
 use std::sync::Arc;
@@ -35,7 +36,7 @@ where
 {
     /// Creates a blocking driver for a validated core and timer.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `core` - Shared non-waiting allocation core.
     /// * `timer` - Timer adapted to blocking retry waits.
@@ -77,6 +78,7 @@ where
     }
 
     /// Returns the shared non-waiting allocation core.
+    #[must_use]
     #[inline(always)]
     pub(crate) const fn core(&self) -> &SnowflakeCore<L> {
         &self.core

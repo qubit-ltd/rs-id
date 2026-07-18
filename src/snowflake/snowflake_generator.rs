@@ -41,7 +41,7 @@ pub struct SnowflakeGenerator {
 impl SnowflakeGenerator {
     /// Creates a generator with the default Qubit epoch.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `node_id` - Node identifier in `0..=1023`.
     ///
@@ -52,13 +52,9 @@ impl SnowflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::NodeOutOfRange`] when `node_id` does not fit the
-    /// 10-bit node field, or [`IdError::ExpirationTimeOverflow`] when the
-    /// lifetime boundary cannot be represented.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the current wall time is equal to or later than the
-    /// exclusive expiration boundary.
+    /// 10-bit node field, [`IdError::ExpirationTimeOverflow`] when the lifetime
+    /// boundary cannot be represented, or [`IdError::GeneratorExpired`] when
+    /// the current wall time has reached that boundary.
     #[inline(always)]
     pub fn new(node_id: u64) -> Result<Self, IdError> {
         Self::builder(node_id).build()
@@ -66,7 +62,7 @@ impl SnowflakeGenerator {
 
     /// Creates a configurable builder for a node identifier.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `node_id` - Node identifier encoded by generated IDs.
     ///
@@ -90,6 +86,16 @@ impl SnowflakeGenerator {
     }
 
     /// Returns the configured classic Snowflake layout.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use qubit_id::SnowflakeGenerator;
+    /// let generator = SnowflakeGenerator::new(7).expect("valid node");
+    /// generator.layout();
+    /// ```
+    #[must_use = "use the returned layout reference"]
     #[inline(always)]
     pub const fn layout(&self) -> &SnowflakeLayout {
         self.inner.core().layout()

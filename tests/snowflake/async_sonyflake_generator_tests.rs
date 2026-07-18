@@ -14,7 +14,6 @@ use std::time::{
 };
 
 use qubit_id::{
-    AsyncIdGenerator,
     AsyncSonyflakeGenerator,
     IdError,
     RestartPolicy,

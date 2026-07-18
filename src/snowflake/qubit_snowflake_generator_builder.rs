@@ -26,7 +26,6 @@ use super::internal::{
     SnowflakeCore,
     default_timer,
     default_wall_clock,
-    panic_if_expired,
 };
 use super::qubit_snowflake_generator::QubitSnowflakeGenerator;
 use super::{
@@ -68,7 +67,7 @@ impl QubitSnowflakeGeneratorBuilder {
     ///
     /// Host validation is deferred until [`Self::build`].
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `host` - Host identifier to encode in generated IDs.
     ///
@@ -92,7 +91,7 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the encoded ID ordering mode.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `mode` - Ordering mode to encode in generated IDs.
     ///
@@ -107,7 +106,7 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the timestamp precision and corresponding field allocation.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `precision` - Precision and field allocation to use.
     ///
@@ -122,7 +121,7 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the timestamp origin used by generated IDs.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `epoch` - Timestamp origin to configure.
     ///
@@ -137,7 +136,7 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the maximum tolerated raw wall-clock rollback.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `max_clock_skew` - Largest raw rollback that may be retried.
     ///
@@ -152,7 +151,7 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the first-allocation behavior used after construction.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `restart_policy` - Policy controlling the first allocation.
     ///
@@ -167,7 +166,7 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the wall clock sampled by allocation attempts.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `wall_clock` - Shared wall clock to sample.
     ///
@@ -182,7 +181,7 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the timer used by synchronous or asynchronous retry waits.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `timer` - Shared timer used for retry delays.
     ///
@@ -205,12 +204,9 @@ impl QubitSnowflakeGeneratorBuilder {
     ///
     /// Returns [`IdError::HostOutOfRange`] when the configured host does not
     /// fit the Qubit host field, or [`IdError::ExpirationTimeOverflow`] when
-    /// the exclusive expiration cannot be represented.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the configured wall clock is equal to or later than the
-    /// exclusive expiration boundary.
+    /// the exclusive expiration cannot be represented, or
+    /// [`IdError::GeneratorExpired`] when the configured wall clock is equal
+    /// to or later than that boundary.
     #[inline]
     pub fn build(self) -> Result<QubitSnowflakeGenerator, IdError> {
         let (core, timer) = self.into_core()?;
@@ -227,12 +223,9 @@ impl QubitSnowflakeGeneratorBuilder {
     ///
     /// Returns [`IdError::HostOutOfRange`] when the configured host does not
     /// fit the Qubit host field, or [`IdError::ExpirationTimeOverflow`] when
-    /// the exclusive expiration cannot be represented.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the configured wall clock is equal to or later than the
-    /// exclusive expiration boundary.
+    /// the exclusive expiration cannot be represented, or
+    /// [`IdError::GeneratorExpired`] when the configured wall clock is equal
+    /// to or later than that boundary.
     #[inline]
     pub fn build_async(self) -> Result<AsyncQubitSnowflakeGenerator, IdError> {
         let (core, timer) = self.into_core()?;
@@ -248,7 +241,12 @@ impl QubitSnowflakeGeneratorBuilder {
             QubitSnowflakeLayout::new(self.mode, self.precision, self.host)?;
         let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
-        panic_if_expired("Qubit Snowflake", current_time, expires_at);
+        if current_time >= expires_at {
+            return Err(IdError::GeneratorExpired {
+                observed_at: current_time,
+                expires_at,
+            });
+        }
         let core = SnowflakeCore::new(
             layout,
             self.epoch,

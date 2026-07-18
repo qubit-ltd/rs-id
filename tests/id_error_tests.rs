@@ -17,7 +17,7 @@ use qubit_id::IdError;
 
 /// Formats an error through the standard error trait.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `error` - Error trait object to format.
 ///
@@ -172,4 +172,18 @@ fn test_id_error_preserves_sources() {
         };
         assert!(Error::source(&wait).is_some());
     }
+}
+
+#[cfg(feature = "uuid")]
+#[test]
+fn test_id_error_random_source_failed_preserves_source() {
+    let error = IdError::RandomSourceFailed {
+        source: getrandom::Error::UNSUPPORTED,
+    };
+
+    assert_eq!(
+        error.to_string(),
+        "failed to obtain random bytes for UUID v4"
+    );
+    assert!(Error::source(&error).is_some());
 }

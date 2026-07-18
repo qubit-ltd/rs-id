@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Shared, non-waiting Snowflake allocation core.
 
 use std::sync::Arc;
@@ -49,7 +50,7 @@ where
 {
     /// Creates a core from a validated generator configuration.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `layout` - Validated Snowflake-family layout.
     /// * `epoch` - Timestamp origin used by the layout.
@@ -120,7 +121,7 @@ where
     ///
     /// This operation is stateless and provides no uniqueness guarantee.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `time` - Wall time to encode.
     /// * `sequence` - Sequence to encode within that timestamp unit.
@@ -146,6 +147,7 @@ where
     }
 
     /// Returns the configured layout.
+    #[must_use]
     #[inline(always)]
     pub(crate) const fn layout(&self) -> &L {
         &self.layout

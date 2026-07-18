@@ -36,7 +36,7 @@ pub struct AsyncSnowflakeGenerator {
 impl AsyncSnowflakeGenerator {
     /// Creates an asynchronous generator with the default Qubit epoch.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `node_id` - Node identifier in `0..=1023`.
     ///
@@ -47,12 +47,9 @@ impl AsyncSnowflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdError::NodeOutOfRange`] or
-    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the current wall time has reached the exclusive expiration
-    /// boundary.
+    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration, or
+    /// [`IdError::GeneratorExpired`] when the current wall time has reached the
+    /// exclusive expiration boundary.
     #[inline(always)]
     pub fn new(node_id: u64) -> Result<Self, IdError> {
         Self::builder(node_id).build_async()
@@ -76,6 +73,16 @@ impl AsyncSnowflakeGenerator {
     }
 
     /// Returns the configured classic Snowflake layout.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use qubit_id::AsyncSnowflakeGenerator;
+    /// let generator = AsyncSnowflakeGenerator::new(7).expect("valid node");
+    /// generator.layout();
+    /// ```
+    #[must_use = "use the returned layout reference"]
     #[inline(always)]
     pub const fn layout(&self) -> &SnowflakeLayout {
         self.inner.core().layout()
@@ -94,6 +101,24 @@ impl AsyncSnowflakeGenerator {
     pub const fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
+
+    /// Generates the next classic Snowflake ID asynchronously.
+    ///
+    /// Concrete callers use this inherent method without allocating a boxed
+    /// future. Use [`AsyncIdGenerator`] when object-safe dynamic dispatch is
+    /// required.
+    ///
+    /// # Returns
+    ///
+    /// A cancellation-safe future for the next generated ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError`] when allocation or a retry wait fails.
+    #[inline(always)]
+    pub async fn generate_async(&self) -> Result<u64, IdError> {
+        self.inner.generate().await
+    }
 }
 
 impl AsyncIdGenerator<u64> for AsyncSnowflakeGenerator {
@@ -109,6 +134,6 @@ impl AsyncIdGenerator<u64> for AsyncSnowflakeGenerator {
     /// fails.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
-        Box::pin(self.inner.generate())
+        Box::pin(AsyncSnowflakeGenerator::generate_async(self))
     }
 }

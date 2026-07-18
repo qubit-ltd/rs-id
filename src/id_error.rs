@@ -133,6 +133,14 @@ pub enum IdError {
         /// Exclusive expiration boundary cached by the generator.
         expires_at: SystemTime,
     },
+    /// The operating system could not provide random bytes for UUID v4.
+    #[cfg(feature = "uuid")]
+    #[error("failed to obtain random bytes for UUID v4")]
+    RandomSourceFailed {
+        /// Error returned by the operating-system random source.
+        #[source]
+        source: getrandom::Error,
+    },
     /// The injected timer could not register or complete a retry wait.
     #[cfg(any(
         feature = "qubit-snowflake",

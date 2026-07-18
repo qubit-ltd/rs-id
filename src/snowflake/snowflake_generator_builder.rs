@@ -24,7 +24,6 @@ use super::internal::{
     SnowflakeCore,
     default_timer,
     default_wall_clock,
-    panic_if_expired,
 };
 use super::{
     AsyncSnowflakeGenerator,
@@ -96,12 +95,9 @@ impl SnowflakeGeneratorBuilder {
     /// # Errors
     ///
     /// Returns [`IdError::NodeOutOfRange`] or
-    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the configured wall clock has reached the expiration
-    /// boundary.
+    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration, or
+    /// [`IdError::GeneratorExpired`] when the configured wall clock has
+    /// reached the expiration boundary.
     #[inline]
     pub fn build(self) -> Result<SnowflakeGenerator, IdError> {
         let (core, timer) = self.into_core()?;
@@ -113,12 +109,9 @@ impl SnowflakeGeneratorBuilder {
     /// # Errors
     ///
     /// Returns [`IdError::NodeOutOfRange`] or
-    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the configured wall clock has reached the expiration
-    /// boundary.
+    /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration, or
+    /// [`IdError::GeneratorExpired`] when the configured wall clock has
+    /// reached the expiration boundary.
     #[inline]
     pub fn build_async(self) -> Result<AsyncSnowflakeGenerator, IdError> {
         let (core, timer) = self.into_core()?;
@@ -132,7 +125,12 @@ impl SnowflakeGeneratorBuilder {
         let layout = SnowflakeLayout::new(self.node_id)?;
         let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
-        panic_if_expired("classic Snowflake", current_time, expires_at);
+        if current_time >= expires_at {
+            return Err(IdError::GeneratorExpired {
+                observed_at: current_time,
+                expires_at,
+            });
+        }
         let core = SnowflakeCore::new(
             layout,
             self.epoch,
