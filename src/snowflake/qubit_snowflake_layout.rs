@@ -81,7 +81,7 @@ pub struct QubitSnowflakeLayout {
 impl QubitSnowflakeLayout {
     /// Creates a Qubit snowflake layout.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `mode` - Encoded ID ordering mode.
     /// * `precision` - Encoded timestamp precision.
@@ -112,7 +112,7 @@ impl QubitSnowflakeLayout {
 
     /// Creates a layout after the caller has validated the host field.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `mode` - Encoded ID ordering mode.
     /// * `precision` - Encoded timestamp precision.
@@ -209,7 +209,7 @@ impl QubitSnowflakeLayout {
     /// Timestamp values from zero through [`Self::max_timestamp`] are valid.
     /// The returned time is the first instant outside that range.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `epoch` - Timestamp origin represented by timestamp zero.
     ///
@@ -234,7 +234,7 @@ impl QubitSnowflakeLayout {
     ///
     /// This method is stateless and does not guarantee uniqueness.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `timestamp` - Timestamp measured from the configured epoch in the
     ///   configured precision.
@@ -283,7 +283,7 @@ impl QubitSnowflakeLayout {
     /// extracts fields; it does not authenticate the value or prove that a
     /// generator produced it.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `id` - Qubit snowflake bit pattern to decode.
     ///
@@ -311,7 +311,7 @@ impl QubitSnowflakeLayout {
 
     /// Applies the reversible timestamp transform for the configured mode.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `mode` - Timestamp storage mode.
     /// * `timestamp_bits` - Width of the timestamp field.

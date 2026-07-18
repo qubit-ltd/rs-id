@@ -25,7 +25,7 @@ pub struct SonyflakeParts {
 impl SonyflakeParts {
     /// Creates decoded Sonyflake parts.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `elapsed_time` - Time units elapsed since the generator start time.
     /// * `sequence` - Sequence number encoded in the ID.

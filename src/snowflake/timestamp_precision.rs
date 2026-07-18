@@ -27,7 +27,7 @@ pub enum TimestampPrecision {
 impl TimestampPrecision {
     /// Decodes timestamp precision from a one-bit value.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `bit` - Encoded one-bit precision value.
     ///

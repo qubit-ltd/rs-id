@@ -54,7 +54,7 @@ impl SonyflakeLayout {
     /// Zero sequence or machine widths select the respective defaults of 8
     /// and 16 bits. The remaining bits out of 63 are assigned to elapsed time.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `machine_id` - Machine identifier encoded by composed IDs.
     /// * `bits_sequence` - Sequence field width, or zero for the default.
@@ -219,7 +219,7 @@ impl SonyflakeLayout {
     /// Elapsed-time values from zero through [`Self::max_elapsed_time`] are
     /// valid. The returned time is the first instant outside that range.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `start_time` - Timestamp origin represented by elapsed time zero.
     ///
@@ -244,7 +244,7 @@ impl SonyflakeLayout {
     /// Repeating the same layout and parts repeats the ID, so this method does
     /// not provide a uniqueness guarantee.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `elapsed_time` - Time units elapsed since the generator start time.
     /// * `sequence` - Sequence number inside the elapsed-time unit.
@@ -284,7 +284,7 @@ impl SonyflakeLayout {
     /// Decoding only extracts fields according to this layout. It does not
     /// authenticate the value or prove that a generator produced it.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `id` - Sonyflake bit pattern to decode.
     ///
@@ -303,7 +303,7 @@ impl SonyflakeLayout {
 
     /// Normalizes and validates one configurable field width.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `name` - Setting name used in errors.
     /// * `bits` - Requested width, or zero for the default.

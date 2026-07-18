@@ -43,7 +43,7 @@ pub struct SnowflakeLayout {
 impl SnowflakeLayout {
     /// Creates a classic Snowflake layout for `node_id`.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `node_id` - Node identifier in `0..=1023`.
     ///
@@ -104,7 +104,7 @@ impl SnowflakeLayout {
     /// Timestamp values from zero through [`Self::max_timestamp`] are valid.
     /// The returned time is the first instant outside that range.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `epoch` - Timestamp origin represented by timestamp zero.
     ///
@@ -126,7 +126,7 @@ impl SnowflakeLayout {
     /// Repeating the same layout and parts repeats the ID, so this method does
     /// not provide a uniqueness guarantee.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `timestamp` - Milliseconds elapsed since the generator epoch.
     /// * `sequence` - Sequence number inside the timestamp millisecond.
@@ -166,7 +166,7 @@ impl SnowflakeLayout {
     /// Decoding only extracts fields from the fixed layout. It does not
     /// authenticate the value or prove that a generator produced it.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `id` - Classic Snowflake bit pattern to decode.
     ///

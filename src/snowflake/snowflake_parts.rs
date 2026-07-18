@@ -25,7 +25,7 @@ pub struct SnowflakeParts {
 impl SnowflakeParts {
     /// Creates decoded classic Snowflake parts.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `timestamp` - Milliseconds elapsed since the generator epoch.
     /// * `node_id` - Node identifier encoded in the ID.
