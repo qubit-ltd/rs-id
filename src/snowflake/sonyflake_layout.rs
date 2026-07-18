@@ -12,7 +12,10 @@ use std::time::{
     SystemTime,
 };
 
-use super::internal::expiration_time;
+use super::internal::{
+    SnowflakeLayoutSpec,
+    expiration_time,
+};
 use super::sonyflake_parts::SonyflakeParts;
 use crate::IdError;
 
@@ -329,5 +332,31 @@ impl SonyflakeLayout {
             });
         }
         Ok(normalized)
+    }
+}
+
+impl SnowflakeLayoutSpec for SonyflakeLayout {
+    /// Returns the configured Sonyflake time unit.
+    #[inline(always)]
+    fn time_unit(&self) -> Duration {
+        SonyflakeLayout::time_unit(self)
+    }
+
+    /// Returns the greatest Sonyflake elapsed-time value.
+    #[inline(always)]
+    fn max_timestamp(&self) -> u64 {
+        self.max_elapsed_time()
+    }
+
+    /// Returns the greatest Sonyflake sequence value.
+    #[inline(always)]
+    fn max_sequence(&self) -> u64 {
+        SonyflakeLayout::max_sequence(self)
+    }
+
+    /// Composes a Sonyflake ID.
+    #[inline(always)]
+    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
+        SonyflakeLayout::compose(self, timestamp, sequence)
     }
 }

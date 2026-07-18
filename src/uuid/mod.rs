@@ -5,12 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! UUID-like ID generators and formatting helpers.
+//! Standards-compliant UUID v4 ID generators.
 
-mod mica_uuid_like_generator;
+mod internal;
+mod uuid_v4_generator;
+mod uuid_v4_string_generator;
 
-pub use mica_uuid_like_generator::{
-    MicaUuidLikeGenerator,
-    fast_simple_uuid_like,
-    fast_uuid_like,
-};
+pub use uuid_v4_generator::UuidV4Generator;
+pub use uuid_v4_string_generator::UuidV4StringGenerator;

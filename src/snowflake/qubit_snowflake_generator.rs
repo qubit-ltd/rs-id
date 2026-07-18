@@ -13,23 +13,15 @@ use std::time::{
     SystemTime,
 };
 
-use parking_lot::Mutex;
-use qubit_clock::{
-    BlockingSleeper,
-    Timer,
-    WallClock,
-};
+use qubit_clock::Timer;
 
 use super::QubitSnowflakeLayout;
-use super::RestartPolicy;
 use super::internal::{
-    ClockObservation,
-    GenerationState,
-    block_until_generated,
+    BlockingSnowflake,
+    SnowflakeCore,
 };
 use super::qubit_snowflake_generator_builder::QubitSnowflakeGeneratorBuilder;
 use crate::{
-    GenerationOutcome,
     IdError,
     IdGenerator,
 };
@@ -42,23 +34,23 @@ use crate::{
 ///
 /// # Uniqueness
 ///
-/// The generator is thread-safe. Successful [`IdGenerator::next_id`] and
-/// [`IdGenerator::next_string`] calls on one shared live instance never return
-/// the same ID. A process should share one instance for each ID namespace.
+/// The generator is thread-safe. Successful [`IdGenerator::generate`] calls on
+/// one shared live instance never return the same ID. A process should share
+/// one instance for each ID namespace.
 /// Every concurrently running instance across processes and servers must have
 /// an exclusive host identifier when its layout and epoch can produce IDs in
 /// the same namespace.
 ///
-/// The default [`RestartPolicy::Immediate`] allocates sequence zero in the
-/// currently observed time slice without waiting. Allocation state is not
+/// The default [`crate::RestartPolicy::Immediate`] allocates sequence zero in
+/// the currently observed time slice without waiting. Allocation state is not
 /// persisted. State loss or replacement can repeat an ID only when the
 /// instances use the same effective identity (`host`), layout (`mode` and
 /// `precision`), and reference time (`epoch`), allocate in the same logical
 /// time slice, and use overlapping sequence ranges.
 ///
-/// [`RestartPolicy::WaitNextSlice`] waits until after the first observed time
-/// slice. It reduces sequential-replacement risk only when that slice is not
-/// earlier than the predecessor's last allocated slice. Because predecessor
+/// [`crate::RestartPolicy::WaitNextSlice`] waits until after the first observed
+/// time slice. It reduces sequential-replacement risk only when that slice is
+/// not earlier than the predecessor's last allocated slice. Because predecessor
 /// state is not persisted, clock rollback across a restart can still repeat
 /// IDs. The policy also does not coordinate concurrent same-identity instances,
 /// which can cross the fence together and allocate overlapping sequence ranges.
@@ -66,31 +58,14 @@ use crate::{
 ///
 /// # Blocking and clock behavior
 ///
-/// [`IdGenerator::try_next_id`] performs one attempt and never sleeps for clock
-/// progress or invokes the configured sleeper, although it can briefly contend
-/// for the internal mutex. [`IdGenerator::next_id`] and
-/// [`IdGenerator::next_string`] wait across retry outcomes. They may wait
-/// indefinitely when the wall clock stalls or
-/// the injected sleeper does not cause wall time to progress. A backwards
+/// [`IdGenerator::generate`] may wait indefinitely when the wall clock stalls
+/// or the injected timer does not cause wall time to progress. A backwards
 /// clock movement within `max_clock_skew` is retried after waiting; a larger
-/// movement returns
-/// [`IdError::ClockMovedBackwards`].
+/// movement returns [`IdError::ClockMovedBackwards`].
 #[must_use]
 pub struct QubitSnowflakeGenerator {
-    /// Bit layout used to compose generated IDs.
-    layout: QubitSnowflakeLayout,
-    /// Timestamp origin used by encoded timestamps.
-    epoch: SystemTime,
-    /// Exclusive timestamp expiration boundary.
-    expires_at: SystemTime,
-    /// Maximum tolerated raw wall-clock rollback.
-    max_clock_skew: Duration,
-    /// Wall clock sampled by allocation attempts.
-    wall_clock: Arc<dyn WallClock>,
-    /// Sleeper used only by blocking generation.
-    blocking_sleeper: BlockingSleeper,
-    /// Synchronized raw-clock and sequence allocation state.
-    state: Mutex<GenerationState>,
+    /// Blocking driver over the shared allocation core.
+    inner: BlockingSnowflake<QubitSnowflakeLayout>,
 }
 
 impl QubitSnowflakeGenerator {
@@ -139,35 +114,19 @@ impl QubitSnowflakeGenerator {
     ///
     /// # Arguments
     ///
-    /// * `layout` - Validated Qubit bit layout.
-    /// * `epoch` - Timestamp origin used by the generator.
-    /// * `expires_at` - Exclusive timestamp expiration boundary.
-    /// * `max_clock_skew` - Largest raw clock rollback that may be retried.
-    /// * `restart_policy` - Policy controlling the first allocation.
-    /// * `wall_clock` - Wall clock sampled during allocation.
+    /// * `core` - Validated Qubit allocation core.
     /// * `timer` - Timer adapted for blocking generation.
     ///
     /// # Returns
     ///
     /// A generator containing the complete builder configuration.
     #[inline]
-    pub(super) fn from_config(
-        layout: QubitSnowflakeLayout,
-        epoch: SystemTime,
-        expires_at: SystemTime,
-        max_clock_skew: Duration,
-        restart_policy: RestartPolicy,
-        wall_clock: Arc<dyn WallClock>,
+    pub(super) fn from_core(
+        core: SnowflakeCore<QubitSnowflakeLayout>,
         timer: Arc<dyn Timer>,
     ) -> Self {
         Self {
-            layout,
-            epoch,
-            expires_at,
-            max_clock_skew,
-            wall_clock,
-            blocking_sleeper: BlockingSleeper::new(timer),
-            state: Mutex::new(GenerationState::new(restart_policy)),
+            inner: BlockingSnowflake::new(core, timer),
         }
     }
 
@@ -178,7 +137,7 @@ impl QubitSnowflakeGenerator {
     /// Layout used to compose generated IDs.
     #[inline(always)]
     pub const fn layout(&self) -> &QubitSnowflakeLayout {
-        &self.layout
+        self.inner.core().layout()
     }
 
     /// Returns the configured epoch.
@@ -189,7 +148,7 @@ impl QubitSnowflakeGenerator {
     #[must_use]
     #[inline(always)]
     pub const fn epoch(&self) -> SystemTime {
-        self.epoch
+        self.inner.core().epoch()
     }
 
     /// Returns the exclusive timestamp expiration boundary.
@@ -203,7 +162,7 @@ impl QubitSnowflakeGenerator {
     #[must_use]
     #[inline(always)]
     pub const fn expires_at(&self) -> SystemTime {
-        self.expires_at
+        self.inner.core().expires_at()
     }
 
     /// Returns the maximum tolerated backwards clock movement.
@@ -214,7 +173,7 @@ impl QubitSnowflakeGenerator {
     #[must_use]
     #[inline(always)]
     pub const fn max_clock_skew(&self) -> Duration {
-        self.max_clock_skew
+        self.inner.core().max_clock_skew()
     }
 
     /// Generates an ID for an explicit time and sequence.
@@ -243,71 +202,11 @@ impl QubitSnowflakeGenerator {
         time: SystemTime,
         sequence: u64,
     ) -> Result<u64, IdError> {
-        let observation = self.observation_for(time)?;
-        self.layout.compose(observation.timestamp, sequence)
-    }
-
-    /// Converts a time value into a raw and precision-aware observation.
-    ///
-    /// # Arguments
-    ///
-    /// * `time` - Time to convert.
-    ///
-    /// # Returns
-    ///
-    /// Raw elapsed time and encoded timestamp in the configured precision.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`IdError::TimeBeforeEpoch`] when `time` is before the epoch.
-    #[inline(always)]
-    fn observation_for(
-        &self,
-        time: SystemTime,
-    ) -> Result<ClockObservation, IdError> {
-        ClockObservation::from_time(
-            time,
-            self.epoch,
-            Duration::from_millis(self.layout.precision().divisor_millis()),
-            self.layout.max_timestamp(),
-        )
+        self.inner.core().generate_at(time, sequence)
     }
 }
 
-impl IdGenerator for QubitSnowflakeGenerator {
-    type Id = u64;
-    type Error = IdError;
-
-    /// Performs one Qubit snowflake allocation attempt without sleeping.
-    ///
-    /// # Returns
-    ///
-    /// A generated ID or the positive duration before another attempt.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`IdError`] when the clock or encoded timestamp is invalid.
-    fn try_next_id(&self) -> Result<GenerationOutcome<Self::Id>, Self::Error> {
-        let outcome = {
-            let mut state = self.state.lock();
-            let observation = self.observation_for(self.wall_clock.now())?;
-            state.reserve(
-                observation,
-                self.layout.max_sequence(),
-                self.max_clock_skew,
-            )?
-        };
-        match outcome {
-            GenerationOutcome::Generated(time_slice) => self
-                .layout
-                .compose(time_slice.timestamp, time_slice.sequence)
-                .map(GenerationOutcome::Generated),
-            GenerationOutcome::RetryAfter(duration) => {
-                Ok(GenerationOutcome::RetryAfter(duration))
-            }
-        }
-    }
-
+impl IdGenerator<u64> for QubitSnowflakeGenerator {
     /// Generates the next Qubit snowflake ID.
     ///
     /// Timestamp and sequence pairs are reserved while holding the generator
@@ -323,24 +222,10 @@ impl IdGenerator for QubitSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns an allocation error or [`IdError::SleepFailed`] when a retry
+    /// Returns an allocation error or [`IdError::WaitFailed`] when a retry
     /// delay cannot be completed.
     #[inline(always)]
-    fn next_id(&self) -> Result<Self::Id, Self::Error> {
-        block_until_generated(&self.blocking_sleeper, || self.try_next_id())
-    }
-
-    /// Formats a Qubit snowflake ID as unsigned decimal text.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - Qubit snowflake ID to format.
-    ///
-    /// # Returns
-    ///
-    /// Unsigned decimal text for `id`.
-    #[inline(always)]
-    fn format_id(&self, id: &Self::Id) -> String {
-        id.to_string()
+    fn generate(&self) -> Result<u64, IdError> {
+        self.inner.generate()
     }
 }

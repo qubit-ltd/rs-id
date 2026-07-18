@@ -6,7 +6,7 @@ rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/qubit-ltd/rs-id"
-description = "ID generation utilities for Rust, including Qubit Snowflake, classic Snowflake, Sonyflake-style, and fast UUID-like generators"
+description = "IoC-friendly synchronous and asynchronous ID generators for Snowflake-family IDs and UUID v4"
 homepage = "https://github.com/qubit-ltd/rs-id"
 documentation = "https://docs.rs/qubit-id"
 readme = "README.md"
@@ -49,16 +49,17 @@ default = ["qubit-snowflake"]
 qubit-snowflake = ["dep:parking_lot", "dep:qubit-clock"]
 classic-snowflake = ["dep:parking_lot", "dep:qubit-clock"]
 sonyflake = ["dep:parking_lot", "dep:qubit-clock"]
-uuid = ["dep:getrandom"]
+uuid = ["dep:uuid"]
+tokio = ["dep:qubit-clock", "qubit-clock/tokio"]
 
 [dependencies]
-getrandom = { version = "0.4", optional = true }
 parking_lot = { version = "0.12", optional = true }
 qubit-clock = { version = "0.9", path = "../rs-clock", optional = true }
 thiserror = "2.0"
+uuid = { version = "1", features = ["v4"], optional = true }
 
 [dev-dependencies]
-uuid = { version = "1", features = ["v4"] }
+tokio = { version = "1.52", features = ["macros", "rt", "sync", "test-util", "time"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

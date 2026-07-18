@@ -42,21 +42,30 @@ pub(crate) fn expiration_time(
     time_unit: Duration,
     max_timestamp: u64,
 ) -> Result<SystemTime, IdError> {
-    let overflow = || IdError::ExpirationTimeOverflow {
-        origin,
-        time_unit,
-        max_timestamp,
+    let unit_count = u128::from(max_timestamp) + 1;
+    let Some(total_nanos) = time_unit.as_nanos().checked_mul(unit_count) else {
+        return Err(IdError::ExpirationTimeOverflow {
+            origin,
+            time_unit,
+            max_timestamp,
+        });
     };
-    let unit_count = max_timestamp.checked_add(1).ok_or_else(&overflow)?;
-    let total_nanos = time_unit
-        .as_nanos()
-        .checked_mul(u128::from(unit_count))
-        .ok_or_else(&overflow)?;
-    let seconds = u64::try_from(total_nanos / NANOS_PER_SECOND)
-        .map_err(|_| overflow())?;
+    let Ok(seconds) = u64::try_from(total_nanos / NANOS_PER_SECOND) else {
+        return Err(IdError::ExpirationTimeOverflow {
+            origin,
+            time_unit,
+            max_timestamp,
+        });
+    };
     let subsec_nanos = (total_nanos % NANOS_PER_SECOND) as u32;
     let lifetime = Duration::new(seconds, subsec_nanos);
-    origin.checked_add(lifetime).ok_or_else(overflow)
+    origin
+        .checked_add(lifetime)
+        .ok_or(IdError::ExpirationTimeOverflow {
+            origin,
+            time_unit,
+            max_timestamp,
+        })
 }
 
 /// Panics when a generator configuration has reached its expiration.

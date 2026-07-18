@@ -6,6 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 #[cfg(feature = "qubit-snowflake")]
+mod async_qubit_snowflake_generator_tests;
+#[cfg(feature = "classic-snowflake")]
+mod async_snowflake_generator_tests;
+#[cfg(feature = "sonyflake")]
+mod async_sonyflake_generator_tests;
+#[cfg(feature = "qubit-snowflake")]
 mod constants_tests;
 #[cfg(feature = "qubit-snowflake")]
 mod id_mode_tests;
@@ -26,6 +32,8 @@ mod snowflake_generator_tests;
 mod snowflake_layout_tests;
 #[cfg(feature = "classic-snowflake")]
 mod snowflake_parts_tests;
+#[cfg(feature = "qubit-snowflake")]
+mod snowflake_string_generator_tests;
 #[cfg(feature = "sonyflake")]
 mod sonyflake_generator_builder_tests;
 #[cfg(feature = "sonyflake")]

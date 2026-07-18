@@ -9,41 +9,42 @@
 
 mod id_generator_support;
 
-use std::io::ErrorKind;
+use std::sync::Arc;
 
-use qubit_id::{
-    GenerationOutcome,
-    IdGenerator,
-};
+use qubit_id::IdGenerator;
 
-use self::id_generator_support::{
-    FailingGenerator,
-    FixedGenerator,
-};
+use self::id_generator_support::CounterGenerator;
 
 #[test]
-fn test_id_generator_formats_id_without_display() {
-    let generator = FixedGenerator::new(42);
+fn test_id_generator_is_object_safe_for_one_output_type() {
+    let generator: Arc<dyn IdGenerator<u64>> =
+        Arc::new(CounterGenerator::default());
 
-    assert_eq!(
-        generator
-            .next_string()
-            .expect("fixed generation should succeed"),
-        "opaque:42"
-    );
-    assert_eq!(
-        generator
-            .try_next_string()
-            .expect("fixed generation should succeed"),
-        GenerationOutcome::Generated("opaque:42".to_owned())
-    );
+    assert_eq!(generator.generate().expect("generation should succeed"), 1);
+    assert_eq!(generator.generate().expect("generation should succeed"), 2);
 }
 
 #[test]
-fn test_id_generator_try_next_string_propagates_error() {
-    let error = FailingGenerator
-        .try_next_string()
-        .expect_err("failing generation should return its error");
+fn test_id_generator_supports_concurrent_shared_access() {
+    let generator: Arc<dyn IdGenerator<u64>> =
+        Arc::new(CounterGenerator::default());
+    let first_generator = Arc::clone(&generator);
+    let second_generator = Arc::clone(&generator);
+    let first = std::thread::spawn(move || {
+        first_generator
+            .generate()
+            .expect("generation should succeed")
+    });
+    let second = std::thread::spawn(move || {
+        second_generator
+            .generate()
+            .expect("generation should succeed")
+    });
+    let mut generated = [
+        first.join().expect("first thread should finish"),
+        second.join().expect("second thread should finish"),
+    ];
+    generated.sort_unstable();
 
-    assert_eq!(error.kind(), ErrorKind::Other);
+    assert_eq!(generated, [1, 2]);
 }

@@ -11,11 +11,11 @@ use std::time::Duration;
 
 use super::{
     ClockObservation,
+    GenerationAttempt,
     RestartFence,
     TimeSlice,
 };
 use crate::{
-    GenerationOutcome,
     IdError,
     RestartPolicy,
 };
@@ -76,7 +76,7 @@ impl GenerationState {
         observation: ClockObservation,
         max_sequence: u64,
         max_clock_skew: Duration,
-    ) -> Result<GenerationOutcome<TimeSlice>, IdError> {
+    ) -> Result<GenerationAttempt<TimeSlice>, IdError> {
         if let Some(last_elapsed) = self.last_observed_elapsed
             && observation.elapsed < last_elapsed
         {
@@ -89,28 +89,28 @@ impl GenerationState {
                     max_skew: max_clock_skew,
                 });
             }
-            return Ok(GenerationOutcome::RetryAfter(skew));
+            return Ok(GenerationAttempt::RetryAfter(skew));
         }
         self.last_observed_elapsed = Some(observation.elapsed);
 
         if self.restart_fence.should_wait(observation.timestamp) {
-            return Ok(GenerationOutcome::RetryAfter(observation.retry_after));
+            return Ok(GenerationAttempt::RetryAfter(observation.retry_after));
         }
 
         let Some(time_slice) = self.time_slice.as_mut() else {
             let time_slice = TimeSlice::new(observation.timestamp);
             self.time_slice = Some(time_slice);
-            return Ok(GenerationOutcome::Generated(time_slice));
+            return Ok(GenerationAttempt::Generated(time_slice));
         };
         if observation.timestamp > time_slice.timestamp {
             *time_slice = TimeSlice::new(observation.timestamp);
-            return Ok(GenerationOutcome::Generated(*time_slice));
+            return Ok(GenerationAttempt::Generated(*time_slice));
         }
         debug_assert_eq!(observation.timestamp, time_slice.timestamp);
         if time_slice.sequence == max_sequence {
-            return Ok(GenerationOutcome::RetryAfter(observation.retry_after));
+            return Ok(GenerationAttempt::RetryAfter(observation.retry_after));
         }
         time_slice.sequence += 1;
-        Ok(GenerationOutcome::Generated(*time_slice))
+        Ok(GenerationAttempt::Generated(*time_slice))
     }
 }

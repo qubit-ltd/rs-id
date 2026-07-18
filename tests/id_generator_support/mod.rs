@@ -5,12 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Shared fixtures for the `IdGenerator` trait contract.
+//! Shared fixtures for the synchronous and asynchronous generator contracts.
 
-mod failing_generator_tests;
-mod fixed_generator_tests;
-mod opaque_id_tests;
+mod counter_generator_tests;
 
-pub(crate) use failing_generator_tests::FailingGenerator;
-pub(crate) use fixed_generator_tests::FixedGenerator;
-pub(crate) use opaque_id_tests::OpaqueId;
+pub(crate) use counter_generator_tests::CounterGenerator;

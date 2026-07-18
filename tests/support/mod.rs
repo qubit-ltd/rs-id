@@ -8,15 +8,9 @@
 //! Shared deterministic time support for integration tests.
 
 #[cfg(feature = "qubit-snowflake")]
-mod closure_wall_clock;
-#[cfg(feature = "qubit-snowflake")]
 mod failing_timer;
 mod manual_time;
-mod panicking_wall_clock;
 
-#[cfg(feature = "qubit-snowflake")]
-pub(crate) use closure_wall_clock::ClosureWallClock;
 #[cfg(feature = "qubit-snowflake")]
 pub(crate) use failing_timer::FailingTimer;
 pub(crate) use manual_time::ManualTime;
-pub(crate) use panicking_wall_clock::PanickingWallClock;

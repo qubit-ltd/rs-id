@@ -19,6 +19,7 @@ use std::time::{
 
 use qubit_clock::FixedWallClock;
 use qubit_id::{
+    IdError,
     IdGenerator,
     SonyflakeGenerator,
     SonyflakeLayout,
@@ -50,7 +51,7 @@ fn test_sonyflake_generator_builder_builds_configuration() {
     assert_eq!(generator.layout().bits_machine(), 5);
 
     let id = generator
-        .next_id()
+        .generate()
         .expect("the injected clock should generate an ID");
     let parts = generator.layout().decode(id);
     assert_eq!(parts.elapsed_time(), 20);
@@ -92,4 +93,29 @@ fn test_sonyflake_generator_builder_enforces_expiration() {
             "construction at {current_time:?} must panic"
         );
     }
+}
+
+#[test]
+fn test_sonyflake_generator_builder_rejects_invalid_layout() {
+    assert!(matches!(
+        SonyflakeGenerator::builder(1_u64 << 16).build(),
+        Err(IdError::MachineIdOutOfRange { .. })
+    ));
+}
+
+#[test]
+fn test_sonyflake_generator_builder_rejects_future_start_time() {
+    let current_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let start_time = current_time + Duration::from_nanos(1);
+
+    assert!(matches!(
+        SonyflakeGenerator::builder(17)
+            .start_time(start_time)
+            .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+            .build(),
+        Err(IdError::StartTimeAhead {
+            start_time: actual_start,
+            current_time: actual_current,
+        }) if actual_start == start_time && actual_current == current_time
+    ));
 }

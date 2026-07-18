@@ -122,23 +122,26 @@ pub enum IdError {
         /// Maximum encoded timestamp supported by the layout.
         max_timestamp: u64,
     },
-    /// The operating system random source could not provide random ID bytes.
-    #[cfg(feature = "uuid")]
-    #[error("operating system random source is unavailable")]
-    RandomSourceUnavailable {
-        /// Error returned by `getrandom`.
-        #[source]
-        source: getrandom::Error,
+    /// The generator's exclusive lifetime boundary has been reached.
+    #[error(
+        "generator expired at {expires_at:?}; observed wall time was \
+         {observed_at:?}"
+    )]
+    GeneratorExpired {
+        /// Wall time observed by the generation attempt.
+        observed_at: SystemTime,
+        /// Exclusive expiration boundary cached by the generator.
+        expires_at: SystemTime,
     },
-    /// The injected blocking sleeper could not complete a retry wait.
+    /// The injected timer could not register or complete a retry wait.
     #[cfg(any(
         feature = "qubit-snowflake",
         feature = "classic-snowflake",
         feature = "sonyflake",
     ))]
     #[error("failed to wait before retrying ID generation")]
-    SleepFailed {
-        /// Error returned by the injected blocking sleeper.
+    WaitFailed {
+        /// Error returned by the injected timer or its blocking adapter.
         #[source]
         source: qubit_clock::TimeError,
     },

@@ -199,3 +199,32 @@ fn test_sonyflake_layout_reports_expiration_time_overflow() {
             && max_timestamp == layout.max_elapsed_time()
     ));
 }
+
+#[test]
+fn test_sonyflake_layout_reports_lifetime_multiplication_overflow() {
+    let layout = SonyflakeLayout::new(1, 8, 16, Duration::MAX)
+        .expect("field widths and machine ID should be valid");
+
+    assert!(matches!(
+        layout.expires_at(UNIX_EPOCH),
+        Err(IdError::ExpirationTimeOverflow { .. })
+    ));
+}
+
+#[test]
+fn test_sonyflake_layout_reports_lifetime_duration_overflow() {
+    let time_unit = Duration::from_secs(u64::MAX);
+    let layout = SonyflakeLayout::new(1, 15, 16, time_unit)
+        .expect("field widths and machine ID should be valid");
+
+    assert!(matches!(
+        layout.expires_at(UNIX_EPOCH),
+        Err(IdError::ExpirationTimeOverflow {
+            origin,
+            time_unit: actual_time_unit,
+            max_timestamp,
+        }) if origin == UNIX_EPOCH
+            && actual_time_unit == time_unit
+            && max_timestamp == layout.max_elapsed_time()
+    ));
+}

@@ -274,8 +274,8 @@ fn test_build_markdown_doctest_manifest_enables_all_example_features() {
     );
 }
 
-/// Verifies that both READMEs explain feature selection, generator lifetime,
-/// and the UUID comparison benchmark.
+/// Verifies that both READMEs explain feature selection, IoC injection,
+/// deterministic clocks, generator lifetime, and UUID v4 output.
 #[test]
 fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -296,6 +296,11 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         r#"default-features = false, features = ["sonyflake"]"#,
         r#"default-features = false, features = ["uuid"]"#,
         "`now >= expires_at`",
+        "`Arc<dyn IdGenerator<u64>>`",
+        "`Arc<dyn AsyncIdGenerator<u64>>`",
+        "`ManualMonotonicClock`",
+        "`UuidV4Generator`",
+        "`UuidV4StringGenerator`",
         "cargo bench --no-default-features --features uuid --bench uuid_comparison",
     ];
 

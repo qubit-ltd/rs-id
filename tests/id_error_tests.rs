@@ -33,7 +33,7 @@ fn assert_error_trait(error: &dyn Error) -> String {
 fn test_id_error_display_formats_all_variants() {
     let epoch = UNIX_EPOCH + Duration::from_secs(10);
     let time = UNIX_EPOCH + Duration::from_secs(9);
-    let mut cases = vec![
+    let cases = vec![
         (
             IdError::HostOutOfRange {
                 host: 512,
@@ -112,29 +112,35 @@ fn test_id_error_display_formats_all_variants() {
             },
             format!(
                 "expiration time overflows SystemTime for origin {epoch:?}, \
-                 time unit 1s, and maximum timestamp 7"
+                time unit 1s, and maximum timestamp 7"
+            ),
+        ),
+        (
+            IdError::GeneratorExpired {
+                observed_at: epoch,
+                expires_at: time,
+            },
+            format!(
+                "generator expired at {time:?}; observed wall time was {epoch:?}"
             ),
         ),
     ];
 
-    #[cfg(feature = "uuid")]
-    cases.push((
-        IdError::RandomSourceUnavailable {
-            source: getrandom::Error::UNSUPPORTED,
-        },
-        "operating system random source is unavailable".to_owned(),
-    ));
     #[cfg(any(
         feature = "qubit-snowflake",
         feature = "classic-snowflake",
         feature = "sonyflake",
     ))]
-    cases.push((
-        IdError::SleepFailed {
-            source: qubit_clock::TimeError::InstantOverflow,
-        },
-        "failed to wait before retrying ID generation".to_owned(),
-    ));
+    let cases = {
+        let mut cases = cases;
+        cases.push((
+            IdError::WaitFailed {
+                source: qubit_clock::TimeError::InstantOverflow,
+            },
+            "failed to wait before retrying ID generation".to_owned(),
+        ));
+        cases
+    };
 
     for (error, expected) in cases {
         assert_eq!(assert_error_trait(&error), expected);
@@ -155,23 +161,15 @@ fn test_id_error_clock_moved_backwards_preserves_raw_durations() {
 
 #[test]
 fn test_id_error_preserves_sources() {
-    #[cfg(feature = "uuid")]
-    {
-        let random = IdError::RandomSourceUnavailable {
-            source: getrandom::Error::UNSUPPORTED,
-        };
-        assert!(Error::source(&random).is_some());
-    }
-
     #[cfg(any(
         feature = "qubit-snowflake",
         feature = "classic-snowflake",
         feature = "sonyflake",
     ))]
     {
-        let sleep = IdError::SleepFailed {
+        let wait = IdError::WaitFailed {
             source: qubit_clock::TimeError::InstantOverflow,
         };
-        assert!(Error::source(&sleep).is_some());
+        assert!(Error::source(&wait).is_some());
     }
 }

@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Defines deterministic wall time and blocking sleep for tests.
+//! Defines deterministic wall time and timer waits for tests.
 
 use std::sync::Arc;
 use std::time::{
@@ -17,6 +17,7 @@ use qubit_clock::{
     ManualMonotonicClock,
     ManualWallClock,
     MonotonicClock,
+    MonotonicInstant,
     Timer,
     WallClock,
 };
@@ -40,7 +41,7 @@ impl ManualTime {
     ///
     /// # Returns
     ///
-    /// A deterministic wall clock and sleeper pair.
+    /// A deterministic wall clock and timer pair.
     pub(crate) fn new(now: SystemTime) -> Self {
         let monotonic_clock = ManualMonotonicClock::new_shared();
         let wall_clock = monotonic_clock.new_wall_clock(now);
@@ -91,6 +92,7 @@ impl ManualTime {
     /// # Panics
     ///
     /// Panics when advancing the manual monotonic clock overflows.
+    #[cfg(feature = "qubit-snowflake")]
     #[inline(always)]
     pub(crate) fn advance(&self, duration: Duration) {
         self.monotonic_clock
@@ -98,27 +100,27 @@ impl ManualTime {
             .expect("manual time should advance");
     }
 
-    /// Waits for one sleeper deadline and advances directly to it.
+    /// Waits for one timer deadline and advances directly to it.
     ///
     /// # Panics
     ///
-    /// Panics when no sleeper registers within the test timeout or advancing
+    /// Panics when no timer wait registers within the test timeout or advancing
     /// to the registered deadline fails.
     #[inline(always)]
     pub(crate) fn advance_to_next_deadline(&self) {
         self.advance_to_next_deadline_after_waiters(1);
     }
 
-    /// Waits for `expected` sleepers and advances to their next deadline.
+    /// Waits for `expected` timer waiters and advances to their next deadline.
     ///
     /// # Arguments
     ///
-    /// * `expected` - Number of registered blocking sleepers required before
-    ///   time advances.
+    /// * `expected` - Number of registered timer waiters required before time
+    ///   advances.
     ///
     /// # Panics
     ///
-    /// Panics when the expected sleepers do not register within the test
+    /// Panics when the expected waiters do not register within the test
     /// timeout or advancing to their next deadline fails.
     pub(crate) fn advance_to_next_deadline_after_waiters(
         &self,
@@ -127,11 +129,45 @@ impl ManualTime {
         assert!(
             self.monotonic_clock
                 .wait_for_waiters(expected, Duration::from_secs(1)),
-            "blocking generators should register {expected} deadlines"
+            "generators should register {expected} deadlines"
         );
         let _ = self
             .monotonic_clock
             .advance_to_next_deadline()
             .expect("a future deadline should be registered");
+    }
+
+    /// Asynchronously waits until a future timer deadline is registered.
+    ///
+    /// # Returns
+    ///
+    /// The earliest future deadline registered on the manual timeline.
+    #[inline(always)]
+    pub(crate) async fn wait_for_next_deadline_async(
+        &self,
+    ) -> MonotonicInstant {
+        self.monotonic_clock.wait_for_next_deadline_async().await
+    }
+
+    /// Asynchronously waits until `expected` timer waiters are registered.
+    ///
+    /// # Arguments
+    ///
+    /// * `expected` - Registration count that completes the observation.
+    #[cfg(feature = "qubit-snowflake")]
+    #[inline(always)]
+    pub(crate) async fn wait_for_waiters_async(&self, expected: usize) {
+        self.monotonic_clock.wait_for_waiters_async(expected).await;
+    }
+
+    /// Returns the number of timer waiter registrations awaiting cleanup.
+    ///
+    /// # Returns
+    ///
+    /// The current registration count.
+    #[cfg(feature = "qubit-snowflake")]
+    #[inline(always)]
+    pub(crate) fn pending_waiters(&self) -> usize {
+        self.monotonic_clock.pending_waiters()
     }
 }

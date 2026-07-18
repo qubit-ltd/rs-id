@@ -8,6 +8,12 @@
 //! Snowflake-family ID generators and related Qubit layout helpers.
 
 #[cfg(feature = "qubit-snowflake")]
+mod async_qubit_snowflake_generator;
+#[cfg(feature = "classic-snowflake")]
+mod async_snowflake_generator;
+#[cfg(feature = "sonyflake")]
+mod async_sonyflake_generator;
+#[cfg(feature = "qubit-snowflake")]
 mod constants;
 #[cfg(feature = "qubit-snowflake")]
 mod id_mode;
@@ -29,6 +35,7 @@ mod snowflake_generator_builder;
 mod snowflake_layout;
 #[cfg(feature = "classic-snowflake")]
 mod snowflake_parts;
+mod snowflake_string_generator;
 #[cfg(feature = "sonyflake")]
 mod sonyflake_generator;
 #[cfg(feature = "sonyflake")]
@@ -40,6 +47,12 @@ mod sonyflake_parts;
 #[cfg(feature = "qubit-snowflake")]
 mod timestamp_precision;
 
+#[cfg(feature = "qubit-snowflake")]
+pub use async_qubit_snowflake_generator::AsyncQubitSnowflakeGenerator;
+#[cfg(feature = "classic-snowflake")]
+pub use async_snowflake_generator::AsyncSnowflakeGenerator;
+#[cfg(feature = "sonyflake")]
+pub use async_sonyflake_generator::AsyncSonyflakeGenerator;
 #[cfg(feature = "qubit-snowflake")]
 pub use constants::{
     DEFAULT_MAX_CLOCK_SKEW,
@@ -67,6 +80,7 @@ pub use snowflake_generator_builder::SnowflakeGeneratorBuilder;
 pub use snowflake_layout::SnowflakeLayout;
 #[cfg(feature = "classic-snowflake")]
 pub use snowflake_parts::SnowflakeParts;
+pub use snowflake_string_generator::SnowflakeStringGenerator;
 #[cfg(feature = "sonyflake")]
 pub use sonyflake_generator::SonyflakeGenerator;
 #[cfg(feature = "sonyflake")]

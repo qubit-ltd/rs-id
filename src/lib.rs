@@ -7,33 +7,36 @@
 // =============================================================================
 //! # Qubit ID
 //!
-//! ID generation utilities for Rust services. The crate provides one
-//! associated-type [`IdGenerator`] contract, three Snowflake-family numeric
-//! generators, and Mica-style random UUID-like values.
+//! IoC-friendly ID generation utilities for Rust services. The crate provides
+//! object-safe synchronous [`IdGenerator<T>`](IdGenerator) and asynchronous
+//! [`AsyncIdGenerator<T>`](AsyncIdGenerator) contracts, three Snowflake-family
+//! algorithms, decimal string adaptation, and standards-compliant UUID v4.
 //!
 //! ## Cargo features
 //!
 //! The default feature set contains only `qubit-snowflake`. The
 //! `classic-snowflake`, `sonyflake`, and `uuid` algorithms are independently
-//! opt-in; disabling default features without selecting another feature leaves
-//! the common generator trait, outcome, and error APIs available.
+//! opt-in. The `tokio` feature enables the corresponding `qubit-clock` timer
+//! adapter but is not required by asynchronous generators. Disabling every
+//! feature leaves the common generator traits and error API available.
 //!
 //! | Feature | Contents |
 //! | --- | --- |
-//! | `qubit-snowflake` | Qubit Snowflake layout, parts, builder, and generator |
-//! | `classic-snowflake` | Classic Snowflake layout, parts, builder, and generator |
-//! | `sonyflake` | Sonyflake layout, parts, builder, and generator |
-//! | `uuid` | Mica UUID-like generator and string helpers |
+//! | `qubit-snowflake` | Synchronous and asynchronous Qubit Snowflake generators |
+//! | `classic-snowflake` | Synchronous and asynchronous classic Snowflake generators |
+//! | `sonyflake` | Synchronous and asynchronous Sonyflake generators |
+//! | `uuid` | Numeric and canonical-string UUID v4 generators |
+//! | `tokio` | `qubit-clock` Tokio timer adapter |
 //!
 //! ## Allocation and lifetime
 //!
-//! [`IdGenerator::try_next_id`] performs one allocation attempt without
-//! invoking a sleeper. [`IdGenerator::next_id`] may adapt a retry outcome into
-//! a blocking wait. For Snowflake-family generators, configure
-//! [`RestartPolicy::WaitNextSlice`] when a fresh instance should skip its first
+//! [`IdGenerator::generate`] may block while a Snowflake generator waits for
+//! time to advance. [`AsyncIdGenerator::generate_async`] awaits the injected
+//! `qubit_clock::Timer` without blocking an executor. Configure
+//! `RestartPolicy::WaitNextSlice` when a fresh instance should skip its first
 //! observed logical time slice. This policy does not know the predecessor's
 //! allocation watermark, so clock rollback across a restart can still repeat
-//! IDs. The default [`RestartPolicy::Immediate`] can repeat IDs after
+//! IDs. The default `RestartPolicy::Immediate` can repeat IDs after
 //! same-slice allocation state is lost.
 //!
 //! Every Snowflake layout calculates an exclusive expiration boundary from its
@@ -48,14 +51,15 @@
 //! host, node, or machine identifiers for concurrently active generators in
 //! the same namespace.
 //!
-//! The UUID-like implementation can be compared locally with standard UUID v4
-//! generation by running
+//! UUID generator wrapper overhead can be compared with direct `uuid` crate
+//! calls by running
 //! `cargo bench --no-default-features --features uuid --bench uuid_comparison`.
 
 #![deny(missing_docs)]
 
-mod generation_outcome;
+mod async_id_generator;
 mod id_error;
+mod id_generation_future;
 mod id_generator;
 #[cfg(any(
     feature = "qubit-snowflake",
@@ -66,8 +70,9 @@ pub mod snowflake;
 #[cfg(feature = "uuid")]
 pub mod uuid;
 
-pub use generation_outcome::GenerationOutcome;
+pub use async_id_generator::AsyncIdGenerator;
 pub use id_error::IdError;
+pub use id_generation_future::IdGenerationFuture;
 pub use id_generator::IdGenerator;
 #[cfg(any(
     feature = "qubit-snowflake",
@@ -75,8 +80,15 @@ pub use id_generator::IdGenerator;
     feature = "sonyflake",
 ))]
 pub use snowflake::RestartPolicy;
+#[cfg(any(
+    feature = "qubit-snowflake",
+    feature = "classic-snowflake",
+    feature = "sonyflake",
+))]
+pub use snowflake::SnowflakeStringGenerator;
 #[cfg(feature = "qubit-snowflake")]
 pub use snowflake::{
+    AsyncQubitSnowflakeGenerator,
     DEFAULT_MAX_CLOCK_SKEW,
     HOST_BITS,
     HOST_MAX,
@@ -91,6 +103,7 @@ pub use snowflake::{
 };
 #[cfg(feature = "classic-snowflake")]
 pub use snowflake::{
+    AsyncSnowflakeGenerator,
     SnowflakeGenerator,
     SnowflakeGeneratorBuilder,
     SnowflakeLayout,
@@ -98,6 +111,7 @@ pub use snowflake::{
 };
 #[cfg(feature = "sonyflake")]
 pub use snowflake::{
+    AsyncSonyflakeGenerator,
     SonyflakeGenerator,
     SonyflakeGeneratorBuilder,
     SonyflakeLayout,
@@ -105,7 +119,6 @@ pub use snowflake::{
 };
 #[cfg(feature = "uuid")]
 pub use uuid::{
-    MicaUuidLikeGenerator,
-    fast_simple_uuid_like,
-    fast_uuid_like,
+    UuidV4Generator,
+    UuidV4StringGenerator,
 };

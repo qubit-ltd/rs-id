@@ -18,7 +18,10 @@ use super::constants::{
     MODE_BITS,
     PRECISION_BITS,
 };
-use super::internal::expiration_time;
+use super::internal::{
+    SnowflakeLayoutSpec,
+    expiration_time,
+};
 use super::{
     IdMode,
     QubitSnowflakeParts,
@@ -342,5 +345,31 @@ impl Default for QubitSnowflakeLayout {
     #[inline(always)]
     fn default() -> Self {
         Self::new_unchecked(IdMode::Sequential, TimestampPrecision::Second, 0)
+    }
+}
+
+impl SnowflakeLayoutSpec for QubitSnowflakeLayout {
+    /// Returns the duration represented by one Qubit timestamp unit.
+    #[inline(always)]
+    fn time_unit(&self) -> Duration {
+        Duration::from_millis(self.precision.divisor_millis())
+    }
+
+    /// Returns the greatest Qubit timestamp accepted by this layout.
+    #[inline(always)]
+    fn max_timestamp(&self) -> u64 {
+        QubitSnowflakeLayout::max_timestamp(self)
+    }
+
+    /// Returns the greatest Qubit sequence accepted by this layout.
+    #[inline(always)]
+    fn max_sequence(&self) -> u64 {
+        QubitSnowflakeLayout::max_sequence(self)
+    }
+
+    /// Composes a Qubit ID from a timestamp and sequence.
+    #[inline(always)]
+    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
+        QubitSnowflakeLayout::compose(self, timestamp, sequence)
     }
 }

@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Synchronous Sonyflake-style 63-bit ID generator.
+//! Asynchronous Sonyflake-style 63-bit ID generator.
 
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -13,7 +13,7 @@ use std::time::SystemTime;
 use qubit_clock::Timer;
 
 use super::internal::{
-    BlockingSnowflake,
+    AsyncSnowflake,
     SnowflakeCore,
 };
 use super::{
@@ -21,27 +21,20 @@ use super::{
     SonyflakeLayout,
 };
 use crate::{
+    AsyncIdGenerator,
     IdError,
-    IdGenerator,
+    IdGenerationFuture,
 };
 
-/// Default Sonyflake start time as Unix epoch milliseconds.
-pub(super) const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
-
-/// Generates Sonyflake-style IDs with configurable time, sequence, and
-/// machine fields.
-///
-/// The generator is thread-safe. One shared live instance never returns the
-/// same ID twice, provided its machine identifier is exclusive within the ID
-/// namespace. Retry waits use the timer injected through the builder.
+/// Generates Sonyflake-style IDs without blocking an asynchronous executor.
 #[must_use]
-pub struct SonyflakeGenerator {
-    /// Blocking driver over the shared allocation core.
-    inner: BlockingSnowflake<SonyflakeLayout>,
+pub struct AsyncSonyflakeGenerator {
+    /// Asynchronous driver over the shared allocation core.
+    inner: AsyncSnowflake<SonyflakeLayout>,
 }
 
-impl SonyflakeGenerator {
-    /// Creates a generator with the default Sonyflake-style layout.
+impl AsyncSonyflakeGenerator {
+    /// Creates an asynchronous generator with the default layout.
     ///
     /// # Arguments
     ///
@@ -49,7 +42,7 @@ impl SonyflakeGenerator {
     ///
     /// # Returns
     ///
-    /// A configured Sonyflake generator.
+    /// A configured asynchronous Sonyflake generator.
     ///
     /// # Errors
     ///
@@ -62,10 +55,10 @@ impl SonyflakeGenerator {
     /// boundary.
     #[inline(always)]
     pub fn new(machine_id: u64) -> Result<Self, IdError> {
-        Self::builder(machine_id).build()
+        Self::builder(machine_id).build_async()
     }
 
-    /// Creates a configurable builder for a machine identifier.
+    /// Creates a builder shared with the synchronous generator.
     #[inline(always)]
     pub fn builder(machine_id: u64) -> SonyflakeGeneratorBuilder {
         SonyflakeGeneratorBuilder::new(machine_id)
@@ -78,7 +71,7 @@ impl SonyflakeGenerator {
         timer: Arc<dyn Timer>,
     ) -> Self {
         Self {
-            inner: BlockingSnowflake::new(core, timer),
+            inner: AsyncSnowflake::new(core, timer),
         }
     }
 
@@ -103,19 +96,19 @@ impl SonyflakeGenerator {
     }
 }
 
-impl IdGenerator<u64> for SonyflakeGenerator {
-    /// Generates the next Sonyflake-style ID.
+impl AsyncIdGenerator<u64> for AsyncSonyflakeGenerator {
+    /// Generates the next Sonyflake-style ID asynchronously.
     ///
     /// # Returns
     ///
-    /// The next generated numeric identifier.
+    /// A cancellation-safe future for the next generated ID.
     ///
     /// # Errors
     ///
-    /// Returns an allocation error or [`IdError::WaitFailed`] when the timer
-    /// cannot complete a retry wait.
+    /// The future resolves to [`IdError`] when allocation or a retry wait
+    /// fails.
     #[inline(always)]
-    fn generate(&self) -> Result<u64, IdError> {
-        self.inner.generate()
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
+        Box::pin(self.inner.generate())
     }
 }
