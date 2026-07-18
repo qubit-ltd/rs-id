@@ -76,16 +76,16 @@ async fn test_async_snowflake_generator_waits_with_injected_timer() {
             .build_async()
             .expect("configuration should be valid"),
     );
-    let deadline_observer = time.wait_for_next_deadline_async();
     let worker_generator = Arc::clone(&generator);
     let worker =
         tokio::spawn(async move { worker_generator.generate_async().await });
 
     assert_eq!(
-        deadline_observer.await.elapsed_since_origin(),
+        time.advance_to_next_deadline_async()
+            .await
+            .elapsed_since_origin(),
         Duration::from_micros(750)
     );
-    time.advance_to_next_deadline();
     let id = worker
         .await
         .expect("worker should finish")
