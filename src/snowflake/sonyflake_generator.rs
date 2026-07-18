@@ -43,7 +43,7 @@ pub struct SonyflakeGenerator {
 impl SonyflakeGenerator {
     /// Creates a generator with the default Sonyflake-style layout.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `machine_id` - Machine identifier in `0..=65535`.
     ///
@@ -54,12 +54,8 @@ impl SonyflakeGenerator {
     /// # Errors
     ///
     /// Returns an [`IdError`] when the default layout, start time, or lifetime
-    /// is invalid.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the current wall time has reached the exclusive expiration
-    /// boundary.
+    /// is invalid, or when the current wall time has reached the exclusive
+    /// expiration boundary.
     #[inline(always)]
     pub fn new(machine_id: u64) -> Result<Self, IdError> {
         Self::builder(machine_id).build()
@@ -83,6 +79,16 @@ impl SonyflakeGenerator {
     }
 
     /// Returns the configured Sonyflake layout.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use qubit_id::SonyflakeGenerator;
+    /// let generator = SonyflakeGenerator::new(7).expect("valid machine");
+    /// generator.layout();
+    /// ```
+    #[must_use = "use the returned layout reference"]
     #[inline(always)]
     pub const fn layout(&self) -> &SonyflakeLayout {
         self.inner.core().layout()

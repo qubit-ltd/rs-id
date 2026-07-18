@@ -50,6 +50,39 @@ impl AsyncIdGenerator<u64> for CounterGenerator {
     /// An immediately ready future containing the next counter value.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
-        Box::pin(async move { IdGenerator::generate(self) })
+        Box::pin(
+            async move { <Self as IdGenerator<u64, IdError>>::generate(self) },
+        )
+    }
+}
+
+impl IdGenerator<u64, std::io::Error> for CounterGenerator {
+    /// Increments and returns the fixture counter with a custom error type.
+    ///
+    /// # Returns
+    ///
+    /// The next positive counter value.
+    ///
+    /// # Errors
+    ///
+    /// This fixture does not return an error.
+    #[inline(always)]
+    fn generate(&self) -> Result<u64, std::io::Error> {
+        Ok(self.value.fetch_add(1, Ordering::Relaxed) + 1)
+    }
+}
+
+impl AsyncIdGenerator<u64, std::io::Error> for CounterGenerator {
+    /// Asynchronously increments and returns the fixture counter with a custom
+    /// error type.
+    ///
+    /// # Returns
+    ///
+    /// An immediately ready future containing the next counter value.
+    #[inline(always)]
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64, std::io::Error> {
+        Box::pin(async move {
+            <Self as IdGenerator<u64, std::io::Error>>::generate(self)
+        })
     }
 }

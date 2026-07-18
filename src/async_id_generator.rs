@@ -7,16 +7,22 @@
 // =============================================================================
 //! Asynchronous contract for ID generators.
 
-use crate::IdGenerationFuture;
+use crate::{
+    IdError,
+    IdGenerationFuture,
+};
 
 /// Generates identifiers asynchronously.
 ///
-/// The output type is a trait parameter so applications can inject a generator
-/// through an object-safe boundary such as
-/// `Arc<dyn AsyncIdGenerator<String>>`. Implementations that mutate allocation
-/// state must synchronize that state internally because generation uses a
-/// shared reference and may be called concurrently.
-pub trait AsyncIdGenerator<T: Send + 'static>: Send + Sync {
+/// The output and error types are trait parameters so applications can inject
+/// a generator through an object-safe boundary such as
+/// `Arc<dyn AsyncIdGenerator<String>>`. The error type defaults to
+/// [`IdError`]. Implementations that mutate allocation state must synchronize
+/// that state internally because generation uses a shared reference and may be
+/// called concurrently.
+pub trait AsyncIdGenerator<T: Send + 'static, E = IdError>:
+    Send + Sync
+{
     /// Generates the next identifier asynchronously.
     ///
     /// Implementations should yield while waiting for time or other external
@@ -28,7 +34,7 @@ pub trait AsyncIdGenerator<T: Send + 'static>: Send + Sync {
     ///
     /// # Errors
     ///
-    /// The returned future resolves to [`crate::IdError`] when the
-    /// implementation cannot generate an identifier.
-    fn generate_async(&self) -> IdGenerationFuture<'_, T>;
+    /// The returned future resolves to `E` when the implementation cannot
+    /// generate an identifier.
+    fn generate_async(&self) -> IdGenerationFuture<'_, T, E>;
 }

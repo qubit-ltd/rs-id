@@ -11,12 +11,13 @@ use crate::IdError;
 
 /// Generates identifiers synchronously.
 ///
-/// The output type is a trait parameter so applications can inject a generator
-/// through an object-safe boundary such as `Arc<dyn IdGenerator<u64>>`.
+/// The output and error types are trait parameters so applications can inject
+/// a generator through an object-safe boundary such as
+/// `Arc<dyn IdGenerator<u64>>`. The error type defaults to [`IdError`].
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because generation uses a shared reference and may be called
 /// concurrently.
-pub trait IdGenerator<T: Send + 'static>: Send + Sync {
+pub trait IdGenerator<T: Send + 'static, E = IdError>: Send + Sync {
     /// Generates the next identifier.
     ///
     /// This method may block when an implementation must wait for time to
@@ -28,7 +29,6 @@ pub trait IdGenerator<T: Send + 'static>: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError`] when the implementation cannot generate an
-    /// identifier.
-    fn generate(&self) -> Result<T, IdError>;
+    /// Returns `E` when the implementation cannot generate an identifier.
+    fn generate(&self) -> Result<T, E>;
 }

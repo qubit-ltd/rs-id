@@ -12,7 +12,9 @@
 
 ## 主要特性
 
-- `IdGenerator<T>` 与 `AsyncIdGenerator<T>` 使用 `&self`，状态变化由实现内部同步。
+- `IdGenerator<T, E = IdError>` 与
+  `AsyncIdGenerator<T, E = IdError>` 支持生成器自有错误类型，并使用 `&self`；
+  状态变化由实现内部同步。
 - Qubit Snowflake、经典 Snowflake 与 Sonyflake 共享一个分配核心，同时使用独立的
   阻塞和异步等待驱动器。
 - Builder 接受来自 [`qubit-clock`](https://crates.io/crates/qubit-clock) 的
@@ -37,10 +39,14 @@ qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"]
 qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
 ```
 
-可选的 `tokio` feature 只开启 `qubit-clock` 提供的 Tokio Timer 适配；异步 ID
-生成器本身与运行时无关。
+异步 ID 生成器与运行时无关。需要 Tokio Timer 时，应用应直接在自己的
+`qubit-clock` 依赖上启用对应 feature。
 
 ## IoC 契约
+
+错误类型参数默认为 `IdError`，所以内置生成器继续使用简短的
+`IdGenerator<T>` 写法。第三方实现可以通过 `IdGenerator<T, E>` 保留自己的
+具体错误类型。
 
 同步数值依赖使用 `Arc<dyn IdGenerator<u64>>`：
 
@@ -57,9 +63,20 @@ fn main() -> Result<(), IdError> {
 }
 ```
 
-调用方需要在时间等待期间让出执行权时，使用
-`Arc<dyn AsyncIdGenerator<u64>>`。该 trait 返回 object-safe 的装箱 Future，
-不要求 Tokio：
+具体异步生成器提供不装箱的 inherent Future：
+
+```rust
+use qubit_id::{AsyncQubitSnowflakeGenerator, IdError};
+
+async fn allocate_concrete(
+    generator: &AsyncQubitSnowflakeGenerator,
+) -> Result<u64, IdError> {
+    generator.generate_async().await
+}
+```
+
+需要 object-safe 注入边界时使用 `Arc<dyn AsyncIdGenerator<u64>>`。动态分发
+返回装箱 Future，并且不要求 Tokio：
 
 ```rust
 use std::sync::Arc;
@@ -97,7 +114,8 @@ epoch/start time、restart policy、WallClock 与 Timer 配置。
 ## 确定性时间注入
 
 测试中应从同一个 `ManualMonotonicClock` 派生 WallClock 与 Timer。相同模式也适用于
-`StdWallClock`、`StdMonotonicClock` 以及可选的 Tokio Timer：
+`StdWallClock`、`StdMonotonicClock`，以及直接通过 `qubit-clock` 启用的 Tokio
+Timer：
 
 ```text
 let clock = ManualMonotonicClock::new_shared();
@@ -132,7 +150,8 @@ fn main() -> Result<(), IdError> {
 ```
 
 `UuidV4Generator` 返回 `u128`，`UuidV4StringGenerator` 返回规范的连字符文本；
-两者都实现同步与异步契约：
+两者都实现同步与异步契约。操作系统无法提供随机字节时会返回
+`IdError::RandomSourceFailed`：
 
 ```rust
 use qubit_id::{

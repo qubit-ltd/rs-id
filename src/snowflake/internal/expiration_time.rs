@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Checked exclusive-expiration calculations for Snowflake layouts.
 
 use std::time::{
@@ -23,7 +24,7 @@ const NANOS_PER_SECOND: u128 = 1_000_000_000;
 /// complete units. The returned boundary is therefore the first instant that
 /// cannot be encoded by the layout.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `origin` - Timestamp origin represented by encoded timestamp zero.
 /// * `time_unit` - Duration represented by one encoded timestamp unit.
@@ -66,27 +67,4 @@ pub(crate) fn expiration_time(
             time_unit,
             max_timestamp,
         })
-}
-
-/// Panics when a generator configuration has reached its expiration.
-///
-/// # Arguments
-///
-/// * `algorithm` - Algorithm name included in the panic message.
-/// * `now` - Current wall time observed during construction.
-/// * `expires_at` - Exclusive expiration boundary.
-///
-/// # Panics
-///
-/// Panics when `now` is equal to or later than `expires_at`.
-#[inline]
-pub(crate) fn panic_if_expired(
-    algorithm: &'static str,
-    now: SystemTime,
-    expires_at: SystemTime,
-) {
-    assert!(
-        now < expires_at,
-        "{algorithm} generator expired: current time {now:?} reached exclusive expiration {expires_at:?}",
-    );
 }

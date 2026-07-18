@@ -16,7 +16,6 @@ use std::time::{
 
 use qubit_clock::TimeError;
 use qubit_id::{
-    AsyncIdGenerator,
     AsyncQubitSnowflakeGenerator,
     DEFAULT_MAX_CLOCK_SKEW,
     IdError,
@@ -33,7 +32,7 @@ use crate::support::{
 
 /// Builds an asynchronous Qubit generator on one manual timeline.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `precision` - Timestamp precision used by generated IDs.
 /// * `epoch` - Timestamp origin.

@@ -33,6 +33,23 @@ impl UuidV4StringGenerator {
     pub const fn new() -> Self {
         Self
     }
+
+    /// Generates a UUID v4 string through an allocation-free concrete future.
+    ///
+    /// Use [`AsyncIdGenerator`] when object-safe dynamic dispatch is required.
+    ///
+    /// # Returns
+    ///
+    /// A future that completes on its first poll with a random UUID v4 string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::RandomSourceFailed`] when the operating-system
+    /// random source cannot provide UUID bytes.
+    #[inline(always)]
+    pub async fn generate_async(&self) -> Result<String, IdError> {
+        generate_uuid_v4().map(|uuid| uuid.hyphenated().to_string())
+    }
 }
 
 impl IdGenerator<String> for UuidV4StringGenerator {
@@ -44,14 +61,11 @@ impl IdGenerator<String> for UuidV4StringGenerator {
     ///
     /// # Errors
     ///
-    /// This implementation does not return a recoverable generation error.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the operating-system random source is unavailable.
+    /// Returns [`IdError::RandomSourceFailed`] when the operating-system
+    /// random source cannot provide UUID bytes.
     #[inline(always)]
     fn generate(&self) -> Result<String, IdError> {
-        Ok(generate_uuid_v4().hyphenated().to_string())
+        generate_uuid_v4().map(|uuid| uuid.hyphenated().to_string())
     }
 }
 
@@ -65,14 +79,10 @@ impl AsyncIdGenerator<String> for UuidV4StringGenerator {
     ///
     /// # Errors
     ///
-    /// The future does not resolve to a recoverable generation error.
-    ///
-    /// # Panics
-    ///
-    /// Polling the future panics when the operating-system random source is
-    /// unavailable.
+    /// The future resolves to [`IdError::RandomSourceFailed`] when the
+    /// operating-system random source cannot provide UUID bytes.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, String> {
-        Box::pin(async { Ok(generate_uuid_v4().hyphenated().to_string()) })
+        Box::pin(UuidV4StringGenerator::generate_async(self))
     }
 }

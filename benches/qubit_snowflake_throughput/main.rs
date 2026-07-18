@@ -147,7 +147,7 @@ fn measure_dispatch_paths() {
         .precision(TimestampPrecision::Second)
         .build_async()
         .expect("async concrete benchmark generator must be valid");
-    run_dispatch_case("async_concrete_boxed_future", || {
+    run_dispatch_case("async_concrete_unboxed_future", || {
         runtime
             .block_on(async_concrete.generate_async())
             .expect("async concrete generation must succeed")
@@ -168,7 +168,7 @@ fn measure_dispatch_paths() {
 
 /// Warms and measures one fixed-size generator call path.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `name` - Stable case name printed with the result.
 /// * `operation` - One ID generation operation.
@@ -194,7 +194,7 @@ where
 
 /// Runs and summarizes repeated samples for one benchmark case.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `precision` - Timestamp precision to measure.
 /// * `worker_count` - Number of concurrent generator workers.
@@ -232,7 +232,7 @@ fn summarize_case(
 /// slice. The returned count is checked against the theoretical capacity for
 /// the measured slices.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `precision` - Timestamp precision to measure.
 /// * `worker_count` - Number of concurrent generator workers.
@@ -308,7 +308,7 @@ fn measure_throughput(
 
 /// Generates untimed IDs so one-time setup does not influence throughput.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `generator` - Generator to warm before measurement.
 ///
@@ -327,7 +327,7 @@ fn warm_up(generator: &QubitSnowflakeGenerator) {
 
 /// Measures construction plus the first ID generation on fresh instances.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `precision` - Timestamp precision used by every fresh instance.
 ///
@@ -371,7 +371,7 @@ fn measure_startup_latency(
 /// decoded, keeping timestamp extraction outside the hot path for earlier
 /// batches while excluding IDs outside the measured timestamp range.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `generator` - Shared generator used by this worker.
 /// * `epoch` - Timestamp origin configured on `generator`.
@@ -425,7 +425,7 @@ fn generate_until_target(
 /// This function can wait indefinitely if the system wall clock does not
 /// enter a later logical slice.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `epoch` - Timestamp origin used for clock conversion.
 /// * `precision` - Logical timestamp precision to observe.
@@ -458,7 +458,7 @@ fn wait_for_fresh_slice(
 
 /// Returns the current elapsed timestamp for the selected precision.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `epoch` - Timestamp origin used for clock conversion.
 /// * `precision` - Logical timestamp precision to apply.
@@ -482,7 +482,7 @@ fn current_timestamp(epoch: SystemTime, precision: TimestampPrecision) -> u64 {
 
 /// Returns the number of complete slices measured for a precision.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `precision` - Timestamp precision whose benchmark window is requested.
 ///
@@ -499,7 +499,7 @@ fn slice_count(precision: TimestampPrecision) -> u64 {
 
 /// Returns the stable display name for a timestamp precision.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// * `precision` - Timestamp precision to name.
 ///

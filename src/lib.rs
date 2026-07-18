@@ -8,17 +8,17 @@
 //! # Qubit ID
 //!
 //! IoC-friendly ID generation utilities for Rust services. The crate provides
-//! object-safe synchronous [`IdGenerator<T>`](IdGenerator) and asynchronous
-//! [`AsyncIdGenerator<T>`](AsyncIdGenerator) contracts, three Snowflake-family
+//! object-safe synchronous [`IdGenerator`] and asynchronous
+//! [`AsyncIdGenerator`] contracts, three Snowflake-family
 //! algorithms, decimal string adaptation, and standards-compliant UUID v4.
 //!
 //! ## Cargo features
 //!
 //! The default feature set contains only `qubit-snowflake`. The
 //! `classic-snowflake`, `sonyflake`, and `uuid` algorithms are independently
-//! opt-in. The `tokio` feature enables the corresponding `qubit-clock` timer
-//! adapter but is not required by asynchronous generators. Disabling every
-//! feature leaves the common generator traits and error API available.
+//! opt-in. Asynchronous generators are runtime-neutral; enable runtime-specific
+//! timers directly on `qubit-clock`. Disabling every feature leaves the common
+//! generator traits and error API available.
 //!
 //! | Feature | Contents |
 //! | --- | --- |
@@ -26,13 +26,15 @@
 //! | `classic-snowflake` | Synchronous and asynchronous classic Snowflake generators |
 //! | `sonyflake` | Synchronous and asynchronous Sonyflake generators |
 //! | `uuid` | Numeric and canonical-string UUID v4 generators |
-//! | `tokio` | `qubit-clock` Tokio timer adapter |
 //!
 //! ## Allocation and lifetime
 //!
 //! [`IdGenerator::generate`] may block while a Snowflake generator waits for
-//! time to advance. [`AsyncIdGenerator::generate_async`] awaits the injected
-//! `qubit_clock::Timer` without blocking an executor. Configure
+//! time to advance. Concrete asynchronous generators expose an inherent
+//! `generate_async` method whose future is not boxed. Calling
+//! [`AsyncIdGenerator::generate_async`] through the object-safe trait boxes the
+//! future and awaits the injected `qubit_clock::Timer` without blocking an
+//! executor. Configure
 //! `RestartPolicy::WaitNextSlice` when a fresh instance should skip its first
 //! observed logical time slice. This policy does not know the predecessor's
 //! allocation watermark, so clock rollback across a restart can still repeat
@@ -41,9 +43,10 @@
 //!
 //! Every Snowflake layout calculates an exclusive expiration boundary from its
 //! time origin, unit, and maximum timestamp. Generators cache that value and
-//! expose it through `expires_at()`. Construction panics when the configured
-//! wall clock is equal to or later than the boundary. An unrepresentable
-//! boundary returns [`IdError::ExpirationTimeOverflow`] instead.
+//! expose it through `expires_at()`. Construction returns
+//! [`IdError::GeneratorExpired`] when the configured wall clock is equal to or
+//! later than the boundary. An unrepresentable boundary returns
+//! [`IdError::ExpirationTimeOverflow`] instead.
 //!
 //! This crate does not persist allocation state, coordinate generator
 //! identities across processes, reserve a layout version field, or provide an

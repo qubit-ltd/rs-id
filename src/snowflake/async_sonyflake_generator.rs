@@ -36,7 +36,7 @@ pub struct AsyncSonyflakeGenerator {
 impl AsyncSonyflakeGenerator {
     /// Creates an asynchronous generator with the default layout.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `machine_id` - Machine identifier in `0..=65535`.
     ///
@@ -47,12 +47,8 @@ impl AsyncSonyflakeGenerator {
     /// # Errors
     ///
     /// Returns an [`IdError`] when the default layout, start time, or lifetime
-    /// is invalid.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the current wall time has reached the exclusive expiration
-    /// boundary.
+    /// is invalid, or when the current wall time has reached the exclusive
+    /// expiration boundary.
     #[inline(always)]
     pub fn new(machine_id: u64) -> Result<Self, IdError> {
         Self::builder(machine_id).build_async()
@@ -76,6 +72,17 @@ impl AsyncSonyflakeGenerator {
     }
 
     /// Returns the configured Sonyflake layout.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use qubit_id::AsyncSonyflakeGenerator;
+    /// let generator = AsyncSonyflakeGenerator::new(7)
+    ///     .expect("valid machine");
+    /// generator.layout();
+    /// ```
+    #[must_use = "use the returned layout reference"]
     #[inline(always)]
     pub const fn layout(&self) -> &SonyflakeLayout {
         self.inner.core().layout()
@@ -94,6 +101,24 @@ impl AsyncSonyflakeGenerator {
     pub const fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
+
+    /// Generates the next Sonyflake-style ID asynchronously.
+    ///
+    /// Concrete callers use this inherent method without allocating a boxed
+    /// future. Use [`AsyncIdGenerator`] when object-safe dynamic dispatch is
+    /// required.
+    ///
+    /// # Returns
+    ///
+    /// A cancellation-safe future for the next generated ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError`] when allocation or a retry wait fails.
+    #[inline(always)]
+    pub async fn generate_async(&self) -> Result<u64, IdError> {
+        self.inner.generate().await
+    }
 }
 
 impl AsyncIdGenerator<u64> for AsyncSonyflakeGenerator {
@@ -109,6 +134,6 @@ impl AsyncIdGenerator<u64> for AsyncSonyflakeGenerator {
     /// fails.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
-        Box::pin(self.inner.generate())
+        Box::pin(AsyncSonyflakeGenerator::generate_async(self))
     }
 }
