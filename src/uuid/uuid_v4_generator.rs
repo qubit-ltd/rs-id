@@ -9,9 +9,7 @@
 
 use super::internal::generate_uuid_v4;
 use crate::{
-    AsyncIdGenerator,
     IdError,
-    IdGenerationFuture,
     IdGenerator,
 };
 
@@ -19,6 +17,18 @@ use crate::{
 ///
 /// UUID uniqueness is probabilistic. This stateless generator is safe to share
 /// across threads and tasks.
+///
+/// This type intentionally exposes only [`IdGenerator`]. Applications that
+/// generate UUIDs from an async runtime must choose the runtime-specific
+/// blocking boundary explicitly.
+///
+/// ```compile_fail
+/// use qubit_id::{AsyncIdGenerator, UuidV4Generator};
+///
+/// fn require_async<G: AsyncIdGenerator<u128>>(_generator: &G) {}
+///
+/// require_async(&UuidV4Generator::new());
+/// ```
 #[derive(Debug, Default, Clone, Copy)]
 #[must_use]
 pub struct UuidV4Generator;
@@ -32,23 +42,6 @@ impl UuidV4Generator {
     #[inline(always)]
     pub const fn new() -> Self {
         Self
-    }
-
-    /// Generates a UUID v4 through an allocation-free concrete future.
-    ///
-    /// Use [`AsyncIdGenerator`] when object-safe dynamic dispatch is required.
-    ///
-    /// # Returns
-    ///
-    /// A future that completes on its first poll with a random UUID v4 value.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`IdError::RandomSourceFailed`] when the operating-system
-    /// random source cannot provide UUID bytes.
-    #[inline(always)]
-    pub async fn generate_async(&self) -> Result<u128, IdError> {
-        generate_uuid_v4().map(|uuid| uuid.as_u128())
     }
 }
 
@@ -66,22 +59,5 @@ impl IdGenerator<u128> for UuidV4Generator {
     #[inline(always)]
     fn generate(&self) -> Result<u128, IdError> {
         generate_uuid_v4().map(|uuid| uuid.as_u128())
-    }
-}
-
-impl AsyncIdGenerator<u128> for UuidV4Generator {
-    /// Generates a UUID v4 through an immediately ready future.
-    ///
-    /// # Returns
-    ///
-    /// A future that completes on its first poll with a random UUID v4 value.
-    ///
-    /// # Errors
-    ///
-    /// The future resolves to [`IdError::RandomSourceFailed`] when the
-    /// operating-system random source cannot provide UUID bytes.
-    #[inline(always)]
-    fn generate_async(&self) -> IdGenerationFuture<'_, u128> {
-        Box::pin(UuidV4Generator::generate_async(self))
     }
 }
