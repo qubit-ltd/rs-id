@@ -41,9 +41,14 @@ per second slice. The tables report the sample with the median throughput, plus
 the minimum and maximum throughput across all three samples.
 
 Startup latency is measured separately over 10,000 fresh instances. Each
-observation includes builder construction and the first `next_id` call. This
+observation includes builder construction and the first `generate` call. This
 captures the immediate first allocation and is excluded from sustained
 throughput timing.
+
+The current benchmark executable also prints fixed-workload measurements for
+concrete and `Arc<dyn ...>` synchronous and asynchronous call paths. Those
+dispatch cases were added after this dated baseline, so this report does not
+attach historical result values to them.
 
 ## Command
 
@@ -96,11 +101,12 @@ capacity.
 
 The median build-plus-first-ID latency was 131 ns in millisecond mode and 122 ns
 in second mode, compared with 83 ns and 84 ns in the previous record. The
-constructor now creates separate Arc-backed standard wall-clock, monotonic
-clock, and blocking-sleeper objects instead of one clock closure, so a modest
-startup-cost increase is expected. The min-to-max ranges overlap because tail
-values are sensitive to scheduling and interruption; this run is not enough to
-claim a general latency regression. Immediate first allocation still avoids a
+constructor now creates separate Arc-backed standard wall-clock and
+monotonic-timer capabilities instead of one clock closure; the blocking path
+adapts the injected timer with `BlockingSleeper`. A modest startup-cost increase
+is therefore expected. The min-to-max ranges overlap because tail values are
+sensitive to scheduling and interruption; this run is not enough to claim a
+general latency regression. Immediate first allocation still avoids a
 time-slice startup fence.
 
 For every throughput case, this run's complete min-to-max range was above the
