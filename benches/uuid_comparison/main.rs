@@ -5,16 +5,15 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Fixed-workload comparison between Mica UUID-like IDs and UUID v4.
+//! Fixed-workload comparison of qubit-id UUID wrappers and direct uuid calls.
 
 use std::hint::black_box;
 use std::time::Instant;
 
 use qubit_id::{
     IdGenerator,
-    MicaUuidLikeGenerator,
-    fast_simple_uuid_like,
-    fast_uuid_like,
+    UuidV4Generator,
+    UuidV4StringGenerator,
 };
 use uuid::Uuid;
 
@@ -25,35 +24,34 @@ const SAMPLE_COUNT: usize = 9;
 /// Number of operations performed in each timed sample.
 const ITERATIONS_PER_SAMPLE: usize = 100_000;
 
-/// Runs all value-generation and string-generation comparison cases.
+/// Runs numeric and canonical-string UUID v4 comparison cases.
 ///
 /// # Panics
 ///
-/// Panics when the operating-system random source fails or a sample records
-/// no measurable elapsed time.
+/// Panics when the operating-system random source is unavailable, an ID
+/// wrapper unexpectedly returns an error, or a sample has zero duration.
 fn main() {
     println!(
         "configuration warm_up_iterations={WARM_UP_ITERATIONS} \
          samples={SAMPLE_COUNT} iterations_per_sample={ITERATIONS_PER_SAMPLE}"
     );
 
-    let mica = MicaUuidLikeGenerator::new();
-    run_case("mica_u128", || {
-        mica.next_id()
-            .expect("Mica UUID-like generation must succeed")
+    let numeric = UuidV4Generator::new();
+    run_case("qubit_id_uuid_v4_u128", || {
+        numeric
+            .generate()
+            .expect("UUID v4 numeric generation must succeed")
     });
-    run_case("uuid_v4_value", Uuid::new_v4);
-    run_case("mica_hyphenated_string", || {
-        fast_uuid_like().expect("Mica UUID-like generation must succeed")
+    run_case("uuid_crate_v4_u128", || Uuid::new_v4().as_u128());
+
+    let string = UuidV4StringGenerator::new();
+    run_case("qubit_id_uuid_v4_string", || {
+        string
+            .generate()
+            .expect("UUID v4 string generation must succeed")
     });
-    run_case("uuid_v4_hyphenated_string", || {
+    run_case("uuid_crate_v4_string", || {
         Uuid::new_v4().hyphenated().to_string()
-    });
-    run_case("mica_simple_string", || {
-        fast_simple_uuid_like().expect("Mica UUID-like generation must succeed")
-    });
-    run_case("uuid_v4_simple_string", || {
-        Uuid::new_v4().simple().to_string()
     });
 }
 
@@ -103,8 +101,6 @@ where
 }
 
 /// Executes one operation repeatedly before timing begins.
-///
-/// `T` is the generated value and `F` is the operation being warmed.
 ///
 /// # Arguments
 ///

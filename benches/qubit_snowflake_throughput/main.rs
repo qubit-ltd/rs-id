@@ -28,6 +28,8 @@ use std::time::{
 };
 
 use qubit_id::{
+    AsyncIdGenerator,
+    AsyncQubitSnowflakeGenerator,
     IdGenerator,
     IdMode,
     QubitSnowflakeGenerator,
@@ -47,6 +49,10 @@ const WARM_UP_IDS: usize = 100_000;
 const MILLIS_SLICES: u64 = 2_000;
 const SECOND_SLICES: u64 = 2;
 const BATCH_SIZE: usize = 64;
+/// Operations used for each concrete-versus-dynamic call-path sample.
+const DISPATCH_ITERATIONS: usize = 200_000;
+/// Untimed operations used to warm each call-path sample.
+const DISPATCH_WARM_UP_ITERATIONS: usize = 20_000;
 
 /// Runs every precision and worker-count benchmark case.
 ///
@@ -59,6 +65,8 @@ fn main() {
         "configuration throughput_samples={SAMPLE_COUNT} \
          startup_samples={STARTUP_SAMPLE_COUNT} warm_up_ids={WARM_UP_IDS}"
     );
+
+    measure_dispatch_paths();
 
     for precision in
         [TimestampPrecision::Millisecond, TimestampPrecision::Second]
@@ -99,6 +107,89 @@ fn main() {
             summary.max_nanos,
         );
     }
+}
+
+/// Compares concrete and dynamically dispatched synchronous and asynchronous
+/// generator call paths.
+///
+/// Second precision provides enough sequence capacity that these fixed-size
+/// samples measure dispatch and Future allocation rather than clock waits.
+///
+/// # Panics
+///
+/// Panics when a generator cannot be constructed, ID generation fails, or the
+/// Tokio current-thread runtime cannot be built.
+fn measure_dispatch_paths() {
+    let concrete = QubitSnowflakeGenerator::builder(HOST)
+        .precision(TimestampPrecision::Second)
+        .build()
+        .expect("concrete benchmark generator must be valid");
+    run_dispatch_case("sync_concrete", || {
+        concrete
+            .generate()
+            .expect("concrete generation must succeed")
+    });
+
+    let dynamic: Arc<dyn IdGenerator<u64>> = Arc::new(
+        QubitSnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .build()
+            .expect("dynamic benchmark generator must be valid"),
+    );
+    run_dispatch_case("sync_arc_dyn", || {
+        dynamic.generate().expect("dynamic generation must succeed")
+    });
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .expect("benchmark runtime must build");
+    let async_concrete = AsyncQubitSnowflakeGenerator::builder(HOST)
+        .precision(TimestampPrecision::Second)
+        .build_async()
+        .expect("async concrete benchmark generator must be valid");
+    run_dispatch_case("async_concrete_boxed_future", || {
+        runtime
+            .block_on(async_concrete.generate_async())
+            .expect("async concrete generation must succeed")
+    });
+
+    let async_dynamic: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(
+        AsyncQubitSnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .build_async()
+            .expect("async dynamic benchmark generator must be valid"),
+    );
+    run_dispatch_case("async_arc_dyn_boxed_future", || {
+        runtime
+            .block_on(async_dynamic.generate_async())
+            .expect("async dynamic generation must succeed")
+    });
+}
+
+/// Warms and measures one fixed-size generator call path.
+///
+/// # Arguments
+///
+/// * `name` - Stable case name printed with the result.
+/// * `operation` - One ID generation operation.
+fn run_dispatch_case<T, F>(name: &str, mut operation: F)
+where
+    F: FnMut() -> T,
+{
+    for _ in 0..DISPATCH_WARM_UP_ITERATIONS {
+        black_box(operation());
+    }
+    let started = Instant::now();
+    for _ in 0..DISPATCH_ITERATIONS {
+        black_box(operation());
+    }
+    let elapsed = started.elapsed();
+    println!(
+        "dispatch case={name} iterations={DISPATCH_ITERATIONS} \
+         elapsed_s={:.6} throughput={:.0} operations/s",
+        elapsed.as_secs_f64(),
+        DISPATCH_ITERATIONS as f64 / elapsed.as_secs_f64(),
+    );
 }
 
 /// Runs and summarizes repeated samples for one benchmark case.
@@ -228,7 +319,7 @@ fn warm_up(generator: &QubitSnowflakeGenerator) {
     for _ in 0..WARM_UP_IDS {
         black_box(
             generator
-                .next_id()
+                .generate()
                 .expect("warm-up ID generation must succeed"),
         );
     }
@@ -260,7 +351,7 @@ fn measure_startup_latency(
             .expect("benchmark generator configuration must be valid");
         black_box(
             generator
-                .next_id()
+                .generate()
                 .expect("first ID generation must succeed"),
         );
         samples.push(started.elapsed().as_nanos());
@@ -309,7 +400,7 @@ fn generate_until_target(
     loop {
         for id in &mut batch {
             *id = generator
-                .next_id()
+                .generate()
                 .expect("ID generation must succeed during the benchmark");
         }
         if current_timestamp(epoch, precision) < target_timestamp {
