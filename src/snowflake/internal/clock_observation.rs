@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Defines an unquantized wall-clock observation.
 
 use std::time::{
@@ -29,7 +30,7 @@ pub(crate) struct ClockObservation {
 impl ClockObservation {
     /// Converts one wall time into raw and quantized generator time.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `time` - Wall time reported by the generator clock.
     /// * `epoch` - Reference time for the encoded timestamp.

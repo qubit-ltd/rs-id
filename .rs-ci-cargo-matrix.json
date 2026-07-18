@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "name": "no-default-features",
+      "defaultFeatures": false,
+      "commands": [
+        "check",
+        "test",
+        "doc"
+      ]
+    },
+    {
+      "name": "qubit-snowflake",
+      "defaultFeatures": false,
+      "features": [
+        "qubit-snowflake"
+      ],
+      "commands": [
+        "check",
+        "test",
+        "doc"
+      ]
+    },
+    {
+      "name": "classic-snowflake",
+      "defaultFeatures": false,
+      "features": [
+        "classic-snowflake"
+      ],
+      "commands": [
+        "check",
+        "test",
+        "doc"
+      ]
+    },
+    {
+      "name": "sonyflake",
+      "defaultFeatures": false,
+      "features": [
+        "sonyflake"
+      ],
+      "commands": [
+        "check",
+        "test",
+        "doc"
+      ]
+    },
+    {
+      "name": "uuid",
+      "defaultFeatures": false,
+      "features": [
+        "uuid"
+      ],
+      "commands": [
+        "check",
+        "test",
+        "doc"
+      ]
+    },
+    {
+      "name": "all-features-clippy",
+      "allFeatures": true,
+      "commands": [
+        "clippy"
+      ]
+    }
+  ]
+}
