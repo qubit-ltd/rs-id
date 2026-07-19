@@ -126,15 +126,17 @@ impl ManualTime {
         &self,
         expected: usize,
     ) {
-        assert!(
-            self.monotonic_clock
-                .wait_for_waiters(expected, Duration::from_secs(1)),
-            "generators should register {expected} deadlines"
-        );
         let _ = self
             .monotonic_clock
-            .advance_to_next_deadline()
-            .expect("a future deadline should be registered");
+            .advance_to_next_deadline_after_waiters(
+                expected,
+                Duration::from_secs(1),
+            )
+            .unwrap_or_else(|| {
+                panic!(
+                    "generators should register {expected} future deadlines"
+                )
+            });
     }
 
     /// Asynchronously waits until a future timer deadline is registered.
