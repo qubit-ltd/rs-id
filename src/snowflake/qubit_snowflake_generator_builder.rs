@@ -181,6 +181,13 @@ impl QubitSnowflakeGeneratorBuilder {
 
     /// Sets the timer used by synchronous or asynchronous retry waits.
     ///
+    /// Async generators may poll timer futures from a different runtime or
+    /// execution context. A Tokio timer retains its target runtime handle, and
+    /// that runtime must remain alive and driven. Synchronous generators block
+    /// on the timer, so its backend must progress independently of the caller
+    /// thread; do not rely on a Tokio current-thread runtime driven only by
+    /// that same thread.
+    ///
     /// # Parameters
     ///
     /// * `timer` - Shared timer used for retry delays.

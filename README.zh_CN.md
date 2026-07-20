@@ -128,6 +128,11 @@ let generator = QubitSnowflakeGenerator::builder(7)
 Manual Timer observer 可以先确认 deadline 已注册，再推进逻辑时钟，避免真实 sleep
 和异步调度猜测。
 
+Tokio Timer 会保留目标 runtime handle，因此异步生成器可以从其他 runtime 或执行
+上下文轮询 timer future；目标 `Runtime` 必须保持存活并持续驱动。同步生成器会阻塞
+等待，因此 timer 后端必须独立于调用线程推进；不要依赖仅由同一调用线程驱动的
+Tokio current-thread runtime。
+
 ## 字符串与 UUID 输出
 
 IoC 边界需要十进制文本时，可以包装任意同步或异步 Snowflake `u64` 生成器：

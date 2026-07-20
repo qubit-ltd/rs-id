@@ -132,6 +132,12 @@ let generator = QubitSnowflakeGenerator::builder(7)
 Manual timer observers let tests wait until a deadline is registered before
 advancing logical time, avoiding real sleeps and scheduling guesses.
 
+A Tokio timer retains its target runtime handle, so async generators can be
+polled from another runtime or execution context. The target `Runtime` must
+remain alive and driven. Synchronous generators block while waiting, so their
+timer backend must progress independently of the caller thread; do not rely on
+a Tokio current-thread runtime driven only by that same thread.
+
 ## String and UUID outputs
 
 Wrap any synchronous or asynchronous Snowflake `u64` generator when the IoC

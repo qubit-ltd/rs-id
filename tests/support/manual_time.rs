@@ -133,9 +133,7 @@ impl ManualTime {
                 Duration::from_secs(1),
             )
             .unwrap_or_else(|| {
-                panic!(
-                    "generators should register {expected} future deadlines"
-                )
+                panic!("generators should register {expected} future deadlines")
             });
     }
 
