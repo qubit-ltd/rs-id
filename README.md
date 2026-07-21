@@ -112,6 +112,11 @@ A test mock only needs to implement the relevant trait for its local type.
 | `classic-snowflake` | `SnowflakeGenerator` | `AsyncSnowflakeGenerator` | `u64` |
 | `sonyflake` | `SonyflakeGenerator` | `AsyncSonyflakeGenerator` | `u64` |
 
+“Classic Snowflake” describes the 41/10/12-bit layout, not a universal epoch.
+`SnowflakeGenerator` defaults to `2018-12-02T00:00:00Z`, the same epoch used by
+Qubit Snowflake. Set the builder's `epoch(...)` when interoperating with an
+existing ID namespace that uses a different timestamp origin.
+
 Each builder has `build()` and `build_async()`. Both consume the same layout,
 epoch/start time, restart policy, wall clock, and timer configuration.
 
