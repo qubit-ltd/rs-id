@@ -43,6 +43,24 @@ impl UuidV4StringGenerator {
     pub const fn new() -> Self {
         Self
     }
+
+    /// Generates a canonical lowercase hyphenated UUID v4 string.
+    ///
+    /// This inherent method is convenient for concrete callers. Use
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    ///
+    /// # Returns
+    ///
+    /// The next random UUID v4 string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::RandomSourceFailed`] when the operating-system random
+    /// source cannot provide UUID bytes.
+    #[inline(always)]
+    pub fn generate(&self) -> Result<String, IdError> {
+        generate_uuid_v4().map(|uuid| uuid.hyphenated().to_string())
+    }
 }
 
 impl IdGenerator<String> for UuidV4StringGenerator {
@@ -58,6 +76,6 @@ impl IdGenerator<String> for UuidV4StringGenerator {
     /// random source cannot provide UUID bytes.
     #[inline(always)]
     fn generate(&self) -> Result<String, IdError> {
-        generate_uuid_v4().map(|uuid| uuid.hyphenated().to_string())
+        UuidV4StringGenerator::generate(self)
     }
 }

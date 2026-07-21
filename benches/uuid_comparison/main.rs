@@ -11,7 +11,6 @@ use std::hint::black_box;
 use std::time::Instant;
 
 use qubit_id::{
-    IdGenerator,
     UuidV4Generator,
     UuidV4StringGenerator,
 };

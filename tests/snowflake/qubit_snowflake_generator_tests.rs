@@ -19,7 +19,6 @@ use std::time::{
 use qubit_id::{
     DEFAULT_MAX_CLOCK_SKEW,
     IdError,
-    IdGenerator,
     IdMode,
     QubitSnowflakeGenerator,
     QubitSnowflakeLayout,
@@ -73,6 +72,28 @@ fn test_qubit_snowflake_generator_new_uses_defaults() {
 
     assert_eq!(generator.layout().host(), 17);
     assert_eq!(generator.max_clock_skew(), DEFAULT_MAX_CLOCK_SKEW);
+}
+
+mod inherent_api_tests {
+    use super::build_generator;
+    use super::TimestampPrecision;
+    use std::time::{Duration, UNIX_EPOCH};
+
+    #[test]
+    fn test_qubit_snowflake_generator_supports_inherent_generate() {
+        let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let (generator, _time) = build_generator(
+            TimestampPrecision::Millisecond,
+            7,
+            epoch,
+            epoch + Duration::from_millis(10),
+            Duration::from_millis(5),
+        );
+
+        let _id = generator
+            .generate()
+            .expect("inherent generation should succeed");
+    }
 }
 
 #[test]

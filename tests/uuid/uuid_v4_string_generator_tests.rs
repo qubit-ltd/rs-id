@@ -43,3 +43,18 @@ fn test_uuid_v4_string_generator_returns_canonical_string() {
 
     assert_uuid_v4_string(&value);
 }
+
+mod inherent_api_tests {
+    use super::assert_uuid_v4_string;
+    use qubit_id::UuidV4StringGenerator;
+
+    #[test]
+    fn test_uuid_v4_string_generator_supports_inherent_generate() {
+        let generator = UuidV4StringGenerator::new();
+        let value = generator
+            .generate()
+            .expect("inherent generation should succeed");
+
+        assert_uuid_v4_string(&value);
+    }
+}

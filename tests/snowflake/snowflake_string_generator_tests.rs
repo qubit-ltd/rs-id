@@ -49,6 +49,31 @@ fn test_snowflake_string_generator_adapts_sync_generator() {
     assert_eq!(parts.sequence(), 0);
 }
 
+mod inherent_api_tests {
+    use super::ManualTime;
+    use std::time::{Duration, UNIX_EPOCH};
+    use qubit_id::{QubitSnowflakeGenerator, SnowflakeStringGenerator};
+
+    #[test]
+    fn test_snowflake_string_generator_supports_inherent_generate() {
+        let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let time = ManualTime::new(epoch + Duration::from_millis(10));
+        let numeric = QubitSnowflakeGenerator::builder(7)
+            .epoch(epoch)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build()
+            .expect("configuration should be valid");
+        let generator = SnowflakeStringGenerator::new(numeric);
+
+        let value = generator
+            .generate()
+            .expect("inherent generation should succeed");
+
+        assert!(value.parse::<u64>().is_ok());
+    }
+}
+
 #[tokio::test]
 async fn test_snowflake_string_generator_adapts_async_generator() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);

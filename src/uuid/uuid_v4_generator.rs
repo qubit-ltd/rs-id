@@ -43,6 +43,24 @@ impl UuidV4Generator {
     pub const fn new() -> Self {
         Self
     }
+
+    /// Generates a UUID v4 as a native `u128`.
+    ///
+    /// This inherent method is convenient for concrete callers. Use
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    ///
+    /// # Returns
+    ///
+    /// The next random UUID v4 value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::RandomSourceFailed`] when the operating-system random
+    /// source cannot provide UUID bytes.
+    #[inline(always)]
+    pub fn generate(&self) -> Result<u128, IdError> {
+        generate_uuid_v4().map(|uuid| uuid.as_u128())
+    }
 }
 
 impl IdGenerator<u128> for UuidV4Generator {
@@ -58,6 +76,6 @@ impl IdGenerator<u128> for UuidV4Generator {
     /// random source cannot provide UUID bytes.
     #[inline(always)]
     fn generate(&self) -> Result<u128, IdError> {
-        generate_uuid_v4().map(|uuid| uuid.as_u128())
+        UuidV4Generator::generate(self)
     }
 }

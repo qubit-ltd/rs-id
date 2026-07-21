@@ -183,6 +183,23 @@ impl QubitSnowflakeGenerator {
         self.inner.core().max_clock_skew()
     }
 
+    /// Generates the next Qubit Snowflake ID.
+    ///
+    /// This inherent method is convenient for concrete callers. Use
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    ///
+    /// # Returns
+    ///
+    /// The next generated Qubit Snowflake ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as the [`IdGenerator::generate`] implementation.
+    #[inline(always)]
+    pub fn generate(&self) -> Result<u64, IdError> {
+        self.inner.generate()
+    }
+
     /// Composes an ID for an explicit time and sequence.
     ///
     /// This method is stateless. Repeating its inputs repeats the ID, so it
@@ -236,6 +253,6 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
     /// registered or completed.
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
-        self.inner.generate()
+        QubitSnowflakeGenerator::generate(self)
     }
 }

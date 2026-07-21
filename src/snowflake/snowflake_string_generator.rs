@@ -61,6 +61,26 @@ impl<G> SnowflakeStringGenerator<G> {
         self.inner
     }
 
+    /// Generates a Snowflake ID as unsigned decimal text.
+    ///
+    /// This inherent method is convenient for concrete callers. Use
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    ///
+    /// # Returns
+    ///
+    /// The next numeric ID formatted as decimal text.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error produced by the wrapped generator.
+    #[inline(always)]
+    pub fn generate<E>(&self) -> Result<String, E>
+    where
+        G: IdGenerator<u64, E>,
+    {
+        self.inner.generate().map(|id| id.to_string())
+    }
+
     /// Generates a Snowflake ID as unsigned decimal text asynchronously.
     ///
     /// Concrete callers use this inherent method without allocating an
@@ -98,7 +118,7 @@ where
     /// Returns the error produced by the wrapped generator.
     #[inline(always)]
     fn generate(&self) -> Result<String, E> {
-        self.inner.generate().map(|id| id.to_string())
+        SnowflakeStringGenerator::generate(self)
     }
 }
 
