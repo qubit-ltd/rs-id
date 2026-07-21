@@ -70,7 +70,8 @@ where
                     self.timer
                         .after(duration)
                         .map_err(|source| IdError::WaitFailed { source })?
-                        .await;
+                        .await
+                        .map_err(|source| IdError::WaitFailed { source })?;
                 }
             }
         }

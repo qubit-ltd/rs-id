@@ -14,7 +14,10 @@ use std::time::{
     UNIX_EPOCH,
 };
 
-use qubit_clock::TimeError;
+use qubit_clock::{
+    TimeError,
+    TimerUnavailableError,
+};
 use qubit_id::{
     AsyncQubitSnowflakeGenerator,
     DEFAULT_MAX_CLOCK_SKEW,
@@ -26,6 +29,7 @@ use qubit_id::{
 };
 
 use crate::support::{
+    CompletionFailingTimer,
     FailingTimer,
     ManualTime,
 };
@@ -295,6 +299,30 @@ async fn test_async_qubit_snowflake_generator_preserves_wait_failure_source() {
         generator.generate_async().await,
         Err(IdError::WaitFailed {
             source: TimeError::InstantOverflow,
+        })
+    ));
+}
+
+#[tokio::test]
+async fn test_async_qubit_snowflake_generator_preserves_completion_failure_source()
+ {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10_250));
+    let generator = QubitSnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Second)
+        .epoch(epoch)
+        .restart_policy(RestartPolicy::WaitNextSlice)
+        .wall_clock(time.wall_clock())
+        .timer(Arc::new(CompletionFailingTimer::new()))
+        .build_async()
+        .expect("configuration should be valid");
+
+    assert!(matches!(
+        generator.generate_async().await,
+        Err(IdError::WaitFailed {
+            source: TimeError::TimerUnavailable {
+                source: TimerUnavailableError::SchedulerWorkerTerminated,
+            },
         })
     ));
 }
