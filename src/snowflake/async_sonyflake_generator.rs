@@ -135,9 +135,9 @@ impl AsyncSonyflakeGenerator {
 
     /// Generates the next Sonyflake-style ID asynchronously.
     ///
-    /// Concrete callers use this inherent method without allocating a boxed
-    /// future. Use [`AsyncIdGenerator`] when object-safe dynamic dispatch is
-    /// required.
+    /// This inherent method's outer future is unboxed. A retry may still
+    /// create the timer's internal future. Use [`AsyncIdGenerator`] when
+    /// object-safe dynamic dispatch is required.
     ///
     /// # Returns
     ///
