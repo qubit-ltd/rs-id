@@ -9,12 +9,12 @@ systems, Rust versions, or workloads.
 
 ## Environment
 
-- Date: 2026-07-16
-- Branch: `codex/rs-id-generation-reliability`
-- Repository base revision: `8f278f854833ab49cd9d613f5129b211e6409a95`
-- Working tree: base revision plus the restart-policy, non-sleeping generation,
-  raw rollback detection, `qubit-clock` injection, tests, benchmark
-  organization, and documentation changes described in this report
+- Date: 2026-07-21
+- Branch: `dev-starfish`
+- Repository base revision: `4faa20cd673eea3ece3773b7afff2e68a50fa03d`
+- Working tree: base revision plus the `compose_at` API rename, string-adapter
+  dispatch cases, async timer-completion error propagation, tests, and
+  documentation changes described in this report
 - Operating system: Linux 6.17.0-35-generic, x86-64
 - CPU: Intel Core i5-9600K at 3.70 GHz, up to 4.60 GHz
 - Topology: 1 socket, 6 physical cores, 6 logical CPUs, no SMT
@@ -45,10 +45,11 @@ observation includes builder construction and the first `generate` call. This
 captures the immediate first allocation and is excluded from sustained
 throughput timing.
 
-The current benchmark executable also prints fixed-workload measurements for
-concrete and `Arc<dyn ...>` synchronous and asynchronous call paths. Those
-dispatch cases were added after this dated baseline, so this report does not
-attach historical result values to them.
+Before sustained-throughput sampling, the benchmark also runs 200,000-operation
+fixed workloads through concrete and `Arc<dyn ...>` synchronous and
+asynchronous call paths. Both numeric and `SnowflakeStringGenerator` adapters
+are included. These measurements compare dispatch and string-conversion costs;
+they are not capacity measurements because they can cross clock slices.
 
 ## Command
 
@@ -63,34 +64,46 @@ The run reported this configuration:
 configuration throughput_samples=3 startup_samples=10000 warm_up_ids=100000
 ```
 
+## Dispatch Results
+
+| Path | Iterations | Elapsed | Operations/s |
+|---|---:|---:|---:|
+| Sync numeric, concrete | 200,000 | 0.014224 s | 14,060,653 |
+| Sync numeric, `Arc<dyn ...>` | 200,000 | 0.013786 s | 14,507,162 |
+| Sync string, concrete | 200,000 | 0.020082 s | 9,959,115 |
+| Sync string, `Arc<dyn ...>` | 200,000 | 0.018652 s | 10,722,475 |
+| Async numeric, concrete/unboxed outer future | 200,000 | 0.047779 s | 4,185,951 |
+| Async numeric, `Arc<dyn ...>`/boxed future | 200,000 | 0.049252 s | 4,060,779 |
+| Async string, concrete | 200,000 | 0.055613 s | 3,596,313 |
+| Async string, `Arc<dyn ...>` | 200,000 | 0.058587 s | 3,413,744 |
+
 ## Sustained Throughput Results
 
 | Precision | Threads | Samples | Slices/sample | Capacity/sample | Median IDs | Median utilization | Median elapsed | Min IDs/s | Median IDs/s | Max IDs/s |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Millisecond | 1 | 3 | 2,000 | 8,192,000 | 8,159,878 | 99.61% | 2.000126 s | 4,067,147 | 4,079,682 | 4,081,306 |
-| Millisecond | 2 | 3 | 2,000 | 8,192,000 | 8,192,000 | 100.00% | 2.000169 s | 4,095,415 | 4,095,653 | 4,095,740 |
-| Millisecond | 4 | 3 | 2,000 | 8,192,000 | 8,191,174 | 99.99% | 2.000144 s | 4,089,869 | 4,095,291 | 4,095,355 |
-| Millisecond | 6 | 3 | 2,000 | 8,192,000 | 8,192,000 | 100.00% | 2.000183 s | 4,091,859 | 4,095,625 | 4,095,792 |
-| Second | 1 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 1.999694 s | 4,194,205 | 4,194,945 | 4,195,563 |
-| Second | 2 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 1.999821 s | 4,193,891 | 4,194,679 | 4,194,700 |
-| Second | 4 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 1.999574 s | 4,194,172 | 4,195,197 | 4,195,524 |
-| Second | 6 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.000073 s | 4,193,560 | 4,194,150 | 4,194,206 |
+| Millisecond | 1 | 3 | 2,000 | 8,192,000 | 8,190,869 | 99.99% | 2.000215 s | 4,087,022 | 4,094,994 | 4,095,602 |
+| Millisecond | 2 | 3 | 2,000 | 8,192,000 | 8,192,000 | 100.00% | 2.000170 s | 4,095,037 | 4,095,652 | 4,095,671 |
+| Millisecond | 4 | 3 | 2,000 | 8,192,000 | 8,188,732 | 99.96% | 2.000137 s | 4,092,081 | 4,094,085 | 4,095,014 |
+| Millisecond | 6 | 3 | 2,000 | 8,192,000 | 8,125,906 | 99.19% | 2.000151 s | 4,008,809 | 4,062,647 | 4,093,753 |
+| Second | 1 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.000193 s | 4,193,851 | 4,193,900 | 4,194,749 |
+| Second | 2 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 1.999885 s | 4,187,942 | 4,194,544 | 4,195,791 |
+| Second | 4 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.000324 s | 4,192,767 | 4,193,624 | 4,194,464 |
+| Second | 6 | 3 | 2 | 8,388,608 | 8,388,608 | 100.00% | 2.000489 s | 4,193,082 | 4,193,279 | 4,194,924 |
 
 ## Startup Latency Results
 
 | Precision | Samples | Minimum | Median | Maximum |
 |---|---:|---:|---:|---:|
-| Millisecond | 10,000 | 117 ns | 131 ns | 25,997 ns |
-| Second | 10,000 | 117 ns | 122 ns | 25,892 ns |
+| Millisecond | 10,000 | 860 ns | 880 ns | 24,509 ns |
+| Second | 10,000 | 862 ns | 880 ns | 14,823 ns |
 
 ## Interpretation
 
-Millisecond mode reached approximately 4.08 million IDs/s with one worker and
-4.096 million IDs/s with two, four, and six workers. The two-worker sample had
-the highest median, but the two-, four-, and six-worker min-to-max ranges
-overlap and all three configurations are effectively at the 4,096 IDs/ms
-layout limit. More callers cannot raise that hard limit and still contend for
-the same generator mutex.
+Millisecond mode reached approximately 4.095 million IDs/s with one to four
+workers. The six-worker median fell to 4.063 million IDs/s and showed the widest
+range, while its maximum still approached the 4,096 IDs/ms layout limit. More
+callers cannot raise that hard limit and still contend for the same generator
+mutex.
 
 Second mode is also sequence-capacity-bound. Every sample consumed the complete
 22-bit sequence space for both measured slices, and every median was
@@ -99,21 +112,17 @@ their observed ranges. Once the sequence space is exhausted, thread scheduling
 around the next clock boundary can affect elapsed time but cannot increase
 capacity.
 
-The median build-plus-first-ID latency was 131 ns in millisecond mode and 122 ns
-in second mode, compared with 83 ns and 84 ns in the previous record. The
-constructor now creates separate Arc-backed standard wall-clock and
-monotonic-timer capabilities instead of one clock closure; the blocking path
-adapts the injected timer with `BlockingSleeper`. A modest startup-cost increase
-is therefore expected. The min-to-max ranges overlap because tail values are
-sensitive to scheduling and interruption; this run is not enough to claim a
-general latency regression. Immediate first allocation still avoids a
-time-slice startup fence.
+The median build-plus-first-ID latency was 880 ns in both precision modes. The
+increase from the previous record is material in this run, but this benchmark
+does not isolate which working-tree or dependency change caused it. Tail values
+remain sensitive to scheduling and interruption, and immediate first allocation
+still avoids a time-slice startup fence.
 
-For every throughput case, this run's complete min-to-max range was above the
-corresponding previously recorded range on the same machine and unchanged
-measurement method. That is an observed improvement for this working tree, not
-a causal isolation of one implementation change or a guarantee for other
-loads.
+String conversion reduced observed synchronous dispatch throughput by roughly
+26% to 31% relative to the corresponding numeric path, and asynchronous
+throughput by roughly 11% to 16%. The concrete-versus-trait-object differences
+were smaller and changed direction between sync and async cases, so this single
+run is not evidence of a general dispatch advantage.
 
 Reducing the sequence field by one bit would halve the hard limit to 2,048,000
 IDs/s in millisecond mode and 2,097,152 IDs/s in second mode. That is a material
