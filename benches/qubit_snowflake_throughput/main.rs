@@ -34,6 +34,7 @@ use qubit_id::{
     IdMode,
     QubitSnowflakeGenerator,
     QubitSnowflakeLayout,
+    SnowflakeStringGenerator,
     TimestampPrecision,
 };
 
@@ -109,8 +110,8 @@ fn main() {
     }
 }
 
-/// Compares concrete and dynamically dispatched synchronous and asynchronous
-/// generator call paths.
+/// Compares numeric and decimal-string generator call paths using concrete and
+/// dynamically dispatched synchronous and asynchronous APIs.
 ///
 /// Second precision provides enough sequence capacity that these fixed-size
 /// samples measure dispatch and Future allocation rather than clock waits.
@@ -140,6 +141,31 @@ fn measure_dispatch_paths() {
         dynamic.generate().expect("dynamic generation must succeed")
     });
 
+    let string_concrete = SnowflakeStringGenerator::new(
+        QubitSnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .build()
+            .expect("concrete string benchmark generator must be valid"),
+    );
+    run_dispatch_case("sync_string_concrete", || {
+        string_concrete
+            .generate()
+            .expect("concrete string generation must succeed")
+    });
+
+    let string_dynamic: Arc<dyn IdGenerator<String>> =
+        Arc::new(SnowflakeStringGenerator::new(
+            QubitSnowflakeGenerator::builder(HOST)
+                .precision(TimestampPrecision::Second)
+                .build()
+                .expect("dynamic string benchmark generator must be valid"),
+        ));
+    run_dispatch_case("sync_string_arc_dyn", || {
+        string_dynamic
+            .generate()
+            .expect("dynamic string generation must succeed")
+    });
+
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()
         .expect("benchmark runtime must build");
@@ -163,6 +189,33 @@ fn measure_dispatch_paths() {
         runtime
             .block_on(async_dynamic.generate_async())
             .expect("async dynamic generation must succeed")
+    });
+
+    let async_string_concrete = SnowflakeStringGenerator::new(
+        AsyncQubitSnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .build_async()
+            .expect("async concrete string benchmark generator must be valid"),
+    );
+    run_dispatch_case("async_string_concrete", || {
+        runtime
+            .block_on(async_string_concrete.generate_async())
+            .expect("async concrete string generation must succeed")
+    });
+
+    let async_string_dynamic: Arc<dyn AsyncIdGenerator<String>> =
+        Arc::new(SnowflakeStringGenerator::new(
+            AsyncQubitSnowflakeGenerator::builder(HOST)
+                .precision(TimestampPrecision::Second)
+                .build_async()
+                .expect(
+                    "async dynamic string benchmark generator must be valid",
+                ),
+        ));
+    run_dispatch_case("async_string_arc_dyn", || {
+        runtime
+            .block_on(async_string_dynamic.generate_async())
+            .expect("async dynamic string generation must succeed")
     });
 }
 

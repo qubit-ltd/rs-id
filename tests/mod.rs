@@ -7,6 +7,7 @@
 // =============================================================================
 //! Integration tests for `qubit-id`.
 
+mod benchmark_tests;
 mod markdown_tests;
 #[cfg(any(
     feature = "qubit-snowflake",
