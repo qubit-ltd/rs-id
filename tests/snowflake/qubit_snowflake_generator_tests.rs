@@ -75,9 +75,12 @@ fn test_qubit_snowflake_generator_new_uses_defaults() {
 }
 
 mod inherent_api_tests {
-    use super::build_generator;
     use super::TimestampPrecision;
-    use std::time::{Duration, UNIX_EPOCH};
+    use super::build_generator;
+    use std::time::{
+        Duration,
+        UNIX_EPOCH,
+    };
 
     #[test]
     fn test_qubit_snowflake_generator_supports_inherent_generate() {
