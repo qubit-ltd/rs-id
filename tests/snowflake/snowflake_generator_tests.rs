@@ -33,8 +33,11 @@ fn test_snowflake_generator_new_uses_defaults() {
 
 mod inherent_api_tests {
     use super::ManualTime;
-    use std::time::{Duration, UNIX_EPOCH};
     use qubit_id::SnowflakeGenerator;
+    use std::time::{
+        Duration,
+        UNIX_EPOCH,
+    };
 
     #[test]
     fn test_snowflake_generator_supports_inherent_generate() {
