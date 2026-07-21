@@ -11,8 +11,7 @@
 use std::sync::Arc;
 
 use qubit_clock::{
-    MonotonicClock,
-    StdMonotonicClock,
+    StdTimer,
     StdWallClock,
     Timer,
     WallClock,
@@ -37,5 +36,5 @@ pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
 #[must_use]
 #[inline(always)]
 pub(crate) fn default_timer() -> Arc<dyn Timer> {
-    StdMonotonicClock::new().new_timer()
+    Arc::new(StdTimer::new())
 }
