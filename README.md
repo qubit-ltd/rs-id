@@ -67,7 +67,8 @@ fn main() -> Result<(), IdError> {
 }
 ```
 
-Concrete asynchronous generators expose an allocation-free inherent Future:
+Concrete asynchronous generators expose an inherent method with an unboxed outer Future.
+A retry may still create the timer's internal Future:
 
 ```rust
 use qubit_id::{AsyncQubitSnowflakeGenerator, IdError};

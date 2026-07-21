@@ -345,6 +345,37 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
     }
 }
 
+/// Verifies that async generation documentation distinguishes its unboxed
+/// outer future from a retry timer's internal future.
+#[test]
+fn test_async_documentation_describes_unboxed_outer_future() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let readme = fs::read_to_string(manifest_dir.join("README.md"))
+        .expect("README.md should be readable");
+
+    assert!(
+        readme.contains("unboxed outer Future"),
+        "README.md must describe the concrete outer Future precisely"
+    );
+    assert!(
+        !readme.contains("allocation-free inherent Future"),
+        "README.md must not claim that every async path is allocation-free"
+    );
+
+    for path in [
+        "src/snowflake/async_qubit_snowflake_generator.rs",
+        "src/snowflake/async_snowflake_generator.rs",
+        "src/snowflake/async_sonyflake_generator.rs",
+    ] {
+        let source = fs::read_to_string(manifest_dir.join(path))
+            .unwrap_or_else(|error| panic!("failed to read {path}: {error}"));
+        assert!(
+            source.contains("outer future is unboxed"),
+            "{path} must describe its inherent outer future precisely"
+        );
+    }
+}
+
 /// Verifies that historical design specifications identify themselves as
 /// superseded and direct maintainers to the current implementation contract.
 #[test]
@@ -419,4 +450,23 @@ fn test_docs_rs_build_enables_all_features() {
         manifest.contains("[package.metadata.docs.rs]\nall-features = true"),
         "Cargo.toml must enable all features for docs.rs"
     );
+    assert!(
+        manifest.contains("rustdoc-args = [\"--cfg\", \"docsrs\"]"),
+        "Cargo.toml must enable docsrs cfg for feature annotations"
+    );
+
+    let crate_root = fs::read_to_string(manifest_dir.join("src/lib.rs"))
+        .expect("src/lib.rs should be readable");
+    for fragment in [
+        "#![cfg_attr(docsrs, feature(doc_cfg))]",
+        "doc(cfg(feature = \"qubit-snowflake\"))",
+        "doc(cfg(feature = \"classic-snowflake\"))",
+        "doc(cfg(feature = \"sonyflake\"))",
+        "doc(cfg(feature = \"uuid\"))",
+    ] {
+        assert!(
+            crate_root.contains(fragment),
+            "src/lib.rs must annotate feature-gated API with `{fragment}`"
+        );
+    }
 }

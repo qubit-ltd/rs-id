@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! # Qubit ID
 //!
 //! IoC-friendly ID generation utilities for Rust services. The crate provides
@@ -35,7 +36,7 @@
 //!
 //! [`IdGenerator::generate`] may block while a Snowflake generator waits for
 //! time to advance. Concrete asynchronous generators expose an inherent
-//! `generate_async` method whose future is not boxed. Calling
+//! `generate_async` method whose outer future is unboxed. Calling
 //! [`AsyncIdGenerator::generate_async`] through the object-safe trait boxes the
 //! future and awaits the injected `qubit_clock::Timer` without blocking an
 //! executor. Configure
@@ -73,8 +74,17 @@ mod id_generator;
     feature = "classic-snowflake",
     feature = "sonyflake",
 ))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(
+        feature = "qubit-snowflake",
+        feature = "classic-snowflake",
+        feature = "sonyflake",
+    )))
+)]
 pub mod snowflake;
 #[cfg(feature = "uuid")]
+#[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
 pub mod uuid;
 
 pub use async_id_generator::AsyncIdGenerator;
@@ -86,14 +96,31 @@ pub use id_generator::IdGenerator;
     feature = "classic-snowflake",
     feature = "sonyflake",
 ))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(
+        feature = "qubit-snowflake",
+        feature = "classic-snowflake",
+        feature = "sonyflake",
+    )))
+)]
 pub use snowflake::RestartPolicy;
 #[cfg(any(
     feature = "qubit-snowflake",
     feature = "classic-snowflake",
     feature = "sonyflake",
 ))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(
+        feature = "qubit-snowflake",
+        feature = "classic-snowflake",
+        feature = "sonyflake",
+    )))
+)]
 pub use snowflake::SnowflakeStringGenerator;
 #[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
 pub use snowflake::{
     AsyncQubitSnowflakeGenerator,
     DEFAULT_MAX_CLOCK_SKEW,
@@ -109,6 +136,7 @@ pub use snowflake::{
     TimestampPrecision,
 };
 #[cfg(feature = "classic-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
 pub use snowflake::{
     AsyncSnowflakeGenerator,
     SnowflakeGenerator,
@@ -117,6 +145,7 @@ pub use snowflake::{
     SnowflakeParts,
 };
 #[cfg(feature = "sonyflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
 pub use snowflake::{
     AsyncSonyflakeGenerator,
     SonyflakeGenerator,
@@ -125,6 +154,7 @@ pub use snowflake::{
     SonyflakeParts,
 };
 #[cfg(feature = "uuid")]
+#[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
 pub use uuid::{
     UuidV4Generator,
     UuidV4StringGenerator,
