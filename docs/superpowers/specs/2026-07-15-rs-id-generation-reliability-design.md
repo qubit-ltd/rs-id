@@ -1,5 +1,11 @@
 # rs-id 生成可靠性与公共 API 重构设计
 
+> **状态：已被取代（Superseded）**
+>
+> 本文保留为历史设计记录，不再描述当前公共 API。当前实现契约以
+> [README](../../../README.md)、[`IdGenerator<T, E>`](../../../src/id_generator.rs)
+> 和 [`AsyncIdGenerator<T, E>`](../../../src/async_id_generator.rs) 为准。
+
 ## 背景
 
 `rs-id` 当前提供 Qubit Snowflake、Classic Snowflake、Sonyflake 和

@@ -115,6 +115,22 @@ A test mock only needs to implement the relevant trait for its local type.
 Each builder has `build()` and `build_async()`. Both consume the same layout,
 epoch/start time, restart policy, wall clock, and timer configuration.
 
+Every successful `build()` or `build_async()` creates independent allocation state.
+Two generators built from identical configuration do not coordinate sequences,
+including one synchronous and one asynchronous generator.
+
+### Storage and transport compatibility
+
+| Output | Compatible storage and transport |
+| --- | --- |
+| Sequential Qubit, classic Snowflake, Sonyflake | `u64`; checked `i64` conversion when the selected layout remains within its range |
+| Spread Qubit | `u64`, unsigned decimal text, or 8-byte binary data |
+| UUID v4 | `u128`, 16-byte binary data, or canonical UUID text |
+
+`IdMode::Spread` always sets bit 63, so its IDs exceed `i64::MAX`.
+Do not cast those IDs to a signed database key. Use decimal strings when IDs
+cross JavaScript or JSON boundaries.
+
 ## Deterministic time injection
 
 Derive the wall clock and timer from the same `ManualMonotonicClock` in tests.
@@ -195,6 +211,13 @@ any rollback. Timer registration or blocking-adapter failures are returned as
 Applications must assign an exclusive host, node, or machine identifier to
 every concurrently active generator in the same namespace. This crate does not
 persist allocation state or provide a distributed lease.
+
+`RestartPolicy::Immediate` allocates in the current time slice without a
+restart fence. `RestartPolicy::WaitNextSlice` delays the first allocation until
+a later time slice, reducing same-slice reuse after a stopped instance is
+replaced. It does not coordinate concurrently active generators and cannot
+protect against a clock that restarts in an older slice. Neither policy replaces
+persistent allocation state or an exclusive distributed identity lease.
 
 ## Features and benchmarks
 

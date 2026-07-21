@@ -111,6 +111,21 @@ fn main() -> Result<(), IdError> {
 每个 Builder 都提供 `build()` 与 `build_async()`；两条路径复用相同的布局、
 epoch/start time、restart policy、WallClock 与 Timer 配置。
 
+每次成功调用 `build()` 或 `build_async()` 都会创建独立的分配状态。即使配置完全
+相同，两个生成器也不会协调序列，包括一个同步生成器和一个异步生成器的组合。
+
+### 存储与传输兼容性
+
+| 输出 | 兼容的存储与传输方式 |
+| --- | --- |
+| Sequential Qubit、经典 Snowflake、Sonyflake | `u64`；所选布局保持在范围内时可检查后转换为 `i64` |
+| Spread Qubit | `u64`、无符号十进制文本或 8 字节二进制数据 |
+| UUID v4 | `u128`、16 字节二进制数据或规范 UUID 文本 |
+
+`IdMode::Spread` 始终设置第 63 位，因此生成的 ID 必然超过 `i64::MAX`。不要将
+这类 ID 强制转换为有符号数据库主键。ID 经过 JavaScript 或 JSON 边界时应使用
+十进制字符串。
+
 ## 确定性时间注入
 
 测试中应从同一个 `ManualMonotonicClock` 派生 WallClock 与 Timer。相同模式也适用于
@@ -185,6 +200,11 @@ Timer 注册或阻塞适配失败会返回 `IdError::WaitFailed`，并保留原�
 
 同一命名空间中，每个并发运行的生成器必须拥有独占的 host、node 或 machine ID。
 本库不持久化分配状态，也不提供分布式租约。
+
+`RestartPolicy::Immediate` 会在当前时间片开始分配，不提供重启隔离。
+`RestartPolicy::WaitNextSlice` 会把首次分配推迟到后续时间片，从而降低旧实例停止后
+被替换时复用同一时间片的风险；它不能协调并发运行的生成器，也无法防止时钟重启到
+更早时间片。两种策略都不能替代持久化分配状态或独占的分布式身份租约。
 
 ## Feature 与基准测试
 
