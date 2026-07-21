@@ -205,9 +205,12 @@ impl SonyflakeGeneratorBuilder {
     ///
     /// # Errors
     ///
-    /// Returns an [`IdError`] when a layout, start-time, or lifetime setting is
-    /// invalid, or when the configured wall clock has reached the expiration
-    /// boundary.
+    /// Returns [`IdError::InvalidBitLength`], [`IdError::InvalidTimeUnit`], or
+    /// [`IdError::MachineIdOutOfRange`] for an invalid layout,
+    /// [`IdError::ExpirationTimeOverflow`] when the lifetime boundary cannot
+    /// be represented, [`IdError::StartTimeAhead`] when `start_time` is later
+    /// than the configured wall clock, or [`IdError::GeneratorExpired`] when
+    /// that clock has reached the boundary.
     #[inline]
     pub fn build(self) -> Result<SonyflakeGenerator, IdError> {
         let (core, timer) = self.into_core()?;
@@ -222,9 +225,12 @@ impl SonyflakeGeneratorBuilder {
     ///
     /// # Errors
     ///
-    /// Returns an [`IdError`] when a layout, start-time, or lifetime setting is
-    /// invalid, or when the configured wall clock has reached the expiration
-    /// boundary.
+    /// Returns [`IdError::InvalidBitLength`], [`IdError::InvalidTimeUnit`], or
+    /// [`IdError::MachineIdOutOfRange`] for an invalid layout,
+    /// [`IdError::ExpirationTimeOverflow`] when the lifetime boundary cannot
+    /// be represented, [`IdError::StartTimeAhead`] when `start_time` is later
+    /// than the configured wall clock, or [`IdError::GeneratorExpired`] when
+    /// that clock has reached the boundary.
     #[inline]
     pub fn build_async(self) -> Result<AsyncSonyflakeGenerator, IdError> {
         let (core, timer) = self.into_core()?;
@@ -239,9 +245,12 @@ impl SonyflakeGeneratorBuilder {
     ///
     /// # Errors
     ///
-    /// Returns an [`IdError`] when a layout, start-time, or lifetime setting is
-    /// invalid, or when the configured wall clock has reached the expiration
-    /// boundary.
+    /// Returns [`IdError::InvalidBitLength`], [`IdError::InvalidTimeUnit`], or
+    /// [`IdError::MachineIdOutOfRange`] for an invalid layout,
+    /// [`IdError::ExpirationTimeOverflow`] when the lifetime boundary cannot
+    /// be represented, [`IdError::StartTimeAhead`] when `start_time` is later
+    /// than the configured wall clock, or [`IdError::GeneratorExpired`] when
+    /// that clock has reached the boundary.
     fn into_core(
         self,
     ) -> Result<(SnowflakeCore<SonyflakeLayout>, Arc<dyn Timer>), IdError> {

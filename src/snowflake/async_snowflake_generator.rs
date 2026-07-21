@@ -143,7 +143,11 @@ impl AsyncSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError`] when allocation or a retry wait fails.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the wall clock precedes the
+    /// epoch, [`IdError::GeneratorExpired`] at the lifetime boundary,
+    /// [`IdError::ClockMovedBackwards`] after any wall-clock rollback, or
+    /// [`IdError::WaitFailed`] when a retry wait cannot be registered or
+    /// completed.
     #[inline(always)]
     pub async fn generate_async(&self) -> Result<u64, IdError> {
         self.inner.generate().await
@@ -159,8 +163,11 @@ impl AsyncIdGenerator<u64> for AsyncSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// The future resolves to [`IdError`] when allocation or a retry wait
-    /// fails.
+    /// The future resolves to [`IdError::TimeBeforeEpoch`] when the wall clock
+    /// precedes the epoch, [`IdError::GeneratorExpired`] at the lifetime
+    /// boundary, [`IdError::ClockMovedBackwards`] after any wall-clock
+    /// rollback, or [`IdError::WaitFailed`] when a retry wait cannot be
+    /// registered or completed.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
         Box::pin(AsyncSnowflakeGenerator::generate_async(self))

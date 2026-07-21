@@ -48,6 +48,8 @@ pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError`] when either value exceeds the layout capacity.
+    /// Returns [`IdError::TimestampOverflow`] when `timestamp` exceeds the
+    /// layout capacity or [`IdError::SequenceOverflow`] when `sequence` exceeds
+    /// its field capacity.
     fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError>;
 }

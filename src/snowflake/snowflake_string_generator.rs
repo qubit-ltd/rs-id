@@ -63,9 +63,9 @@ impl<G> SnowflakeStringGenerator<G> {
 
     /// Generates a Snowflake ID as unsigned decimal text asynchronously.
     ///
-    /// Concrete callers use this inherent method without allocating an outer
-    /// boxed future. The wrapped generator controls whether its own future is
-    /// boxed.
+    /// Concrete callers use this inherent method without allocating an
+    /// additional adapter future box. The [`AsyncIdGenerator`] contract used
+    /// by the wrapped generator still returns a boxed future.
     ///
     /// # Returns
     ///
@@ -115,6 +115,8 @@ where
     /// # Errors
     ///
     /// The future resolves to the error produced by the wrapped generator.
+    /// Calling through this trait boxes the adapter future in addition to the
+    /// boxed future returned by the wrapped generator.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, String, E> {
         Box::pin(async move {

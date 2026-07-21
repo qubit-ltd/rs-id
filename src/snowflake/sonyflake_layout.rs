@@ -67,8 +67,11 @@ impl SonyflakeLayout {
     ///
     /// # Errors
     ///
-    /// Returns an [`IdError`] when a bit width, time unit, or machine
-    /// identifier is invalid.
+    /// Returns [`IdError::InvalidBitLength`] when the requested fields cannot
+    /// leave at least 32 time bits, [`IdError::InvalidTimeUnit`] when
+    /// `time_unit` is shorter than one millisecond, or
+    /// [`IdError::MachineIdOutOfRange`] when `machine_id` does not fit the
+    /// selected machine field.
     pub fn new(
         machine_id: u64,
         bits_sequence: u8,
