@@ -120,9 +120,7 @@ fn test_id_error_display_formats_all_variants() {
                 observed_at: epoch,
                 expires_at: time,
             },
-            format!(
-                "generator expired at {time:?}; observed wall time was {epoch:?}"
-            ),
+            format!("generator expired at {time:?}; observed wall time was {epoch:?}"),
         ),
     ];
 
