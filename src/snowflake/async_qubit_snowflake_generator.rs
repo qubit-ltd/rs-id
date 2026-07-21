@@ -163,13 +163,17 @@ impl AsyncQubitSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError`] when allocation or a retry wait fails.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the wall clock precedes the
+    /// epoch, [`IdError::GeneratorExpired`] at the lifetime boundary,
+    /// [`IdError::ClockMovedBackwards`] when rollback exceeds the configured
+    /// tolerance, or [`IdError::WaitFailed`] when a retry wait cannot be
+    /// registered or completed.
     #[inline(always)]
     pub async fn generate_async(&self) -> Result<u64, IdError> {
         self.inner.generate().await
     }
 
-    /// Generates an ID for an explicit wall time and sequence.
+    /// Composes an ID for an explicit wall time and sequence.
     ///
     /// This operation is stateless and provides no uniqueness guarantee.
     ///
@@ -184,15 +188,17 @@ impl AsyncQubitSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError`] when the generator has expired or the values cannot
-    /// be represented by the configured epoch and layout.
+    /// Returns [`IdError::TimeBeforeEpoch`] if `time` is before the configured
+    /// epoch, [`IdError::GeneratorExpired`] if `time` has reached the exclusive
+    /// expiration boundary, or [`IdError::SequenceOverflow`] when `sequence`
+    /// does not fit the layout.
     #[inline(always)]
-    pub fn generate_at(
+    pub fn compose_at(
         &self,
         time: SystemTime,
         sequence: u64,
     ) -> Result<u64, IdError> {
-        self.inner.core().generate_at(time, sequence)
+        self.inner.core().compose_at(time, sequence)
     }
 }
 
@@ -205,8 +211,11 @@ impl AsyncIdGenerator<u64> for AsyncQubitSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// The future resolves to [`IdError`] when allocation or a retry wait
-    /// fails.
+    /// The future resolves to [`IdError::TimeBeforeEpoch`] when the wall clock
+    /// precedes the epoch, [`IdError::GeneratorExpired`] at the lifetime
+    /// boundary, [`IdError::ClockMovedBackwards`] when rollback exceeds the
+    /// configured tolerance, or [`IdError::WaitFailed`] when a retry wait
+    /// cannot be registered or completed.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
         Box::pin(AsyncQubitSnowflakeGenerator::generate_async(self))

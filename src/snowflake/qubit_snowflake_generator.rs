@@ -183,7 +183,7 @@ impl QubitSnowflakeGenerator {
         self.inner.core().max_clock_skew()
     }
 
-    /// Generates an ID for an explicit time and sequence.
+    /// Composes an ID for an explicit time and sequence.
     ///
     /// This method is stateless. Repeating its inputs repeats the ID, so it
     /// provides no uniqueness guarantee.
@@ -204,12 +204,12 @@ impl QubitSnowflakeGenerator {
     /// expiration boundary, or [`IdError::SequenceOverflow`] when `sequence`
     /// does not fit the layout.
     #[inline(always)]
-    pub fn generate_at(
+    pub fn compose_at(
         &self,
         time: SystemTime,
         sequence: u64,
     ) -> Result<u64, IdError> {
-        self.inner.core().generate_at(time, sequence)
+        self.inner.core().compose_at(time, sequence)
     }
 }
 
@@ -229,8 +229,11 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns an allocation error or [`IdError::WaitFailed`] when a retry
-    /// delay cannot be completed.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the wall clock precedes the
+    /// epoch, [`IdError::GeneratorExpired`] at the lifetime boundary,
+    /// [`IdError::ClockMovedBackwards`] when rollback exceeds the configured
+    /// tolerance, or [`IdError::WaitFailed`] when a retry wait cannot be
+    /// registered or completed.
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
         self.inner.generate()
