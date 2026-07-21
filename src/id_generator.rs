@@ -7,6 +7,8 @@
 // =============================================================================
 //! Synchronous contract for ID generators.
 
+use std::sync::Arc;
+
 use crate::IdError;
 
 /// Generates identifiers synchronously.
@@ -31,4 +33,24 @@ pub trait IdGenerator<T: Send + 'static, E = IdError>: Send + Sync {
     ///
     /// Returns `E` when the implementation cannot generate an identifier.
     fn generate(&self) -> Result<T, E>;
+}
+
+impl<T, E, G> IdGenerator<T, E> for Arc<G>
+where
+    T: Send + 'static,
+    G: IdGenerator<T, E> + ?Sized,
+{
+    /// Delegates identifier generation to the shared generator.
+    ///
+    /// # Returns
+    ///
+    /// The next identifier returned by the wrapped generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns any error produced by the wrapped generator.
+    #[inline(always)]
+    fn generate(&self) -> Result<T, E> {
+        self.as_ref().generate()
+    }
 }
