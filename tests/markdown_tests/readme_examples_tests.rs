@@ -275,7 +275,8 @@ fn test_build_markdown_doctest_manifest_enables_all_example_features() {
 }
 
 /// Verifies that both READMEs explain feature selection, IoC injection,
-/// deterministic clocks, generator lifetime, and UUID v4 output.
+/// deterministic clocks, generator lifetime, storage compatibility, restart
+/// behavior, and UUID v4 output.
 #[test]
 fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -284,11 +285,25 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
             "README.md",
             "The default feature set enables only `qubit-snowflake`.",
             "`expires_at()` returns the exclusive expiration boundary.",
+            [
+                "`IdMode::Spread` always sets bit 63, so its IDs exceed `i64::MAX`.",
+                "Every successful `build()` or `build_async()` creates independent allocation state.",
+                "`RestartPolicy::Immediate` allocates in the current time slice",
+                "`RestartPolicy::WaitNextSlice` delays the first allocation",
+                "JavaScript or JSON boundaries.",
+            ],
         ),
         (
             "README.zh_CN.md",
             "默认 feature 集合只启用 `qubit-snowflake`。",
             "`expires_at()` 返回排他的到期边界。",
+            [
+                "`IdMode::Spread` 始终设置第 63 位，因此生成的 ID 必然超过 `i64::MAX`。",
+                "每次成功调用 `build()` 或 `build_async()` 都会创建独立的分配状态。",
+                "`RestartPolicy::Immediate` 会在当前时间片开始分配",
+                "`RestartPolicy::WaitNextSlice` 会把首次分配推迟到后续时间片",
+                "ID 经过 JavaScript 或 JSON 边界时应使用",
+            ],
         ),
     ];
     let common_fragments = [
@@ -304,7 +319,9 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         "cargo bench --no-default-features --features uuid --bench uuid_comparison",
     ];
 
-    for (name, feature_summary, lifetime_summary) in readmes {
+    for (name, feature_summary, lifetime_summary, deployment_fragments) in
+        readmes
+    {
         let content = fs::read_to_string(manifest_dir.join(name))
             .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
         for fragment in [feature_summary, lifetime_summary] {
@@ -314,6 +331,35 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
             );
         }
         for fragment in common_fragments {
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
+        }
+        for fragment in deployment_fragments {
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
+        }
+    }
+}
+
+/// Verifies that historical design specifications identify themselves as
+/// superseded and direct maintainers to the current implementation contract.
+#[test]
+fn test_historical_design_specs_are_marked_superseded() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let specifications = [
+        "docs/superpowers/specs/2026-07-15-rs-id-generation-reliability-design.md",
+        "docs/superpowers/specs/2026-07-16-rs-id-api-features-lifetime-design.md",
+    ];
+
+    for name in specifications {
+        let content = fs::read_to_string(manifest_dir.join(name))
+            .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
+        for fragment in ["> **状态：已被取代（Superseded）**", "当前实现契约"]
+        {
             assert!(
                 content.contains(fragment),
                 "{name} must contain `{fragment}`"
