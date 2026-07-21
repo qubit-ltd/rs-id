@@ -7,6 +7,8 @@
 // =============================================================================
 //! Asynchronous contract for ID generators.
 
+use std::sync::Arc;
+
 use crate::{
     IdError,
     IdGenerationFuture,
@@ -37,4 +39,26 @@ pub trait AsyncIdGenerator<T: Send + 'static, E = IdError>:
     /// The returned future resolves to `E` when the implementation cannot
     /// generate an identifier.
     fn generate_async(&self) -> IdGenerationFuture<'_, T, E>;
+}
+
+impl<T, E, G> AsyncIdGenerator<T, E> for Arc<G>
+where
+    T: Send + 'static,
+    G: AsyncIdGenerator<T, E> + ?Sized,
+{
+    /// Delegates asynchronous identifier generation to the shared generator.
+    ///
+    /// # Returns
+    ///
+    /// A future that resolves to the identifier returned by the wrapped
+    /// generator.
+    ///
+    /// # Errors
+    ///
+    /// The returned future resolves to any error produced by the wrapped
+    /// generator.
+    #[inline(always)]
+    fn generate_async(&self) -> IdGenerationFuture<'_, T, E> {
+        self.as_ref().generate_async()
+    }
 }
