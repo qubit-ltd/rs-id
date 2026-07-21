@@ -76,7 +76,7 @@ fn test_qubit_snowflake_generator_new_uses_defaults() {
 }
 
 #[test]
-fn test_generate_at_matches_layout_parts() {
+fn test_compose_at_matches_layout_parts() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let (generator, _time) = build_generator(
         TimestampPrecision::Millisecond,
@@ -87,7 +87,7 @@ fn test_generate_at_matches_layout_parts() {
     );
 
     let id = generator
-        .generate_at(epoch + Duration::from_millis(45), 9)
+        .compose_at(epoch + Duration::from_millis(45), 9)
         .expect("timestamp and sequence should be valid");
     let parts = QubitSnowflakeLayout::decode(id);
 
@@ -97,7 +97,7 @@ fn test_generate_at_matches_layout_parts() {
 }
 
 #[test]
-fn test_generate_at_rejects_time_before_epoch() {
+fn test_compose_at_rejects_time_before_epoch() {
     let epoch = UNIX_EPOCH + Duration::from_millis(1_700_000_000_000);
     let (generator, _time) = build_generator(
         TimestampPrecision::Millisecond,
@@ -109,7 +109,7 @@ fn test_generate_at_rejects_time_before_epoch() {
     let time = epoch - Duration::from_nanos(1);
 
     assert!(matches!(
-        generator.generate_at(time, 0),
+        generator.compose_at(time, 0),
         Err(IdError::TimeBeforeEpoch {
             time: actual_time,
             epoch: actual_epoch,
@@ -281,7 +281,7 @@ fn test_qubit_snowflake_generator_rejects_expired_explicit_time() {
     );
 
     assert!(matches!(
-        generator.generate_at(expires_at, 0),
+        generator.compose_at(expires_at, 0),
         Err(IdError::GeneratorExpired {
             observed_at,
             expires_at: boundary,

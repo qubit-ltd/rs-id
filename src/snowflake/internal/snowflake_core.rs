@@ -93,8 +93,10 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`IdError`] for expiration, invalid clock observations, severe
-    /// rollback, or layout overflow.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the clock precedes the epoch,
+    /// [`IdError::GeneratorExpired`] at the lifetime boundary, or
+    /// [`IdError::ClockMovedBackwards`] when rollback exceeds the configured
+    /// tolerance.
     pub(crate) fn try_generate(
         &self,
     ) -> Result<GenerationAttempt<u64>, IdError> {
@@ -117,7 +119,7 @@ where
         }
     }
 
-    /// Generates an ID for an explicit wall time and sequence.
+    /// Composes an ID for an explicit wall time and sequence.
     ///
     /// This operation is stateless and provides no uniqueness guarantee.
     ///
@@ -132,11 +134,13 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`IdError`] when the generator has expired or the values cannot
-    /// be represented by the configured epoch and layout.
+    /// Returns [`IdError::TimeBeforeEpoch`] if `time` is before the configured
+    /// epoch, [`IdError::GeneratorExpired`] if `time` has reached the exclusive
+    /// expiration boundary, or [`IdError::SequenceOverflow`] when `sequence`
+    /// does not fit the layout.
     #[cfg(feature = "qubit-snowflake")]
     #[inline(always)]
-    pub(crate) fn generate_at(
+    pub(crate) fn compose_at(
         &self,
         time: SystemTime,
         sequence: u64,

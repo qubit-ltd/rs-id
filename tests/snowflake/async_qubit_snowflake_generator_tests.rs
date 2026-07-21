@@ -80,7 +80,7 @@ fn test_async_qubit_snowflake_generator_convenience_api() {
     );
 
     let id = generator
-        .generate_at(generator.epoch(), 3)
+        .compose_at(generator.epoch(), 3)
         .expect("the first timestamp should be representable");
     let parts = QubitSnowflakeLayout::decode(id);
     assert_eq!(parts.host(), 17);
