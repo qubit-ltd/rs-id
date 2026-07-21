@@ -53,9 +53,11 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns an [`IdError`] when the default layout, start time, or lifetime
-    /// is invalid, or when the current wall time has reached the exclusive
-    /// expiration boundary.
+    /// Returns [`IdError::MachineIdOutOfRange`] when `machine_id` exceeds the
+    /// default 16-bit field, [`IdError::ExpirationTimeOverflow`] when the
+    /// lifetime boundary cannot be represented, [`IdError::StartTimeAhead`]
+    /// when the default start time is later than the current wall clock, or
+    /// [`IdError::GeneratorExpired`] when that clock has reached the boundary.
     #[inline(always)]
     pub fn new(machine_id: u64) -> Result<Self, IdError> {
         Self::builder(machine_id).build()
@@ -147,8 +149,11 @@ impl IdGenerator<u64> for SonyflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns an allocation error or [`IdError::WaitFailed`] when the timer
-    /// cannot complete a retry wait.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the wall clock precedes the
+    /// start time, [`IdError::GeneratorExpired`] at the lifetime boundary,
+    /// [`IdError::ClockMovedBackwards`] after any wall-clock rollback, or
+    /// [`IdError::WaitFailed`] when a retry wait cannot be registered or
+    /// completed.
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
         self.inner.generate()

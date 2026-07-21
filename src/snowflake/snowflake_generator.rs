@@ -146,8 +146,11 @@ impl IdGenerator<u64> for SnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns an allocation error or [`IdError::WaitFailed`] when the timer
-    /// cannot complete a retry wait.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the wall clock precedes the
+    /// epoch, [`IdError::GeneratorExpired`] at the lifetime boundary,
+    /// [`IdError::ClockMovedBackwards`] after any wall-clock rollback, or
+    /// [`IdError::WaitFailed`] when a retry wait cannot be registered or
+    /// completed.
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
         self.inner.generate()

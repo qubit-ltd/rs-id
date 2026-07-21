@@ -62,8 +62,11 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an allocation error or [`IdError::WaitFailed`] when the timer
-    /// cannot complete a retry wait.
+    /// Returns [`IdError::TimeBeforeEpoch`] when the clock precedes the epoch,
+    /// [`IdError::GeneratorExpired`] at the lifetime boundary,
+    /// [`IdError::ClockMovedBackwards`] when rollback exceeds the configured
+    /// tolerance, or [`IdError::WaitFailed`] when the timer cannot register or
+    /// complete a retry wait.
     pub(crate) fn generate(&self) -> Result<u64, IdError> {
         loop {
             match self.core.try_generate()? {
