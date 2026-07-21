@@ -108,6 +108,11 @@ fn main() -> Result<(), IdError> {
 | `classic-snowflake` | `SnowflakeGenerator` | `AsyncSnowflakeGenerator` | `u64` |
 | `sonyflake` | `SonyflakeGenerator` | `AsyncSonyflakeGenerator` | `u64` |
 
+“经典 Snowflake”表示 41/10/12 位布局，并不代表存在一个通用的固定 epoch。
+`SnowflakeGenerator` 默认使用 `2018-12-02T00:00:00Z`，与 Qubit Snowflake
+相同。与使用其他时间起点的既有 ID 命名空间互操作时，应通过 Builder 的
+`epoch(...)` 显式设置时间起点。
+
 每个 Builder 都提供 `build()` 与 `build_async()`；两条路径复用相同的布局、
 epoch/start time、restart policy、WallClock 与 Timer 配置。
 
