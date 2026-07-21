@@ -16,7 +16,6 @@ use std::time::{
 
 use qubit_id::{
     IdError,
-    IdGenerator,
     RestartPolicy,
     SonyflakeGenerator,
     SonyflakeLayout,
@@ -30,6 +29,28 @@ fn test_sonyflake_generator_new_uses_defaults() {
         .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().machine_id(), 17);
+}
+
+mod inherent_api_tests {
+    use super::ManualTime;
+    use std::time::{Duration, UNIX_EPOCH};
+    use qubit_id::SonyflakeGenerator;
+
+    #[test]
+    fn test_sonyflake_generator_supports_inherent_generate() {
+        let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let time = ManualTime::new(start_time + Duration::from_millis(100));
+        let generator = SonyflakeGenerator::builder(7)
+            .start_time(start_time)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build()
+            .expect("configuration should be valid");
+
+        let _id = generator
+            .generate()
+            .expect("inherent generation should succeed");
+    }
 }
 
 #[test]

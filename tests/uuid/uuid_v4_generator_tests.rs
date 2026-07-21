@@ -31,6 +31,20 @@ fn test_uuid_v4_generator_returns_standard_uuid_bits() {
     assert_eq!(uuid.get_variant(), Variant::RFC4122);
 }
 
+mod inherent_api_tests {
+    use qubit_id::UuidV4Generator;
+
+    #[test]
+    fn test_uuid_v4_generator_supports_inherent_generate() {
+        let generator = UuidV4Generator::new();
+        let value = generator
+            .generate()
+            .expect("inherent generation should succeed");
+
+        assert_ne!(value, 0);
+    }
+}
+
 #[test]
 fn test_uuid_v4_generator_supports_sync_trait_object() {
     let generator: Arc<dyn IdGenerator<u128>> =

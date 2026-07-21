@@ -16,7 +16,6 @@ use std::time::{
 
 use qubit_id::{
     IdError,
-    IdGenerator,
     RestartPolicy,
     SnowflakeGenerator,
     SnowflakeLayout,
@@ -30,6 +29,28 @@ fn test_snowflake_generator_new_uses_defaults() {
         .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().node_id(), 17);
+}
+
+mod inherent_api_tests {
+    use super::ManualTime;
+    use std::time::{Duration, UNIX_EPOCH};
+    use qubit_id::SnowflakeGenerator;
+
+    #[test]
+    fn test_snowflake_generator_supports_inherent_generate() {
+        let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let time = ManualTime::new(epoch + Duration::from_millis(10));
+        let generator = SnowflakeGenerator::builder(7)
+            .epoch(epoch)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build()
+            .expect("configuration should be valid");
+
+        let _id = generator
+            .generate()
+            .expect("inherent generation should succeed");
+    }
 }
 
 #[test]

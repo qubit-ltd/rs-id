@@ -16,7 +16,6 @@ use std::time::{
 use qubit_clock::FixedWallClock;
 use qubit_id::{
     IdError,
-    IdGenerator,
     IdMode,
     QubitSnowflakeGenerator,
     QubitSnowflakeLayout,

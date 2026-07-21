@@ -135,6 +135,23 @@ impl SnowflakeGenerator {
     pub const fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
+
+    /// Generates the next classic Snowflake ID.
+    ///
+    /// This inherent method is convenient for concrete callers. Use
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    ///
+    /// # Returns
+    ///
+    /// The next generated classic Snowflake ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as the [`IdGenerator::generate`] implementation.
+    #[inline(always)]
+    pub fn generate(&self) -> Result<u64, IdError> {
+        self.inner.generate()
+    }
 }
 
 impl IdGenerator<u64> for SnowflakeGenerator {
@@ -153,6 +170,6 @@ impl IdGenerator<u64> for SnowflakeGenerator {
     /// completed.
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
-        self.inner.generate()
+        SnowflakeGenerator::generate(self)
     }
 }
