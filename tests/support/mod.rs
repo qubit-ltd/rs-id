@@ -9,12 +9,8 @@
 
 #[cfg(feature = "qubit-snowflake")]
 mod completion_failing_timer;
-#[cfg(feature = "qubit-snowflake")]
-mod failing_timer;
 mod manual_time;
 
 #[cfg(feature = "qubit-snowflake")]
 pub(crate) use completion_failing_timer::CompletionFailingTimer;
-#[cfg(feature = "qubit-snowflake")]
-pub(crate) use failing_timer::FailingTimer;
 pub(crate) use manual_time::ManualTime;
