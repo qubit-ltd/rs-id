@@ -26,12 +26,15 @@ use qubit_id::{
     TimestampPrecision,
 };
 
-use qubit_clock::TimeError;
-
-use crate::support::{
-    FailingTimer,
-    ManualTime,
+use qubit_clock::{
+    TimeError,
+    test_util::{
+        FaultInjectingTimer,
+        TimerFailurePoint,
+    },
 };
+
+use crate::support::ManualTime;
 
 /// Builds a deterministic Qubit generator and its shared manual timeline.
 ///
@@ -350,7 +353,10 @@ fn test_qubit_snowflake_generator_preserves_wait_failure_source() {
         .epoch(epoch)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
-        .timer(Arc::new(FailingTimer::new()))
+        .timer(Arc::new(FaultInjectingTimer::new(
+            TimerFailurePoint::Registration,
+            || TimeError::InstantOverflow,
+        )))
         .build()
         .expect("configuration should be valid");
 

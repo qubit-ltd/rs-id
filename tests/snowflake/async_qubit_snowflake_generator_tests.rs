@@ -17,6 +17,10 @@ use std::time::{
 use qubit_clock::{
     TimeError,
     TimerUnavailableError,
+    test_util::{
+        FaultInjectingTimer,
+        TimerFailurePoint,
+    },
 };
 use qubit_id::{
     AsyncQubitSnowflakeGenerator,
@@ -30,7 +34,6 @@ use qubit_id::{
 
 use crate::support::{
     CompletionFailingTimer,
-    FailingTimer,
     ManualTime,
 };
 
@@ -291,7 +294,10 @@ async fn test_async_qubit_snowflake_generator_preserves_wait_failure_source() {
         .epoch(epoch)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
-        .timer(Arc::new(FailingTimer::new()))
+        .timer(Arc::new(FaultInjectingTimer::new(
+            TimerFailurePoint::Registration,
+            || TimeError::InstantOverflow,
+        )))
         .build_async()
         .expect("configuration should be valid");
 
