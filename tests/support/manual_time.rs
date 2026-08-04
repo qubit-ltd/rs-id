@@ -143,6 +143,7 @@ impl ManualTime {
     ///
     /// The earliest future deadline registered on the manual timeline.
     #[inline(always)]
+    #[cfg(feature = "qubit-snowflake")]
     pub(crate) async fn wait_for_next_deadline_async(
         &self,
     ) -> MonotonicInstant {
