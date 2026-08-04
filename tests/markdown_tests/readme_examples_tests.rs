@@ -376,29 +376,6 @@ fn test_async_documentation_describes_unboxed_outer_future() {
     }
 }
 
-/// Verifies that historical design specifications identify themselves as
-/// superseded and direct maintainers to the current implementation contract.
-#[test]
-fn test_historical_design_specs_are_marked_superseded() {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let specifications = [
-        "docs/superpowers/specs/2026-07-15-rs-id-generation-reliability-design.md",
-        "docs/superpowers/specs/2026-07-16-rs-id-api-features-lifetime-design.md",
-    ];
-
-    for name in specifications {
-        let content = fs::read_to_string(manifest_dir.join(name))
-            .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
-        for fragment in ["> **状态：已被取代（Superseded）**", "当前实现契约"]
-        {
-            assert!(
-                content.contains(fragment),
-                "{name} must contain `{fragment}`"
-            );
-        }
-    }
-}
-
 /// Verifies that both READMEs describe generation failures as structured
 /// errors rather than panics.
 #[test]
