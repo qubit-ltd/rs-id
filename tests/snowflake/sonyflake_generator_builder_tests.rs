@@ -20,7 +20,10 @@ use qubit_id::{
     SonyflakeLayout,
 };
 
-use crate::support::ManualTime;
+use crate::support::{
+    ManualTime,
+    latest_representable_whole_second,
+};
 
 /// Tests that every configurable Sonyflake option is applied.
 #[test]
@@ -96,6 +99,26 @@ fn test_sonyflake_generator_builder_rejects_invalid_layout() {
     assert!(matches!(
         SonyflakeGenerator::builder(1_u64 << 16).build(),
         Err(IdError::MachineIdOutOfRange { .. })
+    ));
+}
+
+#[tokio::test]
+async fn test_sonyflake_generator_builder_async_propagates_layout_error() {
+    assert!(matches!(
+        SonyflakeGenerator::builder(1_u64 << 16).build_async(),
+        Err(IdError::MachineIdOutOfRange { .. })
+    ));
+}
+
+#[tokio::test]
+async fn test_sonyflake_generator_builder_async_propagates_expiration_error() {
+    let start_time = latest_representable_whole_second();
+
+    assert!(matches!(
+        SonyflakeGenerator::builder(17)
+            .start_time(start_time)
+            .build_async(),
+        Err(IdError::ExpirationTimeOverflow { .. })
     ));
 }
 

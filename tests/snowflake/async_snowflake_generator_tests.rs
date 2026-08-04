@@ -133,3 +133,22 @@ async fn test_async_snowflake_generator_reports_runtime_expiration() {
         }) if observed_at == expires_at && boundary == expires_at
     ));
 }
+
+#[tokio::test]
+async fn test_async_snowflake_generator_reports_time_before_epoch() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(1));
+    let generator = SnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build_async()
+        .expect("configuration should be valid");
+    time.reanchor(epoch - Duration::from_millis(1));
+
+    assert!(matches!(
+        generator.generate_async().await,
+        Err(IdError::TimeBeforeEpoch { time: observed, epoch: actual })
+            if observed == epoch - Duration::from_millis(1) && actual == epoch
+    ));
+}

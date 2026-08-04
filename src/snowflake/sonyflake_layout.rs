@@ -88,14 +88,7 @@ impl SonyflakeLayout {
             bits_machine,
             DEFAULT_BITS_MACHINE,
         )?;
-        let bits_time = 63_u8
-            .checked_sub(bits_sequence)
-            .and_then(|value| value.checked_sub(bits_machine))
-            .ok_or(IdError::InvalidBitLength {
-                name: "time",
-                bits: 0,
-                reason: "63 - sequence bits - machine bits must be at least 32",
-            })?;
+        let bits_time = 63_u8 - bits_sequence - bits_machine;
         if bits_time < 32 {
             return Err(IdError::InvalidBitLength {
                 name: "time",

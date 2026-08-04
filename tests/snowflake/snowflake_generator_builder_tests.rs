@@ -20,7 +20,10 @@ use qubit_id::{
     SnowflakeLayout,
 };
 
-use crate::support::ManualTime;
+use crate::support::{
+    ManualTime,
+    latest_representable_whole_second,
+};
 
 #[test]
 fn test_snowflake_generator_builder_builds_configuration() {
@@ -51,6 +54,27 @@ fn test_snowflake_generator_builder_rejects_invalid_node() {
             node_id: 1_024,
             max: 1_023,
         })
+    ));
+}
+
+#[tokio::test]
+async fn test_snowflake_generator_builder_async_propagates_layout_error() {
+    assert!(matches!(
+        SnowflakeGenerator::builder(1_024).build_async(),
+        Err(IdError::NodeOutOfRange {
+            node_id: 1_024,
+            max: 1_023,
+        })
+    ));
+}
+
+#[tokio::test]
+async fn test_snowflake_generator_builder_async_propagates_expiration_error() {
+    let epoch = latest_representable_whole_second();
+
+    assert!(matches!(
+        SnowflakeGenerator::builder(17).epoch(epoch).build_async(),
+        Err(IdError::ExpirationTimeOverflow { .. })
     ));
 }
 

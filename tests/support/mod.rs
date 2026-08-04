@@ -10,7 +10,9 @@
 #[cfg(feature = "qubit-snowflake")]
 mod completion_failing_timer;
 mod manual_time;
+mod time_boundaries;
 
 #[cfg(feature = "qubit-snowflake")]
 pub(crate) use completion_failing_timer::CompletionFailingTimer;
 pub(crate) use manual_time::ManualTime;
+pub(crate) use time_boundaries::latest_representable_whole_second;
