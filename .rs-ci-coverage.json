@@ -1,0 +1,7 @@
+{
+  "threshold_exempt_files": {
+    "qubit-id": [
+      "src/uuid/internal/generate_uuid_v4.rs"
+    ]
+  }
+}
