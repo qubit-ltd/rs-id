@@ -14,6 +14,7 @@ use std::time::{
 };
 
 use qubit_id::{
+    AsyncIdGenerator,
     AsyncSonyflakeGenerator,
     IdError,
     RestartPolicy,
@@ -36,6 +37,22 @@ fn test_async_sonyflake_generator_convenience_api() {
             .expires_at(generator.start_time())
             .expect("default expiration should be representable")
     );
+}
+
+#[tokio::test]
+async fn test_async_sonyflake_generator_supports_async_trait_object() {
+    let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(start_time + Duration::from_millis(100));
+    let generator: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(
+        SonyflakeGenerator::builder(17)
+            .start_time(start_time)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build_async()
+            .expect("configuration should be valid"),
+    );
+
+    assert!(generator.generate_async().await.is_ok());
 }
 
 #[tokio::test]

@@ -16,6 +16,7 @@ use std::time::{
 
 use qubit_id::{
     IdError,
+    IdGenerator,
     RestartPolicy,
     SonyflakeGenerator,
     SonyflakeLayout,
@@ -29,6 +30,22 @@ fn test_sonyflake_generator_new_uses_defaults() {
         .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().machine_id(), 17);
+}
+
+#[test]
+fn test_sonyflake_generator_supports_sync_trait_object() {
+    let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(start_time + Duration::from_millis(100));
+    let generator: Arc<dyn IdGenerator<u64>> = Arc::new(
+        SonyflakeGenerator::builder(17)
+            .start_time(start_time)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build()
+            .expect("configuration should be valid"),
+    );
+
+    assert!(generator.generate().is_ok());
 }
 
 mod inherent_api_tests {
