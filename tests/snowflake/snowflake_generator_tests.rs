@@ -16,6 +16,7 @@ use std::time::{
 
 use qubit_id::{
     IdError,
+    IdGenerator,
     RestartPolicy,
     SnowflakeGenerator,
     SnowflakeLayout,
@@ -29,6 +30,22 @@ fn test_snowflake_generator_new_uses_defaults() {
         .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().node_id(), 17);
+}
+
+#[test]
+fn test_snowflake_generator_supports_sync_trait_object() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator: Arc<dyn IdGenerator<u64>> = Arc::new(
+        SnowflakeGenerator::builder(17)
+            .epoch(epoch)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build()
+            .expect("configuration should be valid"),
+    );
+
+    assert!(generator.generate().is_ok());
 }
 
 mod inherent_api_tests {

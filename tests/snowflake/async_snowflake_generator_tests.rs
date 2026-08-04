@@ -14,6 +14,7 @@ use std::time::{
 };
 
 use qubit_id::{
+    AsyncIdGenerator,
     AsyncSnowflakeGenerator,
     IdError,
     RestartPolicy,
@@ -36,6 +37,22 @@ fn test_async_snowflake_generator_convenience_api() {
             .expires_at(generator.epoch())
             .expect("default expiration should be representable")
     );
+}
+
+#[tokio::test]
+async fn test_async_snowflake_generator_supports_async_trait_object() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(
+        SnowflakeGenerator::builder(17)
+            .epoch(epoch)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build_async()
+            .expect("configuration should be valid"),
+    );
+
+    assert!(generator.generate_async().await.is_ok());
 }
 
 #[tokio::test]
