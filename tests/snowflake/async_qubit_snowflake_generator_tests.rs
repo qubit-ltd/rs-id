@@ -361,3 +361,21 @@ async fn test_async_qubit_snowflake_generator_reports_runtime_expiration() {
         }) if observed_at == expires_at && boundary == expires_at
     ));
 }
+
+#[tokio::test]
+async fn test_async_qubit_snowflake_generator_reports_time_before_epoch() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let (generator, time) = build_generator(
+        TimestampPrecision::Second,
+        epoch,
+        epoch + Duration::from_secs(1),
+        DEFAULT_MAX_CLOCK_SKEW,
+    );
+    time.reanchor(epoch - Duration::from_secs(1));
+
+    assert!(matches!(
+        generator.generate_async().await,
+        Err(IdError::TimeBeforeEpoch { time: observed, epoch: actual })
+            if observed == epoch - Duration::from_secs(1) && actual == epoch
+    ));
+}

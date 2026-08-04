@@ -22,7 +22,10 @@ use qubit_id::{
     TimestampPrecision,
 };
 
-use crate::support::ManualTime;
+use crate::support::{
+    ManualTime,
+    latest_representable_whole_second,
+};
 
 /// Tests that every configurable Qubit generator option is applied.
 #[test]
@@ -65,6 +68,31 @@ fn test_qubit_snowflake_generator_builder_rejects_invalid_host() {
             host: 512,
             max: 511,
         })
+    ));
+}
+
+#[tokio::test]
+async fn test_qubit_snowflake_generator_builder_async_propagates_layout_error()
+{
+    assert!(matches!(
+        QubitSnowflakeGenerator::builder(512).build_async(),
+        Err(IdError::HostOutOfRange {
+            host: 512,
+            max: 511,
+        })
+    ));
+}
+
+#[tokio::test]
+async fn test_qubit_snowflake_generator_builder_async_propagates_expiration_error()
+ {
+    let epoch = latest_representable_whole_second();
+
+    assert!(matches!(
+        QubitSnowflakeGenerator::builder(17)
+            .epoch(epoch)
+            .build_async(),
+        Err(IdError::ExpirationTimeOverflow { .. })
     ));
 }
 

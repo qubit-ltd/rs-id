@@ -134,3 +134,23 @@ async fn test_async_sonyflake_generator_reports_runtime_expiration() {
         }) if observed_at == expires_at && boundary == expires_at
     ));
 }
+
+#[tokio::test]
+async fn test_async_sonyflake_generator_reports_time_before_start() {
+    let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(start_time + Duration::from_millis(10));
+    let generator = SonyflakeGenerator::builder(17)
+        .start_time(start_time)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build_async()
+        .expect("configuration should be valid");
+    time.reanchor(start_time - Duration::from_millis(1));
+
+    assert!(matches!(
+        generator.generate_async().await,
+        Err(IdError::TimeBeforeEpoch { time: observed, epoch: actual })
+            if observed == start_time - Duration::from_millis(1)
+                && actual == start_time
+    ));
+}
