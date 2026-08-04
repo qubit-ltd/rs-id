@@ -21,7 +21,7 @@ include = [
     "/RUST_CODING_STYLE.zh_CN.md",
     "/benches/**",
     "/doc/**/user_guide*.md",
-    "/docs/benchmarks/**",
+    "/doc/benchmarks/**",
     "/examples/**",
     "/resources/**",
     "/src/**",
