@@ -13,7 +13,7 @@ use crate::{
     IdGenerator,
 };
 
-/// Generates UUID v4 values as [`Uuid`] identifiers.
+/// Generates UUID v4 values as [`uuid::Uuid`] identifiers.
 ///
 /// UUID uniqueness is probabilistic. This stateless generator is safe to share
 /// across threads and tasks.

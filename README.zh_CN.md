@@ -8,7 +8,8 @@
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
 `qubit-id` 提供 object-safe、适合 IoC 注入的同步与异步 ID 生成器。生成器返回
-领域值（`Id` 或 `Uuid`）；应用可以在存储和传输边界选择底层数值或文本表示。
+领域值（Snowflake 使用 `Id`，UUID 使用 `uuid::Uuid`）；应用可以在存储和传输
+边界选择底层数值或文本表示。
 
 ## 主要特性
 
@@ -17,7 +18,8 @@
 - `try_generate()`、`generate()` 与 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
 - Builder 接受来自 [`qubit-clock`](https://crates.io/crates/qubit-clock) 的
   `Arc<dyn WallClock>` 与 `Arc<dyn Timer>`。
-- UUID 输出符合版本 4 标准，是支持 `u128` 转换和规范连字符文本的 `Uuid`。
+- UUID 输出使用符合版本 4 标准的 `uuid::Uuid`，保留 `uuid` crate 的完整 API，
+  并支持规范连字符文本。
 - 默认 feature 集合只启用 `qubit-snowflake`。
 
 ## 安装
@@ -35,6 +37,12 @@ qubit-id = "0.3"
 qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
 qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
 qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
+qubit-id = { version = "0.3", default-features = false, features = ["serde"] }
+
+# 使用 UUID 的应用应直接依赖上游类型。
+uuid = { version = "1", features = ["v4"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 ```
 
 异步 ID 生成器与运行时无关。需要 Tokio Timer 时，应用应直接在自己的
@@ -57,6 +65,33 @@ fn main() -> Result<(), IdGenerationError> {
         Arc::new(SnowflakeGenerator::new(7)?);
     let id = generator.generate()?;
     assert_ne!(id.value(), 0);
+    Ok(())
+}
+```
+
+调用方需要自行调度重试时，可以使用 `TryIdGenerator`：
+
+```rust
+use qubit_id::{
+    GenerationAttempt,
+    Id,
+    IdGenerationError,
+    SnowflakeGenerator,
+    TryIdGenerator,
+};
+
+fn allocate(
+    generator: &dyn TryIdGenerator<Output = Id, Error = IdGenerationError>,
+) -> Id {
+    match generator.try_generate().expect("分配应有效") {
+        GenerationAttempt::Generated(id) => id,
+        GenerationAttempt::RetryAfter { delay: _ } => Id::from(0),
+    }
+}
+
+fn main() -> Result<(), IdGenerationError> {
+    let generator = SnowflakeGenerator::new(7)?;
+    let _ = allocate(&generator);
     Ok(())
 }
 ```
@@ -109,6 +144,23 @@ fn main() -> Result<(), IdGenerationError> {
 | `classic-snowflake` | `ClassicalSnowflakeGenerator` | `Id` |
 | `sonyflake` | `SonyflakeGenerator` | `Id` |
 
+三种公开 Snowflake Layout 的主要边界都使用类型化的 `Id`。只有在与协议、数据库
+位模式或其他 `u64` API 互操作时，才使用名称明确的 raw 方法：
+
+```rust
+use qubit_id::ClassicalSnowflakeLayout;
+
+fn main() -> Result<(), qubit_id::IdGenerationError> {
+    let layout = ClassicalSnowflakeLayout::new(7)?;
+    let id = layout.compose(42, 3)?;
+    let parts = ClassicalSnowflakeLayout::decode(id);
+    let raw = layout.compose_raw(42, 3)?;
+    let raw_parts = ClassicalSnowflakeLayout::decode_raw(raw);
+    assert_eq!(parts, raw_parts);
+    Ok(())
+}
+```
+
 “经典 Snowflake”表示 41/10/12 位布局，并不代表存在一个通用的固定 epoch。
 `ClassicalSnowflakeGenerator` 默认使用 `2018-12-02T00:00:00Z`，与 Qubit
 Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作时，应通过 Builder 的
@@ -123,7 +175,7 @@ Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作
 | --- | --- |
 | Sequential Qubit、经典 Snowflake、Sonyflake | `Id`、`u64` 或十进制文本；所选布局保持在范围内时可检查后转换为 `i64` |
 | Spread Qubit | `Id`、无符号十进制文本或 8 字节二进制数据 |
-| UUID v4 | `Uuid`、`u128`、16 字节二进制数据或规范 UUID 文本 |
+| UUID v4 | `uuid::Uuid`、16 字节二进制数据或规范 UUID 文本 |
 
 `IdMode::Spread` 始终设置第 63 位，因此生成的 ID 必然超过 `i64::MAX`。不要将
 这类 ID 强制转换为有符号数据库主键。ID 经过 JavaScript 或 JSON 边界时应使用
@@ -168,23 +220,38 @@ fn main() -> Result<(), IdGenerationError> {
 }
 ```
 
-`UuidV4Generator` 返回 `Uuid`，支持转换为 `u128`，并显示为规范的小写连字符文本。
+`UuidV4Generator` 返回 `uuid::Uuid`。应用应直接从 `uuid` 依赖导入 `Uuid`，使用其解析、
+格式化、版本和字节 API，并显示为规范的小写连字符文本。
 操作系统无法提供随机字节时，UUID 生成会返回
 `IdGenerationError::RandomSourceFailed`。异步应用应使用所选运行时提供的
 阻塞边界包装同步调用：
 
 ```rust
 use qubit_id::{IdGenerationError, UuidV4Generator};
+use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
     let uuid = UuidV4Generator::new().generate()?;
-    let numeric: u128 = uuid.into();
+    let numeric = Uuid::as_u128(&uuid);
     let text = uuid.to_string();
     assert_ne!(numeric, 0);
     assert_eq!(text.len(), 36);
     Ok(())
 }
 ```
+
+### 序列化格式
+
+启用可选的 `serde` feature 后，`Id` 的序列化契约如下：
+
+| 格式 | `Id` 表示 | 接受的输入 |
+| --- | --- | --- |
+| 人类可读（JSON） | 十进制字符串，例如 `"42"` | 只接受十进制字符串 |
+| 紧凑/二进制 | 无符号 64 位整数 | 只接受 `u64` |
+
+即使 JSON number 位于 JavaScript 安全整数范围内也会被拒绝，因为 JSON number
+跨越 IEEE-754 边界时可能静默丢失 64 位 ID 精度。UUID 序列化沿用 `uuid` crate
+的原生契约：人类可读格式使用规范文本，紧凑格式使用 16 字节数据。
 
 ## 有效期、时钟与部署身份
 

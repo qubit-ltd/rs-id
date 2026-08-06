@@ -16,8 +16,8 @@
 //! ## Cargo features
 //!
 //! The default feature set contains only `qubit-snowflake`. The
-//! `classic-snowflake`, `sonyflake`, and `uuid` algorithms are independently
-//! opt-in. Asynchronous generators are runtime-neutral; enable runtime-specific
+//! `classic-snowflake`, `sonyflake`, `uuid`, and `serde` features are
+//! independently opt-in. Asynchronous generators are runtime-neutral; enable runtime-specific
 //! timers directly on `qubit-clock`. Disabling every feature leaves the common
 //! generator traits and error API available.
 //!
@@ -26,7 +26,8 @@
 //! | `qubit-snowflake` | Synchronous and asynchronous Qubit Snowflake generators |
 //! | `classic-snowflake` | Synchronous and asynchronous classic Snowflake generators |
 //! | `sonyflake` | Synchronous and asynchronous Sonyflake generators |
-//! | `uuid` | UUID v4 generator and UUID domain values |
+//! | `uuid` | UUID v4 generator returning `uuid::Uuid` |
+//! | `serde` | Optional `Id` serialization and deserialization |
 //!
 //! UUID generators intentionally implement only [`IdGenerator`], because the
 //! operating-system random source may block. Async applications should choose
@@ -41,8 +42,7 @@
 //! future is unboxed. Calling
 //! [`AsyncIdGenerator::generate_async`] through the object-safe trait boxes the
 //! future and awaits the injected `qubit_clock::Timer` without blocking an
-//! executor. Configure
-//! `RestartPolicy::WaitNextSlice` is the default and makes a fresh instance
+//! executor. `RestartPolicy::WaitNextSlice` is the default and makes a fresh instance
 //! skip its first observed logical time slice. This policy does not know the
 //! predecessor's allocation watermark, so clock rollback across a restart can
 //! still repeat IDs. `RestartPolicy::Immediate` can repeat IDs after same-slice

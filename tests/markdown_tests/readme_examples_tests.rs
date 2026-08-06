@@ -190,7 +190,9 @@ edition = "2024"
 publish = false
 
 [dependencies]
-qubit-id = {{ path = "{manifest_path}", default-features = false, features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid"] }}
+qubit-id = {{ path = "{manifest_path}", default-features = false, features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid", "serde"] }}
+uuid = {{ version = "1", features = ["v4"] }}
+serde_json = "1"
 "#
     )
 }
@@ -268,7 +270,7 @@ fn test_build_markdown_doctest_manifest_enables_all_example_features() {
 
     assert!(
         manifest.contains(
-            r#"features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid"]"#,
+            r#"features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid", "serde"]"#,
         ),
         "README dependency must enable every documented feature:\n{manifest}"
     );
