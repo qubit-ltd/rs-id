@@ -3,7 +3,7 @@
 ## Scope
 
 This document records a single-machine sustained-throughput and startup-latency
-baseline for `QubitSnowflakeGenerator`. It is a reproducible observation on the
+baseline for `SnowflakeGenerator`. It is a reproducible observation on the
 environment below, not a performance guarantee for other hardware, operating
 systems, Rust versions, or workloads.
 
@@ -50,8 +50,8 @@ from sustained throughput timing.
 
 Before sustained-throughput sampling, the benchmark also runs 200,000-operation
 fixed workloads through concrete and `Arc<dyn ...>` synchronous and
-asynchronous call paths. Both numeric and `SnowflakeStringGenerator` adapters
-are included. These measurements compare dispatch and string-conversion costs;
+asynchronous call paths. Both numeric and `Id::to_string()` paths are included.
+These measurements compare dispatch and string-conversion costs;
 they are not capacity measurements because they can cross clock slices.
 
 ## Command
