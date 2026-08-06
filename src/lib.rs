@@ -148,6 +148,5 @@ pub use try_id_generator::TryIdGenerator;
 #[cfg(feature = "uuid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
 pub use uuid::{
-    Uuid,
     UuidV4Generator,
 };
