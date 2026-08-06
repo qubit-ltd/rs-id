@@ -159,7 +159,11 @@ fn test_compose_spread_ids_always_set_bit_63() {
                 .expect("boundary parts should fit");
             let value = id.value();
 
-            assert_eq!(value >> 63, 1, "spread ID {value:#018x} must set bit 63");
+            assert_eq!(
+                value >> 63,
+                1,
+                "spread ID {value:#018x} must set bit 63"
+            );
             assert!(
                 value > i64::MAX as u64,
                 "spread ID {value:#018x} must exceed i64::MAX"

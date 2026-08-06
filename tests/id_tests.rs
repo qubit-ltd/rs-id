@@ -42,11 +42,11 @@ fn test_id_rejects_invalid_text() {
 mod serde_tests {
     use qubit_id::Id;
     use serde_test::{
-        assert_de_tokens_error,
-        assert_tokens,
         Compact,
         Configure,
         Token,
+        assert_de_tokens_error,
+        assert_tokens,
     };
 
     #[test]
@@ -74,15 +74,14 @@ mod serde_tests {
                 "accepted {input}"
             );
         }
-        assert!(serde_json::from_str::<Id>("\"18446744073709551616\"").is_err());
+        assert!(
+            serde_json::from_str::<Id>("\"18446744073709551616\"").is_err()
+        );
     }
 
     #[test]
     fn test_id_binary_tokens_use_u64() {
-        assert_tokens(
-            &Id::from(u64::MAX).compact(),
-            &[Token::U64(u64::MAX)],
-        );
+        assert_tokens(&Id::from(u64::MAX).compact(), &[Token::U64(u64::MAX)]);
         assert_de_tokens_error::<Compact<Id>>(
             &[Token::String("42")],
             "invalid type: string \"42\", expected an unsigned 64-bit identifier",

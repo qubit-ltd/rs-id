@@ -17,9 +17,9 @@
 //!
 //! The default feature set contains only `qubit-snowflake`. The
 //! `classic-snowflake`, `sonyflake`, `uuid`, and `serde` features are
-//! independently opt-in. Asynchronous generators are runtime-neutral; enable runtime-specific
-//! timers directly on `qubit-clock`. Disabling every feature leaves the common
-//! generator traits and error API available.
+//! independently opt-in. Asynchronous generators are runtime-neutral; enable
+//! runtime-specific timers directly on `qubit-clock`. Disabling every feature
+//! leaves the common generator traits and error API available.
 //!
 //! | Feature | Contents |
 //! | --- | --- |
@@ -42,12 +42,12 @@
 //! future is unboxed. Calling
 //! [`AsyncIdGenerator::generate_async`] through the object-safe trait boxes the
 //! future and awaits the injected `qubit_clock::Timer` without blocking an
-//! executor. `RestartPolicy::WaitNextSlice` is the default and makes a fresh instance
-//! skip its first observed logical time slice. This policy does not know the
-//! predecessor's allocation watermark, so clock rollback across a restart can
-//! still repeat IDs. `RestartPolicy::Immediate` can repeat IDs after same-slice
-//! allocation state is lost and should only be selected when restart separation
-//! is guaranteed externally.
+//! executor. `RestartPolicy::WaitNextSlice` is the default and makes a fresh
+//! instance skip its first observed logical time slice. This policy does not
+//! know the predecessor's allocation watermark, so clock rollback across a
+//! restart can still repeat IDs. `RestartPolicy::Immediate` can repeat IDs
+//! after same-slice allocation state is lost and should only be selected when
+//! restart separation is guaranteed externally.
 //!
 //! Every Snowflake layout calculates an exclusive expiration boundary from its
 //! time origin, unit, and maximum timestamp. Generators cache that value and
@@ -147,6 +147,4 @@ pub use snowflake::{
 pub use try_id_generator::TryIdGenerator;
 #[cfg(feature = "uuid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
-pub use uuid::{
-    UuidV4Generator,
-};
+pub use uuid::UuidV4Generator;
