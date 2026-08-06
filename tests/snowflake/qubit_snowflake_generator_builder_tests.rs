@@ -8,15 +8,25 @@
 //! Tests for the Qubit snowflake generator builder.
 
 use std::sync::Arc;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
 use qubit_clock::FixedWallClock;
 use qubit_id::{
-    IdError, IdMode, QubitSnowflakeGenerator, QubitSnowflakeLayout, RestartPolicy,
+    IdError,
+    IdMode,
+    QubitSnowflakeGenerator,
+    QubitSnowflakeLayout,
+    RestartPolicy,
     TimestampPrecision,
 };
 
-use crate::support::{ManualTime, latest_representable_whole_second};
+use crate::support::{
+    ManualTime,
+    latest_representable_whole_second,
+};
 
 /// Tests that every configurable Qubit generator option is applied.
 #[test]
@@ -64,7 +74,8 @@ fn test_qubit_snowflake_generator_builder_rejects_invalid_host() {
 }
 
 #[tokio::test]
-async fn test_qubit_snowflake_generator_builder_async_propagates_layout_error() {
+async fn test_qubit_snowflake_generator_builder_async_propagates_layout_error()
+{
     assert!(matches!(
         QubitSnowflakeGenerator::builder(512).build(),
         Err(IdError::HostOutOfRange {
@@ -75,7 +86,8 @@ async fn test_qubit_snowflake_generator_builder_async_propagates_layout_error() 
 }
 
 #[tokio::test]
-async fn test_qubit_snowflake_generator_builder_async_propagates_expiration_error() {
+async fn test_qubit_snowflake_generator_builder_async_propagates_expiration_error()
+ {
     let epoch = latest_representable_whole_second();
 
     assert!(matches!(
@@ -91,8 +103,12 @@ async fn test_qubit_snowflake_generator_builder_async_propagates_expiration_erro
 #[test]
 fn test_qubit_snowflake_generator_builder_enforces_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = QubitSnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 17)
-        .expect("Qubit layout must be valid");
+    let layout = QubitSnowflakeLayout::new(
+        IdMode::Sequential,
+        TimestampPrecision::Second,
+        17,
+    )
+    .expect("Qubit layout must be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("Qubit expiration must be representable");

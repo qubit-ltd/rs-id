@@ -63,7 +63,11 @@ impl RestartFence {
                 };
                 true
             }
-            Self::Waiting { baseline_timestamp } if timestamp <= baseline_timestamp => true,
+            Self::Waiting { baseline_timestamp }
+                if timestamp <= baseline_timestamp =>
+            {
+                true
+            }
             Self::Waiting { .. } => {
                 *self = Self::Disabled;
                 false

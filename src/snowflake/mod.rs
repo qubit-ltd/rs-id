@@ -43,7 +43,13 @@ mod timestamp_precision;
 
 #[cfg(feature = "qubit-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use constants::{DEFAULT_MAX_CLOCK_SKEW, HOST_BITS, HOST_MAX, HOST_MIN, PRECISION_BITS};
+pub use constants::{
+    DEFAULT_MAX_CLOCK_SKEW,
+    HOST_BITS,
+    HOST_MAX,
+    HOST_MIN,
+    PRECISION_BITS,
+};
 #[cfg(feature = "qubit-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
 pub use id_mode::IdMode;

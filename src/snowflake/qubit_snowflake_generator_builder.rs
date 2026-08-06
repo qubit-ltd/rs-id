@@ -8,16 +8,31 @@
 //! Builder for the Qubit snowflake generator.
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH,
+};
 
-use qubit_clock::{Timer, WallClock};
+use qubit_clock::{
+    Timer,
+    WallClock,
+};
 
 use super::constants::DEFAULT_MAX_CLOCK_SKEW;
 use super::internal::{
-    DEFAULT_SNOWFLAKE_EPOCH_MILLIS, SnowflakeCore, default_timer, default_wall_clock,
+    DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
+    SnowflakeCore,
+    default_timer,
+    default_wall_clock,
 };
 use super::qubit_snowflake_generator::QubitSnowflakeGenerator;
-use super::{IdMode, QubitSnowflakeLayout, RestartPolicy, TimestampPrecision};
+use super::{
+    IdMode,
+    QubitSnowflakeLayout,
+    RestartPolicy,
+    TimestampPrecision,
+};
 use crate::IdError;
 
 /// Configures and constructs a [`QubitSnowflakeGenerator`].
@@ -64,7 +79,8 @@ impl QubitSnowflakeGeneratorBuilder {
             mode: IdMode::Sequential,
             precision: TimestampPrecision::Second,
             host,
-            epoch: UNIX_EPOCH + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
+            epoch: UNIX_EPOCH
+                + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             max_clock_skew: DEFAULT_MAX_CLOCK_SKEW,
             restart_policy: RestartPolicy::WaitNextSlice,
             wall_clock: default_wall_clock(),
@@ -216,8 +232,12 @@ impl QubitSnowflakeGeneratorBuilder {
     /// exclusive expiration cannot be represented, or
     /// [`IdError::GeneratorExpired`] when the configured wall clock is equal
     /// to or later than that boundary.
-    fn into_core(self) -> Result<(SnowflakeCore<QubitSnowflakeLayout>, Arc<dyn Timer>), IdError> {
-        let layout = QubitSnowflakeLayout::new(self.mode, self.precision, self.host)?;
+    fn into_core(
+        self,
+    ) -> Result<(SnowflakeCore<QubitSnowflakeLayout>, Arc<dyn Timer>), IdError>
+    {
+        let layout =
+            QubitSnowflakeLayout::new(self.mode, self.precision, self.host)?;
         let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
         if current_time >= expires_at {

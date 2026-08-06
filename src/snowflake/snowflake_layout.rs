@@ -7,9 +7,15 @@
 // =============================================================================
 //! Stateless classic Snowflake bit layout.
 
-use std::time::{Duration, SystemTime};
+use std::time::{
+    Duration,
+    SystemTime,
+};
 
-use super::internal::{SnowflakeLayoutSpec, expiration_time};
+use super::internal::{
+    SnowflakeLayoutSpec,
+    expiration_time,
+};
 use super::snowflake_parts::SnowflakeParts;
 use crate::IdError;
 
@@ -133,7 +139,11 @@ impl SnowflakeLayout {
     ///
     /// Returns [`IdError::TimestampOverflow`] or
     /// [`IdError::SequenceOverflow`] when a part exceeds its field.
-    pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError> {
+    pub fn compose(
+        &self,
+        timestamp: u64,
+        sequence: u64,
+    ) -> Result<u64, IdError> {
         if timestamp > self.max_timestamp() {
             return Err(IdError::TimestampOverflow {
                 timestamp,
@@ -146,7 +156,9 @@ impl SnowflakeLayout {
                 max: self.max_sequence(),
             });
         }
-        Ok((timestamp << (NODE_BITS + SEQUENCE_BITS)) | (self.node_id << SEQUENCE_BITS) | sequence)
+        Ok((timestamp << (NODE_BITS + SEQUENCE_BITS))
+            | (self.node_id << SEQUENCE_BITS)
+            | sequence)
     }
 
     /// Decodes a classic Snowflake ID.

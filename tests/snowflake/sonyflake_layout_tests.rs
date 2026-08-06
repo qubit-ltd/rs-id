@@ -7,9 +7,16 @@
 // =============================================================================
 //! Tests for the Sonyflake bit layout.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH,
+};
 
-use qubit_id::{IdError, SonyflakeLayout};
+use qubit_id::{
+    IdError,
+    SonyflakeLayout,
+};
 
 /// Finds the latest whole-second time representable by [`SystemTime`].
 ///
@@ -54,8 +61,8 @@ fn test_sonyflake_layout_compose_decode_round_trip() {
 #[test]
 fn test_sonyflake_layout_getters_return_configuration_and_limits() {
     let time_unit = Duration::from_millis(10);
-    let layout =
-        SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, time_unit)
+        .expect("Sonyflake layout must be valid");
 
     assert_eq!(layout.bits_time(), 39);
     assert_eq!(layout.bits_sequence(), 8);
@@ -142,8 +149,13 @@ fn test_sonyflake_layout_rejects_out_of_range_parts() {
 
 #[test]
 fn test_sonyflake_layout_accepts_maximum_parts() {
-    let layout = SonyflakeLayout::new((1_u64 << 16) - 1, 8, 16, Duration::from_millis(10))
-        .expect("maximum machine id must fit the Sonyflake layout");
+    let layout = SonyflakeLayout::new(
+        (1_u64 << 16) - 1,
+        8,
+        16,
+        Duration::from_millis(10),
+    )
+    .expect("maximum machine id must fit the Sonyflake layout");
     let id = layout
         .compose(layout.max_elapsed_time(), layout.max_sequence())
         .expect("maximum parts must fit the Sonyflake layout");
@@ -158,8 +170,8 @@ fn test_sonyflake_layout_accepts_maximum_parts() {
 fn test_sonyflake_layout_calculates_exclusive_expiration() {
     let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time_unit = Duration::from_millis(10);
-    let layout =
-        SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, time_unit)
+        .expect("Sonyflake layout must be valid");
 
     assert_eq!(
         layout
@@ -173,8 +185,8 @@ fn test_sonyflake_layout_calculates_exclusive_expiration() {
 fn test_sonyflake_layout_reports_expiration_time_overflow() {
     let origin = latest_representable_whole_second();
     let time_unit = Duration::from_millis(10);
-    let layout =
-        SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, time_unit)
+        .expect("Sonyflake layout must be valid");
 
     assert!(matches!(
         layout.expires_at(origin),

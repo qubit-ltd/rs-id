@@ -21,7 +21,10 @@ mod time_slice;
 
 pub(crate) use crate::GenerationAttempt;
 pub(crate) use blocking_snowflake::BlockingSnowflake;
-pub(crate) use clock_defaults::{default_timer, default_wall_clock};
+pub(crate) use clock_defaults::{
+    default_timer,
+    default_wall_clock,
+};
 pub(crate) use clock_observation::ClockObservation;
 #[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake"))]
 pub(crate) use default_epoch::DEFAULT_SNOWFLAKE_EPOCH_MILLIS;

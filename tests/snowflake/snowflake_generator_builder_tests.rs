@@ -8,12 +8,23 @@
 //! Tests for the classic Snowflake generator builder.
 
 use std::sync::Arc;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
 use qubit_clock::FixedWallClock;
-use qubit_id::{IdError, RestartPolicy, SnowflakeGenerator, SnowflakeLayout};
+use qubit_id::{
+    IdError,
+    RestartPolicy,
+    SnowflakeGenerator,
+    SnowflakeLayout,
+};
 
-use crate::support::{ManualTime, latest_representable_whole_second};
+use crate::support::{
+    ManualTime,
+    latest_representable_whole_second,
+};
 
 #[test]
 fn test_snowflake_generator_builder_builds_configuration() {
@@ -75,7 +86,8 @@ async fn test_snowflake_generator_builder_async_propagates_expiration_error() {
 #[test]
 fn test_snowflake_generator_builder_enforces_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = SnowflakeLayout::new(17).expect("classic Snowflake layout must be valid");
+    let layout = SnowflakeLayout::new(17)
+        .expect("classic Snowflake layout must be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("classic expiration must be representable");

@@ -10,9 +10,16 @@
 
 use std::sync::Arc;
 
-use qubit_clock::{BlockingSleeper, Timer};
+use qubit_clock::{
+    BlockingSleeper,
+    Timer,
+};
 
-use super::{GenerationAttempt, SnowflakeCore, SnowflakeLayoutSpec};
+use super::{
+    GenerationAttempt,
+    SnowflakeCore,
+    SnowflakeLayoutSpec,
+};
 use crate::IdError;
 
 /// Adapts a non-waiting Snowflake core to synchronous generation.
@@ -75,7 +82,9 @@ where
     }
 
     /// Performs one non-blocking allocation attempt.
-    pub(crate) fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+    pub(crate) fn try_generate(
+        &self,
+    ) -> Result<GenerationAttempt<u64>, IdError> {
         self.core.try_generate()
     }
 

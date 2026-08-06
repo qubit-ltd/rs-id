@@ -9,12 +9,17 @@
 
 use std::sync::Arc;
 
-use qubit_id::{GenerationAttempt, TryIdGenerator};
+use qubit_id::{
+    GenerationAttempt,
+    TryIdGenerator,
+};
 
 struct Counter;
 
 impl TryIdGenerator<u64> for Counter {
-    fn try_generate(&self) -> Result<GenerationAttempt<u64>, qubit_id::IdError> {
+    fn try_generate(
+        &self,
+    ) -> Result<GenerationAttempt<u64>, qubit_id::IdError> {
         Ok(GenerationAttempt::Generated(1))
     }
 }

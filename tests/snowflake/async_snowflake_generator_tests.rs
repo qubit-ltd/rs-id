@@ -8,15 +8,25 @@
 //! Integration tests for the asynchronous classic Snowflake generator.
 
 use std::sync::Arc;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
-use qubit_id::{AsyncIdGenerator, IdError, RestartPolicy, SnowflakeGenerator, SnowflakeLayout};
+use qubit_id::{
+    AsyncIdGenerator,
+    IdError,
+    RestartPolicy,
+    SnowflakeGenerator,
+    SnowflakeLayout,
+};
 
 use crate::support::ManualTime;
 
 #[test]
 fn test_async_snowflake_generator_convenience_api() {
-    let generator = SnowflakeGenerator::new(17).expect("default configuration should be valid");
+    let generator = SnowflakeGenerator::new(17)
+        .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().node_id(), 17);
     assert_eq!(
@@ -85,7 +95,8 @@ async fn test_async_snowflake_generator_waits_with_injected_timer() {
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker = tokio::spawn(async move { worker_generator.generate_async().await });
+    let worker =
+        tokio::spawn(async move { worker_generator.generate_async().await });
 
     assert_eq!(
         time.advance_to_next_deadline_async()

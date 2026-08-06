@@ -35,7 +35,11 @@ impl SonyflakeParts {
     ///
     /// Parts containing the supplied fields.
     #[inline]
-    pub(crate) const fn new(elapsed_time: u64, sequence: u64, machine_id: u64) -> Self {
+    pub(crate) const fn new(
+        elapsed_time: u64,
+        sequence: u64,
+        machine_id: u64,
+    ) -> Self {
         Self {
             elapsed_time,
             sequence,

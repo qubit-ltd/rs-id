@@ -7,9 +7,15 @@
 // =============================================================================
 //! Stateless configurable Sonyflake bit layout.
 
-use std::time::{Duration, SystemTime};
+use std::time::{
+    Duration,
+    SystemTime,
+};
 
-use super::internal::{SnowflakeLayoutSpec, expiration_time};
+use super::internal::{
+    SnowflakeLayoutSpec,
+    expiration_time,
+};
 use super::sonyflake_parts::SonyflakeParts;
 use crate::IdError;
 
@@ -72,8 +78,16 @@ impl SonyflakeLayout {
         bits_machine: u8,
         time_unit: Duration,
     ) -> Result<Self, IdError> {
-        let bits_sequence = Self::normalize_bits("sequence", bits_sequence, DEFAULT_BITS_SEQUENCE)?;
-        let bits_machine = Self::normalize_bits("machine", bits_machine, DEFAULT_BITS_MACHINE)?;
+        let bits_sequence = Self::normalize_bits(
+            "sequence",
+            bits_sequence,
+            DEFAULT_BITS_SEQUENCE,
+        )?;
+        let bits_machine = Self::normalize_bits(
+            "machine",
+            bits_machine,
+            DEFAULT_BITS_MACHINE,
+        )?;
         let bits_time = 63_u8 - bits_sequence - bits_machine;
         if bits_time < 32 {
             return Err(IdError::InvalidBitLength {
@@ -214,7 +228,10 @@ impl SonyflakeLayout {
     /// Returns [`IdError::ExpirationTimeOverflow`] when the boundary cannot be
     /// represented by [`SystemTime`].
     #[inline(always)]
-    pub fn expires_at(&self, start_time: SystemTime) -> Result<SystemTime, IdError> {
+    pub fn expires_at(
+        &self,
+        start_time: SystemTime,
+    ) -> Result<SystemTime, IdError> {
         expiration_time(start_time, self.time_unit, self.max_elapsed_time())
     }
 
@@ -236,7 +253,11 @@ impl SonyflakeLayout {
     ///
     /// Returns [`IdError::TimestampOverflow`] or
     /// [`IdError::SequenceOverflow`] when a part exceeds its field.
-    pub fn compose(&self, elapsed_time: u64, sequence: u64) -> Result<u64, IdError> {
+    pub fn compose(
+        &self,
+        elapsed_time: u64,
+        sequence: u64,
+    ) -> Result<u64, IdError> {
         if elapsed_time > self.max_elapsed_time() {
             return Err(IdError::TimestampOverflow {
                 timestamp: elapsed_time,
@@ -269,7 +290,8 @@ impl SonyflakeLayout {
     #[inline]
     pub const fn decode(&self, id: u64) -> SonyflakeParts {
         let elapsed_time = id >> (self.bits_sequence + self.bits_machine);
-        let sequence_mask = ((1_u64 << self.bits_sequence) - 1) << self.bits_machine;
+        let sequence_mask =
+            ((1_u64 << self.bits_sequence) - 1) << self.bits_machine;
         let sequence = (id & sequence_mask) >> self.bits_machine;
         let machine_id = id & ((1_u64 << self.bits_machine) - 1);
         SonyflakeParts::new(elapsed_time, sequence, machine_id)
@@ -292,7 +314,11 @@ impl SonyflakeLayout {
     /// Returns [`IdError::InvalidBitLength`] when the normalized width is 31
     /// or greater.
     #[inline]
-    fn normalize_bits(name: &'static str, bits: u8, default_bits: u8) -> Result<u8, IdError> {
+    fn normalize_bits(
+        name: &'static str,
+        bits: u8,
+        default_bits: u8,
+    ) -> Result<u8, IdError> {
         let normalized = if bits == 0 { default_bits } else { bits };
         if normalized >= 31 {
             return Err(IdError::InvalidBitLength {

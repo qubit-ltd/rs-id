@@ -9,10 +9,18 @@
 
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
 use qubit_id::{
-    GenerationAttempt, IdError, IdGenerator, RestartPolicy, SnowflakeGenerator, SnowflakeLayout,
+    GenerationAttempt,
+    IdError,
+    IdGenerator,
+    RestartPolicy,
+    SnowflakeGenerator,
+    SnowflakeLayout,
     TryIdGenerator,
 };
 
@@ -20,7 +28,8 @@ use crate::support::ManualTime;
 
 #[test]
 fn test_snowflake_generator_new_uses_defaults() {
-    let generator = SnowflakeGenerator::new(17).expect("default configuration should be valid");
+    let generator = SnowflakeGenerator::new(17)
+        .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().node_id(), 17);
 }
@@ -43,7 +52,8 @@ fn test_snowflake_generator_supports_sync_trait_object() {
 }
 
 #[test]
-fn test_snowflake_generator_supports_nonblocking_trait_object_and_inherent_api() {
+fn test_snowflake_generator_supports_nonblocking_trait_object_and_inherent_api()
+{
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let generator = SnowflakeGenerator::builder(17)
@@ -68,8 +78,14 @@ fn test_snowflake_generator_supports_nonblocking_trait_object_and_inherent_api()
 
 mod inherent_api_tests {
     use super::ManualTime;
-    use qubit_id::{RestartPolicy, SnowflakeGenerator};
-    use std::time::{Duration, UNIX_EPOCH};
+    use qubit_id::{
+        RestartPolicy,
+        SnowflakeGenerator,
+    };
+    use std::time::{
+        Duration,
+        UNIX_EPOCH,
+    };
 
     #[test]
     fn test_snowflake_generator_supports_inherent_generate() {

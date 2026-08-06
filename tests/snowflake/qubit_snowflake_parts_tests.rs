@@ -7,13 +7,21 @@
 // =============================================================================
 //! Tests for decoded Qubit snowflake parts.
 
-use qubit_id::{IdMode, QubitSnowflakeLayout, TimestampPrecision};
+use qubit_id::{
+    IdMode,
+    QubitSnowflakeLayout,
+    TimestampPrecision,
+};
 
 /// Tests all decoded field accessors and value semantics.
 #[test]
 fn test_accessors_return_decoded_fields() {
-    let layout = QubitSnowflakeLayout::new(IdMode::Spread, TimestampPrecision::Millisecond, 37)
-        .expect("host should be valid");
+    let layout = QubitSnowflakeLayout::new(
+        IdMode::Spread,
+        TimestampPrecision::Millisecond,
+        37,
+    )
+    .expect("host should be valid");
     let id = layout
         .compose(12_345, 67)
         .expect("timestamp and sequence should fit");

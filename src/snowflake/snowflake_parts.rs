@@ -35,7 +35,11 @@ impl SnowflakeParts {
     ///
     /// Parts containing the supplied fields.
     #[inline]
-    pub(crate) const fn new(timestamp: u64, node_id: u64, sequence: u64) -> Self {
+    pub(crate) const fn new(
+        timestamp: u64,
+        node_id: u64,
+        sequence: u64,
+    ) -> Self {
         Self {
             timestamp,
             node_id,

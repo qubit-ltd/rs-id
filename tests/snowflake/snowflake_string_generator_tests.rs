@@ -8,12 +8,24 @@
 //! Tests for the Snowflake decimal-string adapter.
 
 use std::sync::Arc;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
 use qubit_id::{
-    AsyncIdGenerator, DEFAULT_MAX_CLOCK_SKEW, GenerationAttempt, IdError, IdGenerator, IdMode,
-    QubitSnowflakeGenerator, QubitSnowflakeLayout, RestartPolicy, SnowflakeStringGenerator,
-    TimestampPrecision, TryIdGenerator,
+    AsyncIdGenerator,
+    DEFAULT_MAX_CLOCK_SKEW,
+    GenerationAttempt,
+    IdError,
+    IdGenerator,
+    IdMode,
+    QubitSnowflakeGenerator,
+    QubitSnowflakeLayout,
+    RestartPolicy,
+    SnowflakeStringGenerator,
+    TimestampPrecision,
+    TryIdGenerator,
 };
 
 use crate::support::ManualTime;
@@ -63,7 +75,8 @@ fn test_snowflake_string_generator_wraps_arc_dyn_sync_generator() {
 }
 
 #[test]
-fn test_snowflake_string_generator_supports_nonblocking_concrete_and_trait_calls() {
+fn test_snowflake_string_generator_supports_nonblocking_concrete_and_trait_calls()
+ {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let numeric = QubitSnowflakeGenerator::builder(7)
@@ -100,8 +113,15 @@ fn test_snowflake_string_generator_supports_nonblocking_concrete_and_trait_calls
 
 mod inherent_api_tests {
     use super::ManualTime;
-    use qubit_id::{QubitSnowflakeGenerator, RestartPolicy, SnowflakeStringGenerator};
-    use std::time::{Duration, UNIX_EPOCH};
+    use qubit_id::{
+        QubitSnowflakeGenerator,
+        RestartPolicy,
+        SnowflakeStringGenerator,
+    };
+    use std::time::{
+        Duration,
+        UNIX_EPOCH,
+    };
 
     #[test]
     fn test_snowflake_string_generator_supports_inherent_generate() {
@@ -194,8 +214,12 @@ async fn test_snowflake_string_generator_supports_concrete_async_call() {
 #[test]
 fn test_snowflake_string_generator_preserves_generation_error() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = QubitSnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
-        .expect("layout should be valid");
+    let layout = QubitSnowflakeLayout::new(
+        IdMode::Sequential,
+        TimestampPrecision::Second,
+        7,
+    )
+    .expect("layout should be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("expiration should be representable");

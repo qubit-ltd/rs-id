@@ -7,7 +7,10 @@
 // =============================================================================
 //! Non-blocking contract for ID generators.
 
-use crate::{GenerationAttempt, IdError};
+use crate::{
+    GenerationAttempt,
+    IdError,
+};
 
 /// Attempts to allocate an identifier without sleeping or awaiting.
 ///

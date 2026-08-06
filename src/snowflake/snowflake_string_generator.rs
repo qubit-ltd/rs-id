@@ -7,7 +7,13 @@
 // =============================================================================
 //! Decimal-string adapter for Snowflake-family generators.
 
-use crate::{AsyncIdGenerator, GenerationAttempt, IdGenerationFuture, IdGenerator, TryIdGenerator};
+use crate::{
+    AsyncIdGenerator,
+    GenerationAttempt,
+    IdGenerationFuture,
+    IdGenerator,
+    TryIdGenerator,
+};
 
 /// Adapts a numeric Snowflake generator to decimal [`String`] output.
 ///
@@ -154,7 +160,9 @@ where
     /// boxed future returned by the wrapped generator.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, String, E> {
-        Box::pin(async move { self.inner.generate_async().await.map(|id| id.to_string()) })
+        Box::pin(async move {
+            self.inner.generate_async().await.map(|id| id.to_string())
+        })
     }
 }
 

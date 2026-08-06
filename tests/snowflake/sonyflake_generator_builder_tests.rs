@@ -8,12 +8,23 @@
 //! Tests for the Sonyflake-style generator builder.
 
 use std::sync::Arc;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
 use qubit_clock::FixedWallClock;
-use qubit_id::{IdError, RestartPolicy, SonyflakeGenerator, SonyflakeLayout};
+use qubit_id::{
+    IdError,
+    RestartPolicy,
+    SonyflakeGenerator,
+    SonyflakeLayout,
+};
 
-use crate::support::{ManualTime, latest_representable_whole_second};
+use crate::support::{
+    ManualTime,
+    latest_representable_whole_second,
+};
 
 /// Tests that every configurable Sonyflake option is applied.
 #[test]
@@ -52,8 +63,8 @@ fn test_sonyflake_generator_builder_builds_configuration() {
 fn test_sonyflake_generator_builder_enforces_expiration() {
     let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time_unit = Duration::from_millis(10);
-    let layout =
-        SonyflakeLayout::new(17, 8, 16, time_unit).expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(17, 8, 16, time_unit)
+        .expect("Sonyflake layout must be valid");
     let expires_at = layout
         .expires_at(start_time)
         .expect("Sonyflake expiration must be representable");

@@ -9,13 +9,24 @@
 //! Shared, non-waiting Snowflake allocation core.
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{
+    Duration,
+    SystemTime,
+};
 
 use parking_lot::Mutex;
 use qubit_clock::WallClock;
 
-use super::{ClockObservation, GenerationAttempt, GenerationState, SnowflakeLayoutSpec};
-use crate::{IdError, RestartPolicy};
+use super::{
+    ClockObservation,
+    GenerationAttempt,
+    GenerationState,
+    SnowflakeLayoutSpec,
+};
+use crate::{
+    IdError,
+    RestartPolicy,
+};
 
 /// Owns the shared Snowflake layout, clock, and synchronized allocation state.
 pub(crate) struct SnowflakeCore<L> {
@@ -86,17 +97,25 @@ where
     /// [`IdError::GeneratorExpired`] at the lifetime boundary, or
     /// [`IdError::ClockMovedBackwards`] when rollback exceeds the configured
     /// tolerance.
-    pub(crate) fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+    pub(crate) fn try_generate(
+        &self,
+    ) -> Result<GenerationAttempt<u64>, IdError> {
         let mut state = self.state.lock();
         let observed_at = self.wall_clock.now();
         self.ensure_active(observed_at)?;
         let observation = self.observation_for(observed_at)?;
-        match state.reserve(observation, self.layout.max_sequence(), self.max_clock_skew)? {
+        match state.reserve(
+            observation,
+            self.layout.max_sequence(),
+            self.max_clock_skew,
+        )? {
             GenerationAttempt::Generated(time_slice) => self
                 .layout
                 .compose(time_slice.timestamp, time_slice.sequence)
                 .map(GenerationAttempt::Generated),
-            GenerationAttempt::RetryAfter { delay } => Ok(GenerationAttempt::RetryAfter { delay }),
+            GenerationAttempt::RetryAfter { delay } => {
+                Ok(GenerationAttempt::RetryAfter { delay })
+            }
         }
     }
 
@@ -121,7 +140,11 @@ where
     /// does not fit the layout.
     #[cfg(feature = "qubit-snowflake")]
     #[inline(always)]
-    pub(crate) fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<u64, IdError> {
+    pub(crate) fn compose_at(
+        &self,
+        time: SystemTime,
+        sequence: u64,
+    ) -> Result<u64, IdError> {
         self.ensure_active(time)?;
         let observation = self.observation_for(time)?;
         self.layout.compose(observation.timestamp, sequence)
@@ -183,7 +206,10 @@ where
     ///
     /// Returns [`IdError::TimeBeforeEpoch`] when `time` precedes the
     /// configured epoch.
-    fn observation_for(&self, time: SystemTime) -> Result<ClockObservation, IdError> {
+    fn observation_for(
+        &self,
+        time: SystemTime,
+    ) -> Result<ClockObservation, IdError> {
         ClockObservation::from_time(
             time,
             self.epoch,
