@@ -64,6 +64,33 @@
       ]
     },
     {
+      "name": "serde",
+      "packages": ["qubit-id"],
+      "defaultFeatures": false,
+      "features": [
+        "serde"
+      ],
+      "commands": [
+        "check",
+        "test",
+        "doc"
+      ]
+    },
+    {
+      "name": "uuid-serde",
+      "packages": ["qubit-id"],
+      "defaultFeatures": false,
+      "features": [
+        "uuid",
+        "serde"
+      ],
+      "commands": [
+        "check",
+        "test",
+        "doc"
+      ]
+    },
+    {
       "name": "all-features-clippy",
       "packages": ["qubit-id"],
       "allFeatures": true,
