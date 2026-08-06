@@ -17,7 +17,7 @@ use super::{
     TimeSlice,
 };
 use crate::{
-    IdError,
+    IdGenerationError,
     RestartPolicy,
 };
 
@@ -70,20 +70,20 @@ impl GenerationState {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::ClockMovedBackwards`] when raw rollback exceeds the
-    /// configured tolerance.
+    /// Returns [`IdGenerationError::ClockMovedBackwards`] when raw rollback
+    /// exceeds the configured tolerance.
     pub(crate) fn reserve(
         &mut self,
         observation: ClockObservation,
         max_sequence: u64,
         max_clock_skew: Duration,
-    ) -> Result<GenerationAttempt<TimeSlice>, IdError> {
+    ) -> Result<GenerationAttempt<TimeSlice>, IdGenerationError> {
         if let Some(last_elapsed) = self.last_observed_elapsed
             && observation.elapsed < last_elapsed
         {
             let skew = last_elapsed - observation.elapsed;
             if skew > max_clock_skew {
-                return Err(IdError::ClockMovedBackwards {
+                return Err(IdGenerationError::ClockMovedBackwards {
                     last_elapsed,
                     current_elapsed: observation.elapsed,
                     skew,

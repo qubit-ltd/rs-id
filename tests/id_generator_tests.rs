@@ -13,12 +13,16 @@ use std::sync::Arc;
 
 use qubit_id::IdGenerator;
 
-use self::id_generator_support::CounterGenerator;
+use self::id_generator_support::{
+    CounterGenerator,
+    IoCounterGenerator,
+};
 
 #[test]
 fn test_id_generator_is_object_safe_for_one_output_type() {
-    let generator: Arc<dyn IdGenerator<u64>> =
-        Arc::new(CounterGenerator::default());
+    let generator: Arc<
+        dyn IdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+    > = Arc::new(CounterGenerator::default());
 
     assert_eq!(generator.generate().expect("generation should succeed"), 1);
     assert_eq!(generator.generate().expect("generation should succeed"), 2);
@@ -26,16 +30,17 @@ fn test_id_generator_is_object_safe_for_one_output_type() {
 
 #[test]
 fn test_id_generator_supports_custom_error_type() {
-    let generator: Arc<dyn IdGenerator<u64, std::io::Error>> =
-        Arc::new(CounterGenerator::default());
+    let generator: Arc<dyn IdGenerator<Output = u64, Error = std::io::Error>> =
+        Arc::new(IoCounterGenerator::default());
 
     assert_eq!(generator.generate().expect("generation should succeed"), 1);
 }
 
 #[test]
 fn test_id_generator_supports_concurrent_shared_access() {
-    let generator: Arc<dyn IdGenerator<u64>> =
-        Arc::new(CounterGenerator::default());
+    let generator: Arc<
+        dyn IdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+    > = Arc::new(CounterGenerator::default());
     let first_generator = Arc::clone(&generator);
     let second_generator = Arc::clone(&generator);
     let first = std::thread::spawn(move || {

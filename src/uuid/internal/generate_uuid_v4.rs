@@ -13,7 +13,7 @@ use ::uuid::{
     Uuid,
 };
 
-use crate::IdError;
+use crate::IdGenerationError;
 
 /// Generates one UUID v4 value from the operating-system random source.
 ///
@@ -23,12 +23,12 @@ use crate::IdError;
 ///
 /// # Errors
 ///
-/// Returns [`IdError::RandomSourceFailed`] when the operating-system random
-/// source cannot fill the UUID bytes.
+/// Returns [`IdGenerationError::RandomSourceFailed`] when the operating-system
+/// random source cannot fill the UUID bytes.
 #[inline(always)]
-pub(crate) fn generate_uuid_v4() -> Result<Uuid, IdError> {
+pub(crate) fn generate_uuid_v4() -> Result<Uuid, IdGenerationError> {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes)
-        .map_err(|source| IdError::RandomSourceFailed { source })?;
+        .map_err(|source| IdGenerationError::RandomSourceFailed { source })?;
     Ok(Builder::from_random_bytes(bytes).into_uuid())
 }

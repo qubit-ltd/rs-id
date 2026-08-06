@@ -5,92 +5,43 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Snowflake-family ID generators and related Qubit layout helpers.
+//! Snowflake-family ID generators and shared implementation helpers.
 
-#[cfg(feature = "qubit-snowflake")]
-mod constants;
-#[cfg(feature = "qubit-snowflake")]
-mod id_mode;
+#[cfg(feature = "classic-snowflake")]
+pub mod classical;
 mod internal;
 #[cfg(feature = "qubit-snowflake")]
-mod qubit_snowflake_generator;
-#[cfg(feature = "qubit-snowflake")]
-mod qubit_snowflake_generator_builder;
-#[cfg(feature = "qubit-snowflake")]
-mod qubit_snowflake_layout;
-#[cfg(feature = "qubit-snowflake")]
-mod qubit_snowflake_parts;
+pub mod qubit;
 mod restart_policy;
-#[cfg(feature = "classic-snowflake")]
-mod snowflake_generator;
-#[cfg(feature = "classic-snowflake")]
-mod snowflake_generator_builder;
-#[cfg(feature = "classic-snowflake")]
-mod snowflake_layout;
-#[cfg(feature = "classic-snowflake")]
-mod snowflake_parts;
-mod snowflake_string_generator;
 #[cfg(feature = "sonyflake")]
-mod sonyflake_generator;
-#[cfg(feature = "sonyflake")]
-mod sonyflake_generator_builder;
-#[cfg(feature = "sonyflake")]
-mod sonyflake_layout;
-#[cfg(feature = "sonyflake")]
-mod sonyflake_parts;
-#[cfg(feature = "qubit-snowflake")]
-mod timestamp_precision;
+pub mod sonyflake;
 
+#[cfg(feature = "classic-snowflake")]
+pub use classical::{
+    ClassicalSnowflakeGenerator,
+    ClassicalSnowflakeGeneratorBuilder,
+    ClassicalSnowflakeLayout,
+    ClassicalSnowflakeParts,
+};
 #[cfg(feature = "qubit-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use constants::{
+pub use qubit::{
     DEFAULT_MAX_CLOCK_SKEW,
     HOST_BITS,
     HOST_MAX,
     HOST_MIN,
+    IdMode,
     PRECISION_BITS,
+    SnowflakeGenerator,
+    SnowflakeGeneratorBuilder,
+    SnowflakeLayout,
+    SnowflakeParts,
+    TimestampPrecision,
 };
-#[cfg(feature = "qubit-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use id_mode::IdMode;
-#[cfg(feature = "qubit-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use qubit_snowflake_generator::QubitSnowflakeGenerator;
-#[cfg(feature = "qubit-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use qubit_snowflake_generator_builder::QubitSnowflakeGeneratorBuilder;
-#[cfg(feature = "qubit-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use qubit_snowflake_layout::QubitSnowflakeLayout;
-#[cfg(feature = "qubit-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use qubit_snowflake_parts::QubitSnowflakeParts;
 pub use restart_policy::RestartPolicy;
-#[cfg(feature = "classic-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
-pub use snowflake_generator::SnowflakeGenerator;
-#[cfg(feature = "classic-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
-pub use snowflake_generator_builder::SnowflakeGeneratorBuilder;
-#[cfg(feature = "classic-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
-pub use snowflake_layout::SnowflakeLayout;
-#[cfg(feature = "classic-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
-pub use snowflake_parts::SnowflakeParts;
-pub use snowflake_string_generator::SnowflakeStringGenerator;
 #[cfg(feature = "sonyflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
-pub use sonyflake_generator::SonyflakeGenerator;
-#[cfg(feature = "sonyflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
-pub use sonyflake_generator_builder::SonyflakeGeneratorBuilder;
-#[cfg(feature = "sonyflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
-pub use sonyflake_layout::SonyflakeLayout;
-#[cfg(feature = "sonyflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
-pub use sonyflake_parts::SonyflakeParts;
-#[cfg(feature = "qubit-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use timestamp_precision::TimestampPrecision;
+pub use sonyflake::{
+    SonyflakeGenerator,
+    SonyflakeGeneratorBuilder,
+    SonyflakeLayout,
+    SonyflakeParts,
+};

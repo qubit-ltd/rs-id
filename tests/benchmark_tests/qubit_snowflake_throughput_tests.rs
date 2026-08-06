@@ -9,10 +9,10 @@
 use std::fs;
 use std::path::PathBuf;
 
-/// Verifies that the Qubit throughput benchmark measures every string-adapter
-/// dispatch path alongside the numeric generator paths.
+/// Verifies that the Qubit throughput benchmark measures ID-to-string
+/// conversion paths alongside the numeric generator paths.
 #[test]
-fn test_qubit_snowflake_throughput_benchmarks_string_adapters() {
+fn test_qubit_snowflake_throughput_benchmarks_id_string_paths() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let benchmark_path =
         manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
@@ -24,7 +24,6 @@ fn test_qubit_snowflake_throughput_benchmarks_string_adapters() {
     });
 
     for fragment in [
-        "SnowflakeStringGenerator",
         "sync_string_concrete",
         "sync_string_arc_dyn",
         "async_string_concrete",

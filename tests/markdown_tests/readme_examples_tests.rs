@@ -311,11 +311,11 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         r#"default-features = false, features = ["sonyflake"]"#,
         r#"default-features = false, features = ["uuid"]"#,
         "`now >= expires_at`",
-        "`Arc<dyn IdGenerator<u64>>`",
-        "`Arc<dyn AsyncIdGenerator<u64>>`",
+        "`Arc<dyn IdGenerator<Output = Id, Error = IdGenerationError>>`",
+        "`Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>`",
         "`ManualMonotonicClock`",
         "`UuidV4Generator`",
-        "`UuidV4StringGenerator`",
+        "`ClassicalSnowflakeGenerator`",
         "cargo bench --no-default-features --features uuid --bench uuid_comparison",
     ];
 
@@ -365,9 +365,9 @@ fn test_async_documentation_describes_unboxed_outer_future() {
     );
 
     for path in [
-        "src/snowflake/qubit_snowflake_generator.rs",
-        "src/snowflake/snowflake_generator.rs",
-        "src/snowflake/sonyflake_generator.rs",
+        "src/snowflake/qubit/snowflake_generator.rs",
+        "src/snowflake/classical/classical_snowflake_generator.rs",
+        "src/snowflake/sonyflake/sonyflake_generator.rs",
     ] {
         let source = fs::read_to_string(manifest_dir.join(path))
             .unwrap_or_else(|error| panic!("failed to read {path}: {error}"));
@@ -386,14 +386,14 @@ fn test_readmes_document_structured_generation_failures() {
     let readmes = [
         (
             "README.md",
-            "UUID generation returns `IdError::RandomSourceFailed`",
-            "builders return `IdError::GeneratorExpired` when `now >= expires_at`",
+            "IdGenerationError::RandomSourceFailed",
+            "builders return `IdGenerationError::GeneratorExpired` when `now >= expires_at`",
             ["UUID generation panics", "builders panic"],
         ),
         (
             "README.zh_CN.md",
-            "UUID 生成会返回 `IdError::RandomSourceFailed`",
-            "构建器会在 `now >= expires_at` 时返回 `IdError::GeneratorExpired`",
+            "IdGenerationError::RandomSourceFailed",
+            "构建器会在 `now >= expires_at` 时返回 `IdGenerationError::GeneratorExpired`",
             ["UUID 生成会 panic", "构建器会 panic"],
         ),
     ];

@@ -9,4 +9,7 @@
 
 mod counter_generator_tests;
 
-pub(crate) use counter_generator_tests::CounterGenerator;
+pub(crate) use counter_generator_tests::{
+    CounterGenerator,
+    IoCounterGenerator,
+};

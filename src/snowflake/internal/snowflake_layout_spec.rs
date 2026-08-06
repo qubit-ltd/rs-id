@@ -10,7 +10,7 @@
 
 use std::time::Duration;
 
-use crate::IdError;
+use crate::IdGenerationError;
 
 /// Supplies the time and bit operations required by the shared allocator.
 pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
@@ -48,8 +48,13 @@ pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::TimestampOverflow`] when `timestamp` exceeds the
-    /// layout capacity or [`IdError::SequenceOverflow`] when `sequence` exceeds
+    /// Returns [`IdGenerationError::TimestampOverflow`] when `timestamp`
+    /// exceeds the layout capacity or
+    /// [`IdGenerationError::SequenceOverflow`] when `sequence` exceeds
     /// its field capacity.
-    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdError>;
+    fn compose(
+        &self,
+        timestamp: u64,
+        sequence: u64,
+    ) -> Result<u64, IdGenerationError>;
 }

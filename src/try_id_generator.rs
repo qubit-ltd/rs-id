@@ -7,10 +7,7 @@
 // =============================================================================
 //! Non-blocking contract for ID generators.
 
-use crate::{
-    GenerationAttempt,
-    IdError,
-};
+use crate::GenerationAttempt;
 
 /// Attempts to allocate an identifier without sleeping or awaiting.
 ///
@@ -18,7 +15,12 @@ use crate::{
 /// [`GenerationAttempt::RetryAfter`] result leaves the generator usable and
 /// tells the caller when another attempt can make progress. Implementations
 /// must not block on clocks, timers, or external coordination.
-pub trait TryIdGenerator<T, E = IdError>: Send + Sync {
+pub trait TryIdGenerator: Send + Sync {
+    /// Value produced by this generator.
+    type Output;
+    /// Error returned by this generator.
+    type Error;
+
     /// Attempts one non-blocking allocation.
     ///
     /// # Returns
@@ -27,17 +29,24 @@ pub trait TryIdGenerator<T, E = IdError>: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns `E` when the allocation cannot recover by waiting.
-    fn try_generate(&self) -> Result<GenerationAttempt<T>, E>;
+    /// Returns [`Self::Error`] when the allocation cannot recover by waiting.
+    fn try_generate(
+        &self,
+    ) -> Result<GenerationAttempt<Self::Output>, Self::Error>;
 }
 
-impl<T, E, G> TryIdGenerator<T, E> for std::sync::Arc<G>
+impl<G> TryIdGenerator for std::sync::Arc<G>
 where
-    G: TryIdGenerator<T, E> + ?Sized,
+    G: TryIdGenerator + ?Sized,
 {
+    type Output = G::Output;
+    type Error = G::Error;
+
     /// Delegates one non-blocking allocation to the shared generator.
     #[inline(always)]
-    fn try_generate(&self) -> Result<GenerationAttempt<T>, E> {
+    fn try_generate(
+        &self,
+    ) -> Result<GenerationAttempt<Self::Output>, Self::Error> {
         self.as_ref().try_generate()
     }
 }

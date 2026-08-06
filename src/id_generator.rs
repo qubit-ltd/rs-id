@@ -9,17 +9,20 @@
 
 use std::sync::Arc;
 
-use crate::IdError;
-
 /// Generates identifiers synchronously.
 ///
-/// The output and error types are trait parameters so applications can inject
-/// a generator through an object-safe boundary such as
-/// `Arc<dyn IdGenerator<u64>>`. The error type defaults to [`IdError`].
+/// The output and error types are associated with each generator so
+/// applications can inject a generator through an object-safe boundary such as
+/// `Arc<dyn IdGenerator<Output = u64, Error = MyError>>`.
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because generation uses a shared reference and may be called
 /// concurrently.
-pub trait IdGenerator<T: Send + 'static, E = IdError>: Send + Sync {
+pub trait IdGenerator: Send + Sync {
+    /// Value produced by this generator.
+    type Output: Send + 'static;
+    /// Error returned by this generator.
+    type Error;
+
     /// Generates the next identifier.
     ///
     /// This method may block when an implementation must wait for time to
@@ -31,15 +34,18 @@ pub trait IdGenerator<T: Send + 'static, E = IdError>: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns `E` when the implementation cannot generate an identifier.
-    fn generate(&self) -> Result<T, E>;
+    /// Returns [`Self::Error`] when the implementation cannot generate an
+    /// identifier.
+    fn generate(&self) -> Result<Self::Output, Self::Error>;
 }
 
-impl<T, E, G> IdGenerator<T, E> for Arc<G>
+impl<G> IdGenerator for Arc<G>
 where
-    T: Send + 'static,
-    G: IdGenerator<T, E> + ?Sized,
+    G: IdGenerator + ?Sized,
 {
+    type Output = G::Output;
+    type Error = G::Error;
+
     /// Delegates identifier generation to the shared generator.
     ///
     /// # Returns
@@ -50,7 +56,7 @@ where
     ///
     /// Returns any error produced by the wrapped generator.
     #[inline(always)]
-    fn generate(&self) -> Result<T, E> {
+    fn generate(&self) -> Result<Self::Output, Self::Error> {
         self.as_ref().generate()
     }
 }
