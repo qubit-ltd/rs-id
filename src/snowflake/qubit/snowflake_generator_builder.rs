@@ -25,6 +25,8 @@ use super::super::internal::{
     SnowflakeCore,
     default_timer,
     default_wall_clock,
+    validate_generator_epoch,
+    validate_generator_lifetime,
 };
 use super::constants::DEFAULT_MAX_CLOCK_SKEW;
 use super::snowflake_generator::SnowflakeGenerator;
@@ -40,7 +42,7 @@ use crate::IdGenerationError;
 /// The required host is supplied when the builder is created. Unspecified
 /// options use Qubit defaults: sequential mode, second precision, epoch
 /// `2018-12-02T00:00:00Z`, the default clock-skew tolerance,
-/// [`RestartPolicy::WaitNextSlice`], and standard clock and timer capabilities.
+/// [`RestartPolicy::Immediate`], and standard clock and timer capabilities.
 #[must_use = "builders do nothing unless built"]
 pub struct SnowflakeGeneratorBuilder {
     /// ID ordering mode encoded in generated IDs.
@@ -82,7 +84,7 @@ impl SnowflakeGeneratorBuilder {
             epoch: UNIX_EPOCH
                 + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             max_clock_skew: DEFAULT_MAX_CLOCK_SKEW,
-            restart_policy: RestartPolicy::WaitNextSlice,
+            restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
             timer: default_timer(),
         }
@@ -212,6 +214,8 @@ impl SnowflakeGeneratorBuilder {
     /// does not fit the Qubit host field, or
     /// [`IdGenerationError::ExpirationTimeOverflow`] when the exclusive
     /// expiration cannot be represented, or
+    /// [`IdGenerationError::EpochAhead`] when the configured epoch is later
+    /// than the wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
     /// is equal to or later than that boundary.
     #[inline]
@@ -232,6 +236,8 @@ impl SnowflakeGeneratorBuilder {
     /// does not fit the Qubit host field,
     /// [`IdGenerationError::ExpirationTimeOverflow`] when the
     /// exclusive expiration cannot be represented, or
+    /// [`IdGenerationError::EpochAhead`] when the configured epoch is later
+    /// than the wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
     /// is equal to or later than that boundary.
     fn into_core(
@@ -242,14 +248,10 @@ impl SnowflakeGeneratorBuilder {
     > {
         let layout =
             SnowflakeLayout::new(self.mode, self.precision, self.host)?;
-        let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
-        if current_time >= expires_at {
-            return Err(IdGenerationError::GeneratorExpired {
-                observed_at: current_time,
-                expires_at,
-            });
-        }
+        validate_generator_epoch(self.epoch, current_time)?;
+        let expires_at = layout.expires_at(self.epoch)?;
+        validate_generator_lifetime(self.epoch, expires_at, current_time)?;
         let core = SnowflakeCore::new(
             layout,
             self.epoch,

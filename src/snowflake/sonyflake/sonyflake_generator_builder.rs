@@ -24,8 +24,10 @@ use super::super::internal::{
     SnowflakeCore,
     default_timer,
     default_wall_clock,
+    validate_generator_epoch,
+    validate_generator_lifetime,
 };
-use super::sonyflake_generator::DEFAULT_START_MILLIS;
+use super::sonyflake_generator::DEFAULT_EPOCH_MILLIS;
 use super::sonyflake_layout::{
     DEFAULT_BITS_MACHINE,
     DEFAULT_BITS_SEQUENCE,
@@ -48,8 +50,10 @@ pub struct SonyflakeGeneratorBuilder {
     bits_machine: u8,
     /// Duration represented by one elapsed-time unit.
     time_unit: Duration,
-    /// Elapsed-time origin encoded by generated IDs.
-    start_time: SystemTime,
+    /// Timestamp origin encoded by generated IDs.
+    epoch: SystemTime,
+    /// Maximum tolerated raw wall-clock rollback.
+    max_clock_skew: Duration,
     /// First-allocation policy.
     restart_policy: RestartPolicy,
     /// Wall clock sampled during validation and allocation.
@@ -67,8 +71,8 @@ impl SonyflakeGeneratorBuilder {
     ///
     /// # Returns
     ///
-    /// A builder initialized with the default layout, clocks, and restart
-    /// policy.
+    /// A builder initialized with the default layout, zero clock-skew
+    /// tolerance, clocks, and immediate restart policy.
     #[inline]
     pub(crate) fn new(machine_id: u64) -> Self {
         Self {
@@ -76,9 +80,9 @@ impl SonyflakeGeneratorBuilder {
             bits_sequence: DEFAULT_BITS_SEQUENCE,
             bits_machine: DEFAULT_BITS_MACHINE,
             time_unit: Duration::from_nanos(DEFAULT_TIME_UNIT_NANOS as u64),
-            start_time: UNIX_EPOCH
-                + Duration::from_millis(DEFAULT_START_MILLIS),
-            restart_policy: RestartPolicy::WaitNextSlice,
+            epoch: UNIX_EPOCH + Duration::from_millis(DEFAULT_EPOCH_MILLIS),
+            max_clock_skew: Duration::ZERO,
+            restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
             timer: default_timer(),
         }
@@ -129,18 +133,33 @@ impl SonyflakeGeneratorBuilder {
         self
     }
 
-    /// Sets the elapsed-time origin encoded by generated IDs.
+    /// Sets the timestamp origin encoded by generated IDs.
     ///
     /// # Parameters
     ///
-    /// * `start_time` - Wall time represented by elapsed time zero.
+    /// * `epoch` - Wall time represented by elapsed time zero.
     ///
     /// # Returns
     ///
     /// The updated builder.
     #[inline(always)]
-    pub fn start_time(mut self, start_time: SystemTime) -> Self {
-        self.start_time = start_time;
+    pub fn epoch(mut self, epoch: SystemTime) -> Self {
+        self.epoch = epoch;
+        self
+    }
+
+    /// Sets the maximum tolerated raw wall-clock rollback.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_clock_skew` - Largest raw rollback that may be retried.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    #[inline(always)]
+    pub fn max_clock_skew(mut self, max_clock_skew: Duration) -> Self {
+        self.max_clock_skew = max_clock_skew;
         self
     }
 
@@ -196,7 +215,7 @@ impl SonyflakeGeneratorBuilder {
         self
     }
 
-    /// Validates the configuration and constructs a synchronous generator.
+    /// Validates the configuration and constructs a generator.
     ///
     /// # Returns
     ///
@@ -208,8 +227,8 @@ impl SonyflakeGeneratorBuilder {
     /// [`IdGenerationError::InvalidTimeUnit`], or
     /// [`IdGenerationError::MachineIdOutOfRange`] for an invalid layout,
     /// [`IdGenerationError::ExpirationTimeOverflow`] when the lifetime boundary
-    /// cannot be represented, [`IdGenerationError::StartTimeAhead`] when
-    /// `start_time` is later than the configured wall clock, or
+    /// cannot be represented, [`IdGenerationError::EpochAhead`] when
+    /// the epoch is later than the configured wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when that clock has reached
     /// the boundary.
     #[inline]
@@ -230,8 +249,8 @@ impl SonyflakeGeneratorBuilder {
     /// [`IdGenerationError::InvalidTimeUnit`], or
     /// [`IdGenerationError::MachineIdOutOfRange`] for an invalid layout,
     /// [`IdGenerationError::ExpirationTimeOverflow`] when the lifetime boundary
-    /// cannot be represented, [`IdGenerationError::StartTimeAhead`] when
-    /// `start_time` is later than the configured wall clock, or
+    /// cannot be represented, [`IdGenerationError::EpochAhead`] when
+    /// the epoch is later than the configured wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when that clock has reached
     /// the boundary.
     fn into_core(
@@ -246,25 +265,15 @@ impl SonyflakeGeneratorBuilder {
             self.bits_machine,
             self.time_unit,
         )?;
-        let expires_at = layout.expires_at(self.start_time)?;
         let current_time = self.wall_clock.now();
-        if self.start_time > current_time {
-            return Err(IdGenerationError::StartTimeAhead {
-                start_time: self.start_time,
-                current_time,
-            });
-        }
-        if current_time >= expires_at {
-            return Err(IdGenerationError::GeneratorExpired {
-                observed_at: current_time,
-                expires_at,
-            });
-        }
+        validate_generator_epoch(self.epoch, current_time)?;
+        let expires_at = layout.expires_at(self.epoch)?;
+        validate_generator_lifetime(self.epoch, expires_at, current_time)?;
         let core = SnowflakeCore::new(
             layout,
-            self.start_time,
+            self.epoch,
             expires_at,
-            Duration::ZERO,
+            self.max_clock_skew,
             self.restart_policy,
             self.wall_clock,
         );

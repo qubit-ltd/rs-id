@@ -139,7 +139,6 @@ where
     /// has reached the exclusive expiration boundary, or
     /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
     /// the layout.
-    #[cfg(feature = "qubit-snowflake")]
     #[inline(always)]
     pub(crate) fn compose_at(
         &self,
@@ -187,7 +186,6 @@ where
     /// # Returns
     ///
     /// The largest rollback duration accepted by the allocation state.
-    #[cfg(feature = "qubit-snowflake")]
     #[inline(always)]
     pub(crate) const fn max_clock_skew(&self) -> Duration {
         self.max_clock_skew

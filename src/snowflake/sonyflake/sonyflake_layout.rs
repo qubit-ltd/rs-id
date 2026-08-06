@@ -213,14 +213,14 @@ impl SonyflakeLayout {
         (1_u64 << self.bits_machine) - 1
     }
 
-    /// Calculates this layout's exclusive expiration for a start time.
+    /// Calculates this layout's exclusive expiration for an epoch.
     ///
     /// Elapsed-time values from zero through [`Self::max_elapsed_time`] are
     /// valid. The returned time is the first instant outside that range.
     ///
     /// # Parameters
     ///
-    /// * `start_time` - Timestamp origin represented by elapsed time zero.
+    /// * `epoch` - Timestamp origin represented by elapsed time zero.
     ///
     /// # Returns
     ///
@@ -233,9 +233,9 @@ impl SonyflakeLayout {
     #[inline(always)]
     pub fn expires_at(
         &self,
-        start_time: SystemTime,
+        epoch: SystemTime,
     ) -> Result<SystemTime, IdGenerationError> {
-        expiration_time(start_time, self.time_unit, self.max_elapsed_time())
+        expiration_time(epoch, self.time_unit, self.max_elapsed_time())
     }
 
     /// Composes a Sonyflake ID from elapsed-time and sequence parts.
@@ -245,7 +245,7 @@ impl SonyflakeLayout {
     ///
     /// # Parameters
     ///
-    /// * `elapsed_time` - Time units elapsed since the generator start time.
+    /// * `elapsed_time` - Time units elapsed since the generator epoch.
     /// * `sequence` - Sequence number inside the elapsed-time unit.
     ///
     /// # Returns

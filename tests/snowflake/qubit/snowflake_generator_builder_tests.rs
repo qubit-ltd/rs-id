@@ -61,6 +61,24 @@ fn test_snowflake_generator_builder_builds_configuration() {
     assert_eq!(parts.sequence(), 0);
 }
 
+/// Verifies that an unconfigured builder allocates in its first observed slice.
+#[test]
+fn test_snowflake_generator_builder_defaults_to_immediate_allocation() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(100));
+    let generator = SnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("default configuration should be valid");
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(qubit_id::GenerationAttempt::Generated(_))
+    ));
+}
+
 /// Tests that builder validation rejects an out-of-range host.
 #[test]
 fn test_snowflake_generator_builder_rejects_invalid_host() {
@@ -92,8 +110,45 @@ async fn test_snowflake_generator_builder_async_propagates_expiration_error() {
         SnowflakeGenerator::builder(17)
             .epoch(epoch)
             .restart_policy(RestartPolicy::Immediate)
+            .wall_clock(Arc::new(FixedWallClock::new(epoch)))
             .build(),
         Err(IdGenerationError::ExpirationTimeOverflow { .. })
+    ));
+}
+
+#[test]
+fn test_snowflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow()
+ {
+    let epoch = latest_representable_whole_second();
+    let current_time = epoch - Duration::from_nanos(1);
+
+    assert!(matches!(
+        SnowflakeGenerator::builder(17)
+            .epoch(epoch)
+            .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+            .build(),
+        Err(IdGenerationError::EpochAhead {
+            epoch: actual_epoch,
+            current_time: actual_current,
+        }) if actual_epoch == epoch && actual_current == current_time
+    ));
+}
+
+/// Tests that builder validation rejects an epoch later than its wall clock.
+#[test]
+fn test_snowflake_generator_builder_rejects_future_epoch() {
+    let current_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let epoch = current_time + Duration::from_nanos(1);
+
+    assert!(matches!(
+        SnowflakeGenerator::builder(17)
+            .epoch(epoch)
+            .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+            .build(),
+        Err(IdGenerationError::EpochAhead {
+            epoch: actual_epoch,
+            current_time: actual_current,
+        }) if actual_epoch == epoch && actual_current == current_time
     ));
 }
 

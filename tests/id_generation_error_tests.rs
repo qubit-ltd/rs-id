@@ -83,11 +83,11 @@ fn test_id_generation_error_display_formats_all_variants() {
             format!("time {time:?} is before the configured epoch {epoch:?}"),
         ),
         (
-            IdGenerationError::StartTimeAhead {
-                start_time: epoch,
+            IdGenerationError::EpochAhead {
+                epoch,
                 current_time: time,
             },
-            format!("start time {epoch:?} is ahead of generator clock {time:?}"),
+            format!("epoch {epoch:?} is ahead of generator clock {time:?}"),
         ),
         (
             IdGenerationError::InvalidBitLength {

@@ -78,16 +78,14 @@ pub enum IdGenerationError {
     TimeBeforeEpoch {
         /// Wall time that could not be represented relative to the epoch.
         time: SystemTime,
-        /// Configured epoch or Sonyflake start time.
+        /// Configured timestamp epoch.
         epoch: SystemTime,
     },
-    /// The configured Sonyflake start time is ahead of the generator clock.
-    #[error(
-        "start time {start_time:?} is ahead of generator clock {current_time:?}"
-    )]
-    StartTimeAhead {
-        /// Configured Sonyflake start time.
-        start_time: SystemTime,
+    /// The configured epoch is ahead of the generator clock.
+    #[error("epoch {epoch:?} is ahead of generator clock {current_time:?}")]
+    EpochAhead {
+        /// Configured epoch.
+        epoch: SystemTime,
         /// Wall time observed while validating the builder.
         current_time: SystemTime,
     },

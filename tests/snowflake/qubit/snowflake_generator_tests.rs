@@ -17,11 +17,11 @@ use std::time::{
 };
 
 use qubit_id::{
+    BlockingIdGenerator,
     DEFAULT_MAX_CLOCK_SKEW,
     GenerationAttempt,
     Id,
     IdGenerationError,
-    IdGenerator,
     IdMode,
     RestartPolicy,
     SnowflakeGenerator,
@@ -83,12 +83,13 @@ fn test_snowflake_generator_new_uses_defaults() {
 }
 
 #[test]
-fn test_snowflake_default_waits_without_blocking() {
+fn test_snowflake_wait_next_slice_retries_without_blocking() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let generator = SnowflakeGenerator::builder(7)
         .precision(TimestampPrecision::Millisecond)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
@@ -140,7 +141,7 @@ fn test_snowflake_supports_sync_trait_object() {
         DEFAULT_MAX_CLOCK_SKEW,
     );
     let generator: Box<
-        dyn IdGenerator<Output = Id, Error = IdGenerationError>,
+        dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>,
     > = Box::new(generator);
 
     let _ = generator
@@ -390,7 +391,6 @@ fn test_snowflake_generator_waits_with_injected_timer() {
         SnowflakeGenerator::builder(7)
             .precision(TimestampPrecision::Second)
             .epoch(epoch)
-            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
@@ -418,7 +418,6 @@ fn test_snowflake_generator_preserves_wait_failure_source() {
     let generator = SnowflakeGenerator::builder(7)
         .precision(TimestampPrecision::Second)
         .epoch(epoch)
-        .restart_policy(RestartPolicy::Immediate)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
         .timer(Arc::new(FaultInjectingTimer::new(
@@ -721,7 +720,6 @@ mod async_tests {
             SnowflakeGenerator::builder(7)
                 .precision(TimestampPrecision::Millisecond)
                 .epoch(epoch)
-                .restart_policy(RestartPolicy::Immediate)
                 .restart_policy(RestartPolicy::WaitNextSlice)
                 .wall_clock(time.wall_clock())
                 .timer(time.timer())
@@ -793,7 +791,6 @@ mod async_tests {
         let generator = SnowflakeGenerator::builder(7)
             .precision(TimestampPrecision::Second)
             .epoch(epoch)
-            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(Arc::new(FaultInjectingTimer::new(
@@ -819,7 +816,6 @@ mod async_tests {
         let generator = SnowflakeGenerator::builder(7)
             .precision(TimestampPrecision::Second)
             .epoch(epoch)
-            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(Arc::new(CompletionFailingTimer::new()))

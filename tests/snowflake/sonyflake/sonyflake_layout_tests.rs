@@ -168,16 +168,16 @@ fn test_sonyflake_layout_accepts_maximum_parts() {
 
 #[test]
 fn test_sonyflake_layout_calculates_exclusive_expiration() {
-    let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time_unit = Duration::from_millis(10);
     let layout = SonyflakeLayout::new(23, 8, 16, time_unit)
         .expect("Sonyflake layout must be valid");
 
     assert_eq!(
         layout
-            .expires_at(start_time)
+            .expires_at(epoch)
             .expect("Sonyflake expiration must be representable"),
-        start_time + Duration::from_millis((1_u64 << 39) * 10),
+        epoch + Duration::from_millis((1_u64 << 39) * 10),
     );
 }
 
