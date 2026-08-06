@@ -7,17 +7,9 @@
 // =============================================================================
 //! Defines a thread-safe counter generator fixture.
 
-use std::sync::atomic::{
-    AtomicU64,
-    Ordering,
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use qubit_id::{
-    AsyncIdGenerator,
-    IdError,
-    IdGenerationFuture,
-    IdGenerator,
-};
+use qubit_id::{AsyncIdGenerator, IdError, IdGenerationFuture, IdGenerator};
 
 /// Generator that increments an atomic counter for each request.
 #[derive(Debug, Default)]
@@ -50,9 +42,7 @@ impl AsyncIdGenerator<u64> for CounterGenerator {
     /// An immediately ready future containing the next counter value.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
-        Box::pin(
-            async move { <Self as IdGenerator<u64, IdError>>::generate(self) },
-        )
+        Box::pin(async move { <Self as IdGenerator<u64, IdError>>::generate(self) })
     }
 }
 
@@ -81,8 +71,6 @@ impl AsyncIdGenerator<u64, std::io::Error> for CounterGenerator {
     /// An immediately ready future containing the next counter value.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64, std::io::Error> {
-        Box::pin(async move {
-            <Self as IdGenerator<u64, std::io::Error>>::generate(self)
-        })
+        Box::pin(async move { <Self as IdGenerator<u64, std::io::Error>>::generate(self) })
     }
 }

@@ -9,25 +9,18 @@
 
 use std::sync::Arc;
 use std::thread;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, UNIX_EPOCH};
 
 use qubit_id::{
-    IdError,
-    IdGenerator,
-    RestartPolicy,
-    SnowflakeGenerator,
-    SnowflakeLayout,
+    GenerationAttempt, IdError, IdGenerator, RestartPolicy, SnowflakeGenerator, SnowflakeLayout,
+    TryIdGenerator,
 };
 
 use crate::support::ManualTime;
 
 #[test]
 fn test_snowflake_generator_new_uses_defaults() {
-    let generator = SnowflakeGenerator::new(17)
-        .expect("default configuration should be valid");
+    let generator = SnowflakeGenerator::new(17).expect("default configuration should be valid");
 
     assert_eq!(generator.layout().node_id(), 17);
 }
@@ -39,6 +32,7 @@ fn test_snowflake_generator_supports_sync_trait_object() {
     let generator: Arc<dyn IdGenerator<u64>> = Arc::new(
         SnowflakeGenerator::builder(17)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
             .build()
@@ -48,13 +42,34 @@ fn test_snowflake_generator_supports_sync_trait_object() {
     assert!(generator.generate().is_ok());
 }
 
+#[test]
+fn test_snowflake_generator_supports_nonblocking_trait_object_and_inherent_api() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator = SnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
+
+    let generator: Arc<dyn TryIdGenerator<u64>> = Arc::new(generator);
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
+}
+
 mod inherent_api_tests {
     use super::ManualTime;
-    use qubit_id::SnowflakeGenerator;
-    use std::time::{
-        Duration,
-        UNIX_EPOCH,
-    };
+    use qubit_id::{RestartPolicy, SnowflakeGenerator};
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
     fn test_snowflake_generator_supports_inherent_generate() {
@@ -62,6 +77,7 @@ mod inherent_api_tests {
         let time = ManualTime::new(epoch + Duration::from_millis(10));
         let generator = SnowflakeGenerator::builder(7)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
             .build()
@@ -79,6 +95,7 @@ fn test_snowflake_generator_increments_sequence_in_same_millisecond() {
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let generator = SnowflakeGenerator::builder(17)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
@@ -98,6 +115,7 @@ fn test_snowflake_generator_waits_with_injected_timer() {
     let generator = Arc::new(
         SnowflakeGenerator::builder(17)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
@@ -123,6 +141,7 @@ fn test_snowflake_generator_reports_clock_rollback() {
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let generator = SnowflakeGenerator::builder(17)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
@@ -147,6 +166,7 @@ fn test_snowflake_generator_reports_runtime_expiration() {
     let time = ManualTime::new(expires_at - Duration::from_nanos(1));
     let generator = SnowflakeGenerator::builder(17)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()

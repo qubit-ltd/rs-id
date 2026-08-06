@@ -14,8 +14,7 @@ use std::path::PathBuf;
 #[test]
 fn test_qubit_snowflake_throughput_benchmarks_string_adapters() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let benchmark_path =
-        manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
+    let benchmark_path = manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
     let source = fs::read_to_string(&benchmark_path).unwrap_or_else(|error| {
         panic!(
             "failed to read benchmark source {}: {error}",

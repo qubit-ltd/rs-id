@@ -9,25 +9,18 @@
 
 use std::sync::Arc;
 use std::thread;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, UNIX_EPOCH};
 
 use qubit_id::{
-    IdError,
-    IdGenerator,
-    RestartPolicy,
-    SonyflakeGenerator,
-    SonyflakeLayout,
+    GenerationAttempt, IdError, IdGenerator, RestartPolicy, SonyflakeGenerator, SonyflakeLayout,
+    TryIdGenerator,
 };
 
 use crate::support::ManualTime;
 
 #[test]
 fn test_sonyflake_generator_new_uses_defaults() {
-    let generator = SonyflakeGenerator::new(17)
-        .expect("default configuration should be valid");
+    let generator = SonyflakeGenerator::new(17).expect("default configuration should be valid");
 
     assert_eq!(generator.layout().machine_id(), 17);
 }
@@ -39,6 +32,7 @@ fn test_sonyflake_generator_supports_sync_trait_object() {
     let generator: Arc<dyn IdGenerator<u64>> = Arc::new(
         SonyflakeGenerator::builder(17)
             .start_time(start_time)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
             .build()
@@ -48,13 +42,34 @@ fn test_sonyflake_generator_supports_sync_trait_object() {
     assert!(generator.generate().is_ok());
 }
 
+#[test]
+fn test_sonyflake_generator_supports_nonblocking_trait_object_and_inherent_api() {
+    let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(start_time + Duration::from_millis(100));
+    let generator = SonyflakeGenerator::builder(17)
+        .start_time(start_time)
+        .restart_policy(RestartPolicy::Immediate)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
+
+    let generator: Arc<dyn TryIdGenerator<u64>> = Arc::new(generator);
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
+}
+
 mod inherent_api_tests {
     use super::ManualTime;
-    use qubit_id::SonyflakeGenerator;
-    use std::time::{
-        Duration,
-        UNIX_EPOCH,
-    };
+    use qubit_id::{RestartPolicy, SonyflakeGenerator};
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
     fn test_sonyflake_generator_supports_inherent_generate() {
@@ -62,6 +77,7 @@ mod inherent_api_tests {
         let time = ManualTime::new(start_time + Duration::from_millis(100));
         let generator = SonyflakeGenerator::builder(7)
             .start_time(start_time)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
             .build()
@@ -79,6 +95,7 @@ fn test_sonyflake_generator_increments_sequence_in_same_time_unit() {
     let time = ManualTime::new(start_time + Duration::from_millis(100));
     let generator = SonyflakeGenerator::builder(17)
         .start_time(start_time)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
@@ -98,6 +115,7 @@ fn test_sonyflake_generator_waits_with_injected_timer() {
     let generator = Arc::new(
         SonyflakeGenerator::builder(17)
             .start_time(start_time)
+            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
@@ -123,6 +141,7 @@ fn test_sonyflake_generator_reports_clock_rollback() {
     let time = ManualTime::new(start_time + Duration::from_millis(100));
     let generator = SonyflakeGenerator::builder(17)
         .start_time(start_time)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
@@ -140,14 +159,15 @@ fn test_sonyflake_generator_reports_clock_rollback() {
 #[test]
 fn test_sonyflake_generator_reports_runtime_expiration() {
     let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10))
-        .expect("layout should be valid");
+    let layout =
+        SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10)).expect("layout should be valid");
     let expires_at = layout
         .expires_at(start_time)
         .expect("expiration should be representable");
     let time = ManualTime::new(expires_at - Duration::from_nanos(1));
     let generator = SonyflakeGenerator::builder(17)
         .start_time(start_time)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
