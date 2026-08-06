@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::thread;
 
 use qubit_id::{
-    IdGenerator,
+    BlockingIdGenerator,
     UuidV4Generator,
 };
 use uuid::Variant;
@@ -44,7 +44,7 @@ mod inherent_api_tests {
 #[test]
 fn test_uuid_v4_generator_supports_sync_trait_object() {
     let generator: Arc<
-        dyn IdGenerator<
+        dyn BlockingIdGenerator<
                 Output = uuid::Uuid,
                 Error = qubit_id::IdGenerationError,
             >,
@@ -59,7 +59,7 @@ fn test_uuid_v4_generator_is_unique_across_concurrent_sample() {
     const IDS_PER_WORKER: usize = 1_000;
 
     let generator: Arc<
-        dyn IdGenerator<
+        dyn BlockingIdGenerator<
                 Output = uuid::Uuid,
                 Error = qubit_id::IdGenerationError,
             >,

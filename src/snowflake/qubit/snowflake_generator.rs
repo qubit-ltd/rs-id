@@ -23,6 +23,7 @@ use super::SnowflakeLayout;
 use super::snowflake_generator_builder::SnowflakeGeneratorBuilder;
 use crate::{
     AsyncIdGenerator,
+    BlockingIdGenerator,
     GenerationAttempt,
     Id,
     IdGenerationError,
@@ -39,15 +40,16 @@ use crate::{
 ///
 /// # Uniqueness
 ///
-/// The generator is thread-safe. Successful [`IdGenerator::generate`] calls on
-/// one shared live instance never return the same ID. A process should share
-/// one instance for each ID namespace.
+/// The generator is thread-safe. Successful [`BlockingIdGenerator::generate`]
+/// calls on one shared live instance never return the same ID. A process should
+/// share one instance for each ID namespace.
 /// Every concurrently running instance across processes and servers must have
 /// an exclusive host identifier when its layout and epoch can produce IDs in
 /// the same namespace.
 ///
-/// The default [`crate::RestartPolicy::WaitNextSlice`] skips the first
-/// observed time slice before allocating. Allocation state is not persisted.
+/// The default [`crate::RestartPolicy::Immediate`] starts allocation in the
+/// first observed time slice. [`crate::RestartPolicy::WaitNextSlice`] is an
+/// explicit opt-in that skips that slice. Allocation state is not persisted.
 /// State loss or replacement can repeat an ID only when the
 /// instances use the same effective identity (`host`), layout (`mode` and
 /// `precision`), and reference time (`epoch`), allocate in the same logical
@@ -63,10 +65,10 @@ use crate::{
 ///
 /// # Blocking and clock behavior
 ///
-/// [`IdGenerator::generate`] may wait indefinitely when the wall clock stalls
-/// or the injected timer does not cause wall time to progress. A backwards
-/// clock movement within `max_clock_skew` is retried after waiting; a larger
-/// movement returns [`IdGenerationError::ClockMovedBackwards`].
+/// [`BlockingIdGenerator::generate`] may wait indefinitely when the wall clock
+/// stalls or the injected timer does not cause wall time to progress. A
+/// backwards clock movement within `max_clock_skew` is retried after waiting; a
+/// larger movement returns [`IdGenerationError::ClockMovedBackwards`].
 #[derive(Clone)]
 #[must_use]
 pub struct SnowflakeGenerator {
@@ -89,7 +91,9 @@ impl SnowflakeGenerator {
     ///
     /// Returns [`IdGenerationError::HostOutOfRange`] when `host` does not fit
     /// in the host field, [`IdGenerationError::ExpirationTimeOverflow`]
-    /// when the lifetime boundary cannot be represented, or
+    /// when the lifetime boundary cannot be represented,
+    /// [`IdGenerationError::EpochAhead`] when the default epoch is later than
+    /// the current wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the current wall time
     /// has reached that boundary.
     #[inline(always)]
@@ -193,7 +197,8 @@ impl SnowflakeGenerator {
     /// Generates the next Qubit Snowflake ID.
     ///
     /// This inherent method is convenient for concrete callers. Use
-    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    /// [`BlockingIdGenerator`] when an object-safe dynamic-dispatch boundary is
+    /// needed.
     ///
     /// # Returns
     ///
@@ -201,7 +206,8 @@ impl SnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as the [`IdGenerator::generate`] implementation.
+    /// Returns the same errors as the [`BlockingIdGenerator::generate`]
+    /// implementation.
     #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate().map(Id::from)
@@ -217,7 +223,7 @@ impl SnowflakeGenerator {
     /// # Errors
     ///
     /// Returns the non-retryable allocation errors described by
-    /// [`IdGenerator::generate`].
+    /// [`BlockingIdGenerator::generate`].
     #[inline]
     pub fn try_generate(
         &self,
@@ -238,7 +244,7 @@ impl SnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as [`IdGenerator::generate`].
+    /// Returns the same errors as [`BlockingIdGenerator::generate`].
     pub async fn generate_async(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate_async().await.map(Id::from)
     }
@@ -277,7 +283,9 @@ impl SnowflakeGenerator {
 impl IdGenerator for SnowflakeGenerator {
     type Output = Id;
     type Error = IdGenerationError;
+}
 
+impl BlockingIdGenerator for SnowflakeGenerator {
     /// Generates the next Qubit snowflake ID.
     ///
     /// Timestamp and sequence pairs are reserved while holding the generator
@@ -306,9 +314,6 @@ impl IdGenerator for SnowflakeGenerator {
 }
 
 impl TryIdGenerator for SnowflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-
     /// Attempts one non-blocking Qubit Snowflake allocation.
     #[inline]
     fn try_generate(
@@ -319,9 +324,6 @@ impl TryIdGenerator for SnowflakeGenerator {
 }
 
 impl AsyncIdGenerator for SnowflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-
     /// Generates a Qubit Snowflake ID asynchronously.
     #[inline]
     fn generate_async(

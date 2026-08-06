@@ -9,6 +9,7 @@
 
 use super::internal::generate_uuid_v4;
 use crate::{
+    BlockingIdGenerator,
     IdGenerationError,
     IdGenerator,
 };
@@ -18,9 +19,10 @@ use crate::{
 /// UUID uniqueness is probabilistic. This stateless generator is safe to share
 /// across threads and tasks.
 ///
-/// This type intentionally exposes only [`IdGenerator`]. Applications that
-/// generate UUIDs from an async runtime must choose the runtime-specific
-/// blocking boundary explicitly.
+/// This type intentionally exposes [`IdGenerator`] plus only the
+/// [`BlockingIdGenerator`] allocation capability. Applications that generate
+/// UUIDs from an async runtime must choose the runtime-specific blocking
+/// boundary explicitly.
 ///
 /// ```compile_fail
 /// use qubit_id::{AsyncIdGenerator, UuidV4Generator};
@@ -47,7 +49,8 @@ impl UuidV4Generator {
     /// Generates a UUID v4 value.
     ///
     /// This inherent method is convenient for concrete callers. Use
-    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    /// [`BlockingIdGenerator`] when an object-safe dynamic-dispatch boundary is
+    /// needed.
     ///
     /// # Returns
     ///
@@ -66,7 +69,9 @@ impl UuidV4Generator {
 impl IdGenerator for UuidV4Generator {
     type Output = uuid::Uuid;
     type Error = IdGenerationError;
+}
 
+impl BlockingIdGenerator for UuidV4Generator {
     /// Generates a UUID v4 as a [`uuid::Uuid`].
     ///
     /// # Returns

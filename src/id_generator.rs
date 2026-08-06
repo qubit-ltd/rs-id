@@ -5,38 +5,23 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Synchronous contract for ID generators.
+//! Common type contract for ID generators.
 
 use std::sync::Arc;
 
-/// Generates identifiers synchronously.
+/// Describes the output and error types shared by ID-generation capabilities.
 ///
-/// The output and error types are associated with each generator so
-/// applications can inject a generator through an object-safe boundary such as
-/// `Arc<dyn IdGenerator<Output = u64, Error = MyError>>`.
+/// This trait deliberately provides no generation method. Pair it with
+/// [`crate::BlockingIdGenerator`], [`crate::TryIdGenerator`], or
+/// [`crate::AsyncIdGenerator`] according to the caller's scheduling model.
 /// Implementations that mutate allocation state must synchronize that state
-/// internally because generation uses a shared reference and may be called
-/// concurrently.
+/// internally because those capabilities use a shared reference and may be
+/// called concurrently.
 pub trait IdGenerator: Send + Sync {
     /// Value produced by this generator.
     type Output;
     /// Error returned by this generator.
     type Error;
-
-    /// Generates the next identifier.
-    ///
-    /// This method may block when an implementation must wait for time to
-    /// advance or another retryable condition to clear.
-    ///
-    /// # Returns
-    ///
-    /// The next generated identifier.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Self::Error`] when the implementation cannot generate an
-    /// identifier.
-    fn generate(&self) -> Result<Self::Output, Self::Error>;
 }
 
 impl<G> IdGenerator for Arc<G>
@@ -45,18 +30,4 @@ where
 {
     type Output = G::Output;
     type Error = G::Error;
-
-    /// Delegates identifier generation to the shared generator.
-    ///
-    /// # Returns
-    ///
-    /// The next identifier returned by the wrapped generator.
-    ///
-    /// # Errors
-    ///
-    /// Returns any error produced by the wrapped generator.
-    #[inline(always)]
-    fn generate(&self) -> Result<Self::Output, Self::Error> {
-        self.as_ref().generate()
-    }
 }

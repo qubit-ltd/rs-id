@@ -14,6 +14,7 @@ use std::sync::atomic::{
 
 use qubit_id::{
     AsyncIdGenerator,
+    BlockingIdGenerator,
     IdGenerationFuture,
     IdGenerator,
 };
@@ -28,7 +29,9 @@ pub(crate) struct CounterGenerator {
 impl IdGenerator for CounterGenerator {
     type Output = u64;
     type Error = qubit_id::IdGenerationError;
+}
 
+impl BlockingIdGenerator for CounterGenerator {
     /// Increments and returns the fixture counter.
     ///
     /// # Returns
@@ -45,9 +48,6 @@ impl IdGenerator for CounterGenerator {
 }
 
 impl AsyncIdGenerator for CounterGenerator {
-    type Output = u64;
-    type Error = qubit_id::IdGenerationError;
-
     /// Asynchronously increments and returns the fixture counter.
     ///
     /// # Returns
@@ -57,10 +57,11 @@ impl AsyncIdGenerator for CounterGenerator {
     fn generate_async(
         &self,
     ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
-        Box::pin(async move { <Self as IdGenerator>::generate(self) })
+        Box::pin(async move { <Self as BlockingIdGenerator>::generate(self) })
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default)]
 pub(crate) struct IoCounterGenerator {
     /// Last numeric value returned by the fixture.
@@ -70,7 +71,9 @@ pub(crate) struct IoCounterGenerator {
 impl IdGenerator for IoCounterGenerator {
     type Output = u64;
     type Error = std::io::Error;
+}
 
+impl BlockingIdGenerator for IoCounterGenerator {
     /// Increments and returns the fixture counter with a custom error type.
     ///
     /// # Returns
@@ -87,9 +90,6 @@ impl IdGenerator for IoCounterGenerator {
 }
 
 impl AsyncIdGenerator for IoCounterGenerator {
-    type Output = u64;
-    type Error = std::io::Error;
-
     /// Asynchronously increments and returns the fixture counter with a custom
     /// error type.
     ///
@@ -100,6 +100,6 @@ impl AsyncIdGenerator for IoCounterGenerator {
     fn generate_async(
         &self,
     ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
-        Box::pin(async move { <Self as IdGenerator>::generate(self) })
+        Box::pin(async move { <Self as BlockingIdGenerator>::generate(self) })
     }
 }

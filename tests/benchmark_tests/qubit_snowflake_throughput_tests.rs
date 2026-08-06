@@ -58,3 +58,22 @@ fn test_qubit_snowflake_throughput_startup_uses_immediate_restart_policy() {
         "startup benchmark function must remain present"
     );
 }
+
+/// Verifies that the UUID comparison benchmark invokes the blocking capability
+/// rather than the UUID generator's inherent convenience method.
+#[test]
+fn test_uuid_comparison_benchmark_uses_blocking_generator_contract() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let benchmark_path = manifest_dir.join("benches/uuid_comparison/main.rs");
+    let source = fs::read_to_string(&benchmark_path).unwrap_or_else(|error| {
+        panic!(
+            "failed to read benchmark source {}: {error}",
+            benchmark_path.display()
+        )
+    });
+
+    assert!(
+        source.contains("BlockingIdGenerator::generate(&numeric)"),
+        "UUID comparison benchmark must invoke BlockingIdGenerator explicitly"
+    );
+}

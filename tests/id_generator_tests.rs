@@ -14,11 +14,9 @@ use std::sync::Arc;
 
 use qubit_id::IdGenerator;
 
-use self::id_generator_support::{
-    CounterGenerator,
-    IoCounterGenerator,
-};
+use self::id_generator_support::CounterGenerator;
 
+#[allow(dead_code)]
 struct LocalOutput(Rc<()>);
 
 struct LocalOutputGenerator;
@@ -26,20 +24,18 @@ struct LocalOutputGenerator;
 impl IdGenerator for LocalOutputGenerator {
     type Output = LocalOutput;
     type Error = std::convert::Infallible;
-
-    /// Generates a synchronous output that is intentionally not `Send`.
-    fn generate(&self) -> Result<Self::Output, Self::Error> {
-        Ok(LocalOutput(Rc::new(())))
-    }
 }
 
 #[test]
-fn test_id_generator_allows_non_send_synchronous_output() {
-    let output = LocalOutputGenerator
-        .generate()
-        .expect("local output generation should succeed");
+fn test_id_generator_allows_non_send_synchronous_output_type() {
+    fn require_id_generator<G>(_: &G)
+    where
+        G: IdGenerator<Output = LocalOutput, Error = std::convert::Infallible>,
+    {
+    }
 
-    assert_eq!(Rc::strong_count(&output.0), 1);
+    let generator = LocalOutputGenerator;
+    require_id_generator(&generator);
 }
 
 #[test]
@@ -48,40 +44,13 @@ fn test_id_generator_is_object_safe_for_one_output_type() {
         dyn IdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
     > = Arc::new(CounterGenerator::default());
 
-    assert_eq!(generator.generate().expect("generation should succeed"), 1);
-    assert_eq!(generator.generate().expect("generation should succeed"), 2);
-}
+    fn require_id_generator(
+        _: &dyn IdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+    ) {
+    }
 
-#[test]
-fn test_id_generator_supports_custom_error_type() {
-    let generator: Arc<dyn IdGenerator<Output = u64, Error = std::io::Error>> =
-        Arc::new(IoCounterGenerator::default());
+    require_id_generator(generator.as_ref());
 
-    assert_eq!(generator.generate().expect("generation should succeed"), 1);
-}
-
-#[test]
-fn test_id_generator_supports_concurrent_shared_access() {
-    let generator: Arc<
-        dyn IdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
-    > = Arc::new(CounterGenerator::default());
-    let first_generator = Arc::clone(&generator);
-    let second_generator = Arc::clone(&generator);
-    let first = std::thread::spawn(move || {
-        first_generator
-            .generate()
-            .expect("generation should succeed")
-    });
-    let second = std::thread::spawn(move || {
-        second_generator
-            .generate()
-            .expect("generation should succeed")
-    });
-    let mut generated = [
-        first.join().expect("first thread should finish"),
-        second.join().expect("second thread should finish"),
-    ];
-    generated.sort_unstable();
-
-    assert_eq!(generated, [1, 2]);
+    let shared = Arc::new(CounterGenerator::default());
+    require_id_generator(&shared);
 }

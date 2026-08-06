@@ -8,7 +8,10 @@
 //! Synchronous classic 41/10/12 Snowflake generator.
 
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{
+    Duration,
+    SystemTime,
+};
 
 use qubit_clock::Timer;
 
@@ -22,6 +25,7 @@ use super::{
 };
 use crate::{
     AsyncIdGenerator,
+    BlockingIdGenerator,
     GenerationAttempt,
     Id,
     IdGenerationError,
@@ -35,8 +39,11 @@ use crate::{
 ///
 /// The generator is thread-safe. One shared live instance never returns the
 /// same ID twice, provided its node identifier is exclusive within the ID
-/// namespace. [`IdGenerator::generate`] blocks when sequence capacity is
-/// exhausted until the injected timer allows wall time to advance.
+/// namespace. [`BlockingIdGenerator::generate`] blocks when sequence capacity
+/// is exhausted until the injected timer allows wall time to advance. A
+/// backwards clock movement within [`Self::max_clock_skew`] is retried after
+/// waiting; a larger movement returns
+/// [`IdGenerationError::ClockMovedBackwards`].
 #[derive(Clone)]
 #[must_use]
 pub struct ClassicalSnowflakeGenerator {
@@ -60,7 +67,9 @@ impl ClassicalSnowflakeGenerator {
     /// Returns [`IdGenerationError::NodeOutOfRange`] when `node_id` does not
     /// fit the 10-bit node field,
     /// [`IdGenerationError::ExpirationTimeOverflow`] when the lifetime
-    /// boundary cannot be represented, or
+    /// boundary cannot be represented,
+    /// [`IdGenerationError::EpochAhead`] when the default epoch is later than
+    /// the current wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the current wall time
     /// has reached that boundary.
     #[inline(always)]
@@ -91,7 +100,7 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// # Returns
     ///
-    /// A synchronous generator backed by `core` and `timer`.
+    /// A generator backed by `core` and `timer`.
     #[inline]
     pub(super) fn from_core(
         core: SnowflakeCore<ClassicalSnowflakeLayout>,
@@ -144,10 +153,22 @@ impl ClassicalSnowflakeGenerator {
         self.inner.core().expires_at()
     }
 
+    /// Returns the maximum tolerated backwards clock movement.
+    ///
+    /// # Returns
+    ///
+    /// Maximum tolerated raw wall-clock rollback.
+    #[must_use]
+    #[inline(always)]
+    pub fn max_clock_skew(&self) -> Duration {
+        self.inner.core().max_clock_skew()
+    }
+
     /// Generates the next classic Snowflake ID.
     ///
     /// This inherent method is convenient for concrete callers. Use
-    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    /// [`BlockingIdGenerator`] when an object-safe dynamic-dispatch boundary is
+    /// needed.
     ///
     /// # Returns
     ///
@@ -155,7 +176,8 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as the [`IdGenerator::generate`] implementation.
+    /// Returns the same errors as the [`BlockingIdGenerator::generate`]
+    /// implementation.
     #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate().map(Id::from)
@@ -171,7 +193,7 @@ impl ClassicalSnowflakeGenerator {
     /// # Errors
     ///
     /// Returns the non-retryable allocation errors described by
-    /// [`IdGenerator::generate`].
+    /// [`BlockingIdGenerator::generate`].
     #[inline]
     pub fn try_generate(
         &self,
@@ -189,16 +211,47 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as [`IdGenerator::generate`].
+    /// Returns the same errors as [`BlockingIdGenerator::generate`].
     pub async fn generate_async(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate_async().await.map(Id::from)
+    }
+
+    /// Composes an ID for an explicit time and sequence.
+    ///
+    /// This operation is stateless and provides no uniqueness guarantee.
+    ///
+    /// # Parameters
+    ///
+    /// * `time` - Wall time to encode.
+    /// * `sequence` - Sequence to encode within that millisecond.
+    ///
+    /// # Returns
+    ///
+    /// A classic Snowflake ID containing the specified timestamp and sequence.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdGenerationError::TimeBeforeEpoch`] if `time` is before the
+    /// configured epoch, [`IdGenerationError::GeneratorExpired`] if `time`
+    /// has reached the exclusive expiration boundary, or
+    /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
+    /// the layout.
+    #[inline(always)]
+    pub fn compose_at(
+        &self,
+        time: SystemTime,
+        sequence: u64,
+    ) -> Result<Id, IdGenerationError> {
+        self.inner.core().compose_at(time, sequence).map(Id::from)
     }
 }
 
 impl IdGenerator for ClassicalSnowflakeGenerator {
     type Output = Id;
     type Error = IdGenerationError;
+}
 
+impl BlockingIdGenerator for ClassicalSnowflakeGenerator {
     /// Generates the next classic Snowflake ID.
     ///
     /// # Returns
@@ -209,9 +262,10 @@ impl IdGenerator for ClassicalSnowflakeGenerator {
     ///
     /// Returns [`IdGenerationError::TimeBeforeEpoch`] when the wall clock
     /// precedes the epoch, [`IdGenerationError::GeneratorExpired`] at the
-    /// lifetime boundary, [`IdGenerationError::ClockMovedBackwards`] after
-    /// any wall-clock rollback, or [`IdGenerationError::WaitFailed`] when a
-    /// retry wait cannot be registered or completed.
+    /// lifetime boundary, [`IdGenerationError::ClockMovedBackwards`] when a
+    /// wall-clock rollback exceeds the configured tolerance, or
+    /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
+    /// registered or completed.
     #[inline(always)]
     fn generate(&self) -> Result<Self::Output, Self::Error> {
         ClassicalSnowflakeGenerator::generate(self)
@@ -219,9 +273,6 @@ impl IdGenerator for ClassicalSnowflakeGenerator {
 }
 
 impl TryIdGenerator for ClassicalSnowflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-
     /// Attempts one non-blocking classic Snowflake allocation.
     #[inline]
     fn try_generate(
@@ -232,9 +283,6 @@ impl TryIdGenerator for ClassicalSnowflakeGenerator {
 }
 
 impl AsyncIdGenerator for ClassicalSnowflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-
     /// Generates a classic Snowflake ID asynchronously.
     #[inline]
     fn generate_async(
