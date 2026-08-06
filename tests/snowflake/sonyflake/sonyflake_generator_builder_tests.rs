@@ -29,26 +29,28 @@ use crate::support::{
 /// Tests that every configurable Sonyflake option is applied.
 #[test]
 fn test_sonyflake_generator_builder_builds_configuration() {
-    let start_time = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
+    let epoch = UNIX_EPOCH + Duration::from_millis(1_735_689_600_000);
     let time_unit = Duration::from_millis(5);
-    let time = ManualTime::new(start_time + Duration::from_millis(100));
+    let time = ManualTime::new(epoch + Duration::from_millis(100));
     let generator = SonyflakeGenerator::builder(17)
         .bits_sequence(7)
         .bits_machine(5)
         .time_unit(time_unit)
-        .start_time(start_time)
+        .epoch(epoch)
         .restart_policy(RestartPolicy::Immediate)
+        .max_clock_skew(Duration::from_millis(37))
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
         .expect("configuration should be valid");
 
     assert_eq!(generator.layout().machine_id(), 17);
-    assert_eq!(generator.start_time(), start_time);
+    assert_eq!(generator.epoch(), epoch);
     assert_eq!(generator.layout().time_unit(), time_unit);
     assert_eq!(generator.layout().bits_time(), 51);
     assert_eq!(generator.layout().bits_sequence(), 7);
     assert_eq!(generator.layout().bits_machine(), 5);
+    assert_eq!(generator.max_clock_skew(), Duration::from_millis(37));
 
     let id = generator
         .generate()
@@ -58,21 +60,41 @@ fn test_sonyflake_generator_builder_builds_configuration() {
     assert_eq!(parts.sequence(), 0);
 }
 
+/// Verifies that an unconfigured builder allocates in its first observed slice.
+#[test]
+fn test_sonyflake_generator_builder_defaults_to_immediate_allocation() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(100));
+    let generator = SonyflakeGenerator::builder(17)
+        .epoch(epoch)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("default configuration should be valid");
+
+    assert_eq!(generator.max_clock_skew(), Duration::ZERO);
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(qubit_id::GenerationAttempt::Generated(_))
+    ));
+}
+
 /// Tests the exclusive expiration getter and construction boundary.
 #[test]
 fn test_sonyflake_generator_builder_enforces_expiration() {
-    let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time_unit = Duration::from_millis(10);
     let layout = SonyflakeLayout::new(17, 8, 16, time_unit)
         .expect("Sonyflake layout must be valid");
     let expires_at = layout
-        .expires_at(start_time)
+        .expires_at(epoch)
         .expect("Sonyflake expiration must be representable");
     let last_valid_time = expires_at - Duration::from_nanos(1);
 
     let generator = SonyflakeGenerator::builder(17)
         .time_unit(time_unit)
-        .start_time(start_time)
+        .epoch(epoch)
         .restart_policy(RestartPolicy::Immediate)
         .wall_clock(Arc::new(FixedWallClock::new(last_valid_time)))
         .build()
@@ -84,7 +106,7 @@ fn test_sonyflake_generator_builder_enforces_expiration() {
             matches!(
                     SonyflakeGenerator::builder(17)
                         .time_unit(time_unit)
-                        .start_time(start_time)
+                        .epoch(epoch)
             .restart_policy(RestartPolicy::Immediate)
                         .wall_clock(Arc::new(FixedWallClock::new(current_time)))
                         .build(),
@@ -116,31 +138,50 @@ async fn test_sonyflake_generator_builder_async_propagates_layout_error() {
 
 #[tokio::test]
 async fn test_sonyflake_generator_builder_async_propagates_expiration_error() {
-    let start_time = latest_representable_whole_second();
+    let epoch = latest_representable_whole_second();
 
     assert!(matches!(
         SonyflakeGenerator::builder(17)
-            .start_time(start_time)
+            .epoch(epoch)
             .restart_policy(RestartPolicy::Immediate)
+            .wall_clock(Arc::new(FixedWallClock::new(epoch)))
             .build(),
         Err(IdGenerationError::ExpirationTimeOverflow { .. })
     ));
 }
 
 #[test]
-fn test_sonyflake_generator_builder_rejects_future_start_time() {
-    let current_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let start_time = current_time + Duration::from_nanos(1);
+fn test_sonyflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow()
+ {
+    let epoch = latest_representable_whole_second();
+    let current_time = epoch - Duration::from_nanos(1);
 
     assert!(matches!(
         SonyflakeGenerator::builder(17)
-            .start_time(start_time)
+            .epoch(epoch)
+            .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+            .build(),
+        Err(IdGenerationError::EpochAhead {
+            epoch: actual_epoch,
+            current_time: actual_current,
+        }) if actual_epoch == epoch && actual_current == current_time
+    ));
+}
+
+#[test]
+fn test_sonyflake_generator_builder_rejects_future_epoch() {
+    let current_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let epoch = current_time + Duration::from_nanos(1);
+
+    assert!(matches!(
+        SonyflakeGenerator::builder(17)
+            .epoch(epoch)
         .restart_policy(RestartPolicy::Immediate)
             .wall_clock(Arc::new(FixedWallClock::new(current_time)))
             .build(),
-        Err(IdGenerationError::StartTimeAhead {
-            start_time: actual_start,
+        Err(IdGenerationError::EpochAhead {
+            epoch: actual_epoch,
             current_time: actual_current,
-        }) if actual_start == start_time && actual_current == current_time
+        }) if actual_epoch == epoch && actual_current == current_time
     ));
 }

@@ -15,12 +15,12 @@ use std::time::{
 };
 
 use qubit_id::{
+    BlockingIdGenerator,
     ClassicalSnowflakeGenerator,
     ClassicalSnowflakeLayout,
     GenerationAttempt,
     Id,
     IdGenerationError,
-    IdGenerator,
     RestartPolicy,
     TryIdGenerator,
 };
@@ -36,11 +36,53 @@ fn test_classical_snowflake_generator_new_uses_defaults() {
 }
 
 #[test]
+fn test_classical_snowflake_generator_compose_at_matches_layout_parts() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator = ClassicalSnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+
+    let id = generator
+        .compose_at(epoch + Duration::from_millis(45), 9)
+        .expect("timestamp and sequence should be valid");
+    let parts = ClassicalSnowflakeLayout::decode(id);
+
+    assert_eq!(parts.timestamp(), 45);
+    assert_eq!(parts.sequence(), 9);
+    assert_eq!(parts.node_id(), 17);
+}
+
+#[test]
+fn test_classical_snowflake_generator_compose_at_rejects_time_before_epoch() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator = ClassicalSnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+    let before_epoch = epoch - Duration::from_nanos(1);
+
+    assert!(matches!(
+        generator.compose_at(before_epoch, 0),
+        Err(IdGenerationError::TimeBeforeEpoch {
+            time: actual_time,
+            epoch: actual_epoch,
+        }) if actual_time == before_epoch && actual_epoch == epoch
+    ));
+}
+
+#[test]
 fn test_classical_snowflake_generator_supports_sync_trait_object() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let generator: Arc<
-        dyn IdGenerator<Output = Id, Error = IdGenerationError>,
+        dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>,
     > = Arc::new(
         ClassicalSnowflakeGenerator::builder(17)
             .epoch(epoch)
@@ -137,7 +179,6 @@ fn test_classical_snowflake_generator_waits_with_injected_timer() {
     let generator = Arc::new(
         ClassicalSnowflakeGenerator::builder(17)
             .epoch(epoch)
-            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
@@ -175,6 +216,32 @@ fn test_classical_snowflake_generator_reports_clock_rollback() {
         generator.generate(),
         Err(IdGenerationError::ClockMovedBackwards { skew, .. })
             if skew == Duration::from_millis(1)
+    ));
+}
+
+#[test]
+fn test_classical_snowflake_generator_retries_configured_clock_rollback() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator = ClassicalSnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .max_clock_skew(Duration::from_millis(1))
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+    let _ = generator.generate().expect("first ID should generate");
+    time.reanchor(epoch + Duration::from_millis(9));
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::RetryAfter { delay }) if delay == Duration::from_millis(1)
+    ));
+
+    time.reanchor(epoch + Duration::from_millis(10));
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
     ));
 }
 
@@ -299,7 +366,6 @@ mod async_tests {
         let generator = Arc::new(
             ClassicalSnowflakeGenerator::builder(17)
                 .epoch(epoch)
-                .restart_policy(RestartPolicy::Immediate)
                 .restart_policy(RestartPolicy::WaitNextSlice)
                 .wall_clock(time.wall_clock())
                 .timer(time.timer())

@@ -14,7 +14,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
 pub struct SonyflakeParts {
-    /// Time units elapsed since the generator start time.
+    /// Time units elapsed since the generator epoch.
     elapsed_time: u64,
     /// Sequence number encoded in the ID.
     sequence: u64,
@@ -27,7 +27,7 @@ impl SonyflakeParts {
     ///
     /// # Parameters
     ///
-    /// * `elapsed_time` - Time units elapsed since the generator start time.
+    /// * `elapsed_time` - Time units elapsed since the generator epoch.
     /// * `sequence` - Sequence number encoded in the ID.
     /// * `machine_id` - Machine identifier encoded in the ID.
     ///
@@ -51,7 +51,7 @@ impl SonyflakeParts {
     ///
     /// # Returns
     ///
-    /// Time units elapsed since the generator start time.
+    /// Time units elapsed since the generator epoch.
     #[must_use]
     #[inline(always)]
     pub const fn elapsed_time(self) -> u64 {

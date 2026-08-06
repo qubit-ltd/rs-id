@@ -25,6 +25,8 @@ use super::super::internal::{
     SnowflakeCore,
     default_timer,
     default_wall_clock,
+    validate_generator_epoch,
+    validate_generator_lifetime,
 };
 use super::{
     ClassicalSnowflakeGenerator,
@@ -39,6 +41,8 @@ pub struct ClassicalSnowflakeGeneratorBuilder {
     node_id: u64,
     /// Timestamp origin.
     epoch: SystemTime,
+    /// Maximum tolerated raw wall-clock rollback.
+    max_clock_skew: Duration,
     /// First-allocation policy.
     restart_policy: RestartPolicy,
     /// Wall clock sampled by the generator.
@@ -56,15 +60,16 @@ impl ClassicalSnowflakeGeneratorBuilder {
     ///
     /// # Returns
     ///
-    /// A builder initialized with the default epoch, clocks, and restart
-    /// policy.
+    /// A builder initialized with the default epoch, zero clock-skew
+    /// tolerance, clocks, and immediate restart policy.
     #[inline]
     pub(crate) fn new(node_id: u64) -> Self {
         Self {
             node_id,
             epoch: UNIX_EPOCH
                 + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
-            restart_policy: RestartPolicy::WaitNextSlice,
+            max_clock_skew: Duration::ZERO,
+            restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
             timer: default_timer(),
         }
@@ -82,6 +87,21 @@ impl ClassicalSnowflakeGeneratorBuilder {
     #[inline(always)]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
+        self
+    }
+
+    /// Sets the maximum tolerated raw wall-clock rollback.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_clock_skew` - Largest raw rollback that may be retried.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    #[inline(always)]
+    pub fn max_clock_skew(mut self, max_clock_skew: Duration) -> Self {
+        self.max_clock_skew = max_clock_skew;
         self
     }
 
@@ -137,7 +157,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
         self
     }
 
-    /// Validates the configuration and constructs a synchronous generator.
+    /// Validates the configuration and constructs a generator.
     ///
     /// # Returns
     ///
@@ -147,8 +167,10 @@ impl ClassicalSnowflakeGeneratorBuilder {
     ///
     /// Returns [`IdGenerationError::NodeOutOfRange`] or
     /// [`IdGenerationError::ExpirationTimeOverflow`] for an invalid
-    /// configuration, or [`IdGenerationError::GeneratorExpired`] when the
-    /// configured wall clock has reached the expiration boundary.
+    /// configuration, [`IdGenerationError::EpochAhead`] when the configured
+    /// epoch is later than the wall clock, or
+    /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
+    /// has reached the expiration boundary.
     #[inline]
     pub fn build(
         self,
@@ -167,8 +189,10 @@ impl ClassicalSnowflakeGeneratorBuilder {
     ///
     /// Returns [`IdGenerationError::NodeOutOfRange`] or
     /// [`IdGenerationError::ExpirationTimeOverflow`] for an invalid
-    /// configuration, or [`IdGenerationError::GeneratorExpired`] when the
-    /// configured wall clock has reached the expiration boundary.
+    /// configuration, [`IdGenerationError::EpochAhead`] when the configured
+    /// epoch is later than the wall clock, or
+    /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
+    /// has reached the expiration boundary.
     fn into_core(
         self,
     ) -> Result<
@@ -176,19 +200,15 @@ impl ClassicalSnowflakeGeneratorBuilder {
         IdGenerationError,
     > {
         let layout = ClassicalSnowflakeLayout::new(self.node_id)?;
-        let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
-        if current_time >= expires_at {
-            return Err(IdGenerationError::GeneratorExpired {
-                observed_at: current_time,
-                expires_at,
-            });
-        }
+        validate_generator_epoch(self.epoch, current_time)?;
+        let expires_at = layout.expires_at(self.epoch)?;
+        validate_generator_lifetime(self.epoch, expires_at, current_time)?;
         let core = SnowflakeCore::new(
             layout,
             self.epoch,
             expires_at,
-            Duration::ZERO,
+            self.max_clock_skew,
             self.restart_policy,
             self.wall_clock,
         );
