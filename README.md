@@ -8,7 +8,8 @@
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
 `qubit-id` provides object-safe, IoC-friendly synchronous and asynchronous ID
-generators. Generators return domain values (`Id` or `Uuid`); applications can
+generators. Snowflake generators return `Id`, while UUID generators return
+`uuid::Uuid`; applications can
 use their numeric values or their display forms at the storage and transport
 boundary.
 
@@ -20,8 +21,8 @@ boundary.
   state across its synchronous and asynchronous call paths.
 - Builders accept `Arc<dyn WallClock>` and `Arc<dyn Timer>` from
   [`qubit-clock`](https://crates.io/crates/qubit-clock).
-- UUID output is a standards-compliant version 4 `Uuid`, which exposes `u128`
-  conversion and canonical hyphenated text.
+- UUID output is the standards-compliant `uuid::Uuid` version 4 type, with
+  canonical hyphenated text and the full `uuid` crate API.
 - The default feature set enables only `qubit-snowflake`.
 
 ## Installation
@@ -39,6 +40,12 @@ Select another algorithm independently:
 qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
 qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
 qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
+qubit-id = { version = "0.3", default-features = false, features = ["serde"] }
+
+# UUID applications should depend on the upstream type directly.
+uuid = { version = "1", features = ["v4"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 ```
 
 Asynchronous ID generation is runtime-neutral. Applications that need the
@@ -135,6 +142,24 @@ A test mock only needs to implement the relevant trait for its local type.
 | `classic-snowflake` | `ClassicalSnowflakeGenerator` | `Id` |
 | `sonyflake` | `SonyflakeGenerator` | `Id` |
 
+The three public Snowflake layouts use typed `Id` values at their primary
+boundaries. Use the explicit raw methods only when interoperating with a
+protocol, database bit pattern, or another `u64` API:
+
+```rust
+use qubit_id::ClassicalSnowflakeLayout;
+
+fn main() -> Result<(), qubit_id::IdGenerationError> {
+    let layout = ClassicalSnowflakeLayout::new(7)?;
+    let id = layout.compose(42, 3)?;
+    let parts = ClassicalSnowflakeLayout::decode(id);
+    let raw = layout.compose_raw(42, 3)?;
+    let raw_parts = ClassicalSnowflakeLayout::decode_raw(raw);
+    assert_eq!(parts, raw_parts);
+    Ok(())
+}
+```
+
 “Classic Snowflake” describes the 41/10/12-bit layout, not a universal epoch.
 `ClassicalSnowflakeGenerator` defaults to `2018-12-02T00:00:00Z`, the same epoch
 used by Qubit Snowflake. Set the builder's `epoch(...)` when interoperating with an
@@ -150,7 +175,7 @@ cloning a generator, when supported, also shares that state.
 | --- | --- |
 | Sequential Qubit, classic Snowflake, Sonyflake | `Id`, `u64`, or decimal text; checked `i64` conversion when the selected layout remains within its range |
 | Spread Qubit | `Id`, unsigned decimal text, or 8-byte binary data |
-| UUID v4 | `Uuid`, `u128`, 16-byte binary data, or canonical UUID text |
+| UUID v4 | `uuid::Uuid`, 16-byte binary data, or canonical UUID text |
 
 `IdMode::Spread` always sets bit 63, so its IDs exceed `i64::MAX`.
 Do not cast those IDs to a signed database key. Use decimal strings when IDs
@@ -197,24 +222,41 @@ fn main() -> Result<(), IdGenerationError> {
 }
 ```
 
-`UuidV4Generator` returns `Uuid`. It converts to `u128` and displays as
-canonical lowercase hyphenated text. UUID generation returns `IdGenerationError::RandomSourceFailed`
+`UuidV4Generator` returns `uuid::Uuid`. Import `Uuid` directly from the `uuid`
+dependency to use its parsing, formatting, version, and byte APIs. UUID
+generation returns `IdGenerationError::RandomSourceFailed`
 if the operating system cannot provide
 random bytes. Async applications should place the synchronous call behind the
 blocking boundary supplied by their chosen runtime:
 
 ```rust
 use qubit_id::{IdGenerationError, UuidV4Generator};
+use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
     let uuid = UuidV4Generator::new().generate()?;
-    let numeric: u128 = uuid.into();
+    let numeric = Uuid::as_u128(&uuid);
     let text = uuid.to_string();
     assert_ne!(numeric, 0);
     assert_eq!(text.len(), 36);
     Ok(())
 }
 ```
+
+### Serialization formats
+
+Enable the optional `serde` feature when serializing `Id`:
+
+| Format | `Id` representation | Accepted input |
+| --- | --- | --- |
+| Human-readable (JSON) | Decimal string, for example `"42"` | Decimal string only |
+| Compact/binary | Unsigned 64-bit integer | `u64` only |
+
+JSON numbers are rejected even when they are small enough for JavaScript's
+safe-integer range, because a JSON number can cross an IEEE-754 boundary and
+silently lose precision for a 64-bit ID. UUID serialization follows the
+native `uuid` crate contract: canonical text for human-readable formats and
+16 bytes for compact formats.
 
 ## Lifetime, clocks, and deployment identity
 
