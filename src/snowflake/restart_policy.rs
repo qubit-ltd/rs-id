@@ -9,10 +9,10 @@
 
 /// Determines when a fresh Snowflake generator may allocate its first ID.
 ///
-/// Allocation state is not persisted. The default [`Self::Immediate`] policy
-/// minimizes startup latency but can repeat IDs after state loss when the old
-/// and replacement instances use the same effective identity, layout, and
-/// reference time, allocate in the same logical time slice, and use
+/// Allocation state is not persisted. The default [`Self::WaitNextSlice`]
+/// policy minimizes startup latency but can repeat IDs after state loss when
+/// the old and replacement instances use the same effective identity, layout,
+/// and reference time, allocate in the same logical time slice, and use
 /// overlapping sequence ranges.
 ///
 /// [`Self::WaitNextSlice`] reduces that risk for sequential replacement only
@@ -27,9 +27,7 @@
 pub enum RestartPolicy {
     /// Allocates immediately and may repeat IDs after same-slice state loss.
     ///
-    /// This is the default because it preserves immediate startup and maximum
-    /// usable time-slice capacity.
-    #[default]
+    /// Select this only when deployment guarantees restart separation.
     Immediate,
     /// Waits until the slice after the first observed slice.
     ///
@@ -38,5 +36,6 @@ pub enum RestartPolicy {
     /// not know the predecessor's allocation watermark, so clock rollback
     /// across a restart can still repeat IDs. It also does not coordinate
     /// concurrent same-identity instances.
+    #[default]
     WaitNextSlice,
 }

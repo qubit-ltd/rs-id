@@ -8,22 +8,15 @@
 //! Qubit snowflake generator.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::{Duration, SystemTime};
 
 use qubit_clock::Timer;
 
 use super::QubitSnowflakeLayout;
-use super::internal::{
-    BlockingSnowflake,
-    SnowflakeCore,
-};
+use super::internal::{BlockingSnowflake, SnowflakeCore};
 use super::qubit_snowflake_generator_builder::QubitSnowflakeGeneratorBuilder;
 use crate::{
-    IdError,
-    IdGenerator,
+    AsyncIdGenerator, GenerationAttempt, IdError, IdGenerationFuture, IdGenerator, TryIdGenerator,
 };
 
 /// Qubit Snowflake generator.
@@ -41,9 +34,9 @@ use crate::{
 /// an exclusive host identifier when its layout and epoch can produce IDs in
 /// the same namespace.
 ///
-/// The default [`crate::RestartPolicy::Immediate`] allocates sequence zero in
-/// the currently observed time slice without waiting. Allocation state is not
-/// persisted. State loss or replacement can repeat an ID only when the
+/// The default [`crate::RestartPolicy::WaitNextSlice`] skips the first
+/// observed time slice before allocating. Allocation state is not persisted.
+/// State loss or replacement can repeat an ID only when the
 /// instances use the same effective identity (`host`), layout (`mode` and
 /// `precision`), and reference time (`epoch`), allocate in the same logical
 /// time slice, and use overlapping sequence ranges.
@@ -62,6 +55,7 @@ use crate::{
 /// or the injected timer does not cause wall time to progress. A backwards
 /// clock movement within `max_clock_skew` is retried after waiting; a larger
 /// movement returns [`IdError::ClockMovedBackwards`].
+#[derive(Clone)]
 #[must_use]
 pub struct QubitSnowflakeGenerator {
     /// Blocking driver over the shared allocation core.
@@ -143,7 +137,7 @@ impl QubitSnowflakeGenerator {
     /// ```
     #[must_use = "use the returned layout reference"]
     #[inline(always)]
-    pub const fn layout(&self) -> &QubitSnowflakeLayout {
+    pub fn layout(&self) -> &QubitSnowflakeLayout {
         self.inner.core().layout()
     }
 
@@ -154,7 +148,7 @@ impl QubitSnowflakeGenerator {
     /// Timestamp origin.
     #[must_use]
     #[inline(always)]
-    pub const fn epoch(&self) -> SystemTime {
+    pub fn epoch(&self) -> SystemTime {
         self.inner.core().epoch()
     }
 
@@ -168,7 +162,7 @@ impl QubitSnowflakeGenerator {
     /// Exclusive expiration boundary.
     #[must_use]
     #[inline(always)]
-    pub const fn expires_at(&self) -> SystemTime {
+    pub fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
 
@@ -179,7 +173,7 @@ impl QubitSnowflakeGenerator {
     /// Maximum tolerated raw wall-clock rollback.
     #[must_use]
     #[inline(always)]
-    pub const fn max_clock_skew(&self) -> Duration {
+    pub fn max_clock_skew(&self) -> Duration {
         self.inner.core().max_clock_skew()
     }
 
@@ -198,6 +192,38 @@ impl QubitSnowflakeGenerator {
     #[inline(always)]
     pub fn generate(&self) -> Result<u64, IdError> {
         self.inner.generate()
+    }
+
+    /// Attempts to generate an ID without sleeping or awaiting.
+    ///
+    /// # Returns
+    ///
+    /// A generated ID or the minimum delay before another attempt can make
+    /// progress.
+    ///
+    /// # Errors
+    ///
+    /// Returns the non-retryable allocation errors described by
+    /// [`IdGenerator::generate`].
+    #[inline]
+    pub fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+        self.inner.try_generate()
+    }
+
+    /// Generates the next Qubit Snowflake ID asynchronously.
+    ///
+    /// The allocation lock is released before every timer registration and
+    /// await. Dropping the returned future cancels an incomplete timer wait.
+    ///
+    /// # Returns
+    ///
+    /// A cancellation-safe future for the next generated ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`IdGenerator::generate`].
+    pub async fn generate_async(&self) -> Result<u64, IdError> {
+        self.inner.generate_async().await
     }
 
     /// Composes an ID for an explicit time and sequence.
@@ -221,11 +247,7 @@ impl QubitSnowflakeGenerator {
     /// expiration boundary, or [`IdError::SequenceOverflow`] when `sequence`
     /// does not fit the layout.
     #[inline(always)]
-    pub fn compose_at(
-        &self,
-        time: SystemTime,
-        sequence: u64,
-    ) -> Result<u64, IdError> {
+    pub fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<u64, IdError> {
         self.inner.core().compose_at(time, sequence)
     }
 }
@@ -254,5 +276,21 @@ impl IdGenerator<u64> for QubitSnowflakeGenerator {
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
         QubitSnowflakeGenerator::generate(self)
+    }
+}
+
+impl TryIdGenerator<u64> for QubitSnowflakeGenerator {
+    /// Attempts one non-blocking Qubit Snowflake allocation.
+    #[inline]
+    fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+        QubitSnowflakeGenerator::try_generate(self)
+    }
+}
+
+impl AsyncIdGenerator<u64> for QubitSnowflakeGenerator {
+    /// Generates a Qubit Snowflake ID asynchronously.
+    #[inline]
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
+        Box::pin(QubitSnowflakeGenerator::generate_async(self))
     }
 }

@@ -8,34 +8,16 @@
 //! Builder for synchronous and asynchronous Sonyflake generators.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use qubit_clock::{
-    Timer,
-    WallClock,
-};
+use qubit_clock::{Timer, WallClock};
 
-use super::internal::{
-    SnowflakeCore,
-    default_timer,
-    default_wall_clock,
-};
+use super::internal::{SnowflakeCore, default_timer, default_wall_clock};
 use super::sonyflake_generator::DEFAULT_START_MILLIS;
 use super::sonyflake_layout::{
-    DEFAULT_BITS_MACHINE,
-    DEFAULT_BITS_SEQUENCE,
-    DEFAULT_TIME_UNIT_NANOS,
+    DEFAULT_BITS_MACHINE, DEFAULT_BITS_SEQUENCE, DEFAULT_TIME_UNIT_NANOS,
 };
-use super::{
-    AsyncSonyflakeGenerator,
-    RestartPolicy,
-    SonyflakeGenerator,
-    SonyflakeLayout,
-};
+use super::{RestartPolicy, SonyflakeGenerator, SonyflakeLayout};
 use crate::IdError;
 
 /// Configures synchronous or asynchronous Sonyflake-style generators.
@@ -77,9 +59,8 @@ impl SonyflakeGeneratorBuilder {
             bits_sequence: DEFAULT_BITS_SEQUENCE,
             bits_machine: DEFAULT_BITS_MACHINE,
             time_unit: Duration::from_nanos(DEFAULT_TIME_UNIT_NANOS as u64),
-            start_time: UNIX_EPOCH
-                + Duration::from_millis(DEFAULT_START_MILLIS),
-            restart_policy: RestartPolicy::Immediate,
+            start_time: UNIX_EPOCH + Duration::from_millis(DEFAULT_START_MILLIS),
+            restart_policy: RestartPolicy::WaitNextSlice,
             wall_clock: default_wall_clock(),
             timer: default_timer(),
         }
@@ -217,26 +198,6 @@ impl SonyflakeGeneratorBuilder {
         Ok(SonyflakeGenerator::from_core(core, timer))
     }
 
-    /// Validates the configuration and constructs an asynchronous generator.
-    ///
-    /// # Returns
-    ///
-    /// An asynchronous Sonyflake generator.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`IdError::InvalidBitLength`], [`IdError::InvalidTimeUnit`], or
-    /// [`IdError::MachineIdOutOfRange`] for an invalid layout,
-    /// [`IdError::ExpirationTimeOverflow`] when the lifetime boundary cannot
-    /// be represented, [`IdError::StartTimeAhead`] when `start_time` is later
-    /// than the configured wall clock, or [`IdError::GeneratorExpired`] when
-    /// that clock has reached the boundary.
-    #[inline]
-    pub fn build_async(self) -> Result<AsyncSonyflakeGenerator, IdError> {
-        let (core, timer) = self.into_core()?;
-        Ok(AsyncSonyflakeGenerator::from_core(core, timer))
-    }
-
     /// Converts the builder into a validated shared core and timer.
     ///
     /// # Returns
@@ -251,9 +212,7 @@ impl SonyflakeGeneratorBuilder {
     /// be represented, [`IdError::StartTimeAhead`] when `start_time` is later
     /// than the configured wall clock, or [`IdError::GeneratorExpired`] when
     /// that clock has reached the boundary.
-    fn into_core(
-        self,
-    ) -> Result<(SnowflakeCore<SonyflakeLayout>, Arc<dyn Timer>), IdError> {
+    fn into_core(self) -> Result<(SnowflakeCore<SonyflakeLayout>, Arc<dyn Timer>), IdError> {
         let layout = SonyflakeLayout::new(
             self.machine_id,
             self.bits_sequence,

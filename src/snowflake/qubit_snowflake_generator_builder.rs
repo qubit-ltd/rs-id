@@ -8,32 +8,16 @@
 //! Builder for the Qubit snowflake generator.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use qubit_clock::{
-    Timer,
-    WallClock,
-};
+use qubit_clock::{Timer, WallClock};
 
-use super::AsyncQubitSnowflakeGenerator;
 use super::constants::DEFAULT_MAX_CLOCK_SKEW;
 use super::internal::{
-    DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
-    SnowflakeCore,
-    default_timer,
-    default_wall_clock,
+    DEFAULT_SNOWFLAKE_EPOCH_MILLIS, SnowflakeCore, default_timer, default_wall_clock,
 };
 use super::qubit_snowflake_generator::QubitSnowflakeGenerator;
-use super::{
-    IdMode,
-    QubitSnowflakeLayout,
-    RestartPolicy,
-    TimestampPrecision,
-};
+use super::{IdMode, QubitSnowflakeLayout, RestartPolicy, TimestampPrecision};
 use crate::IdError;
 
 /// Configures and constructs a [`QubitSnowflakeGenerator`].
@@ -41,7 +25,7 @@ use crate::IdError;
 /// The required host is supplied when the builder is created. Unspecified
 /// options use Qubit defaults: sequential mode, second precision, epoch
 /// `2018-12-02T00:00:00Z`, the default clock-skew tolerance,
-/// [`RestartPolicy::Immediate`], and standard clock and timer capabilities.
+/// [`RestartPolicy::WaitNextSlice`], and standard clock and timer capabilities.
 #[must_use = "builders do nothing unless built"]
 pub struct QubitSnowflakeGeneratorBuilder {
     /// ID ordering mode encoded in generated IDs.
@@ -80,10 +64,9 @@ impl QubitSnowflakeGeneratorBuilder {
             mode: IdMode::Sequential,
             precision: TimestampPrecision::Second,
             host,
-            epoch: UNIX_EPOCH
-                + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
+            epoch: UNIX_EPOCH + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             max_clock_skew: DEFAULT_MAX_CLOCK_SKEW,
-            restart_policy: RestartPolicy::Immediate,
+            restart_policy: RestartPolicy::WaitNextSlice,
             wall_clock: default_wall_clock(),
             timer: default_timer(),
         }
@@ -220,25 +203,6 @@ impl QubitSnowflakeGeneratorBuilder {
         Ok(QubitSnowflakeGenerator::from_core(core, timer))
     }
 
-    /// Validates the configuration and constructs an asynchronous generator.
-    ///
-    /// # Returns
-    ///
-    /// A configured asynchronous Qubit Snowflake generator.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`IdError::HostOutOfRange`] when the configured host does not
-    /// fit the Qubit host field, or [`IdError::ExpirationTimeOverflow`] when
-    /// the exclusive expiration cannot be represented, or
-    /// [`IdError::GeneratorExpired`] when the configured wall clock is equal
-    /// to or later than that boundary.
-    #[inline]
-    pub fn build_async(self) -> Result<AsyncQubitSnowflakeGenerator, IdError> {
-        let (core, timer) = self.into_core()?;
-        Ok(AsyncQubitSnowflakeGenerator::from_core(core, timer))
-    }
-
     /// Converts this builder into a validated shared core and timer.
     ///
     /// # Returns
@@ -252,12 +216,8 @@ impl QubitSnowflakeGeneratorBuilder {
     /// exclusive expiration cannot be represented, or
     /// [`IdError::GeneratorExpired`] when the configured wall clock is equal
     /// to or later than that boundary.
-    fn into_core(
-        self,
-    ) -> Result<(SnowflakeCore<QubitSnowflakeLayout>, Arc<dyn Timer>), IdError>
-    {
-        let layout =
-            QubitSnowflakeLayout::new(self.mode, self.precision, self.host)?;
+    fn into_core(self) -> Result<(SnowflakeCore<QubitSnowflakeLayout>, Arc<dyn Timer>), IdError> {
+        let layout = QubitSnowflakeLayout::new(self.mode, self.precision, self.host)?;
         let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();
         if current_time >= expires_at {

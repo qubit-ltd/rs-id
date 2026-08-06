@@ -12,17 +12,10 @@ use std::time::SystemTime;
 
 use qubit_clock::Timer;
 
-use super::internal::{
-    BlockingSnowflake,
-    SnowflakeCore,
-};
-use super::{
-    SonyflakeGeneratorBuilder,
-    SonyflakeLayout,
-};
+use super::internal::{BlockingSnowflake, SnowflakeCore};
+use super::{SonyflakeGeneratorBuilder, SonyflakeLayout};
 use crate::{
-    IdError,
-    IdGenerator,
+    AsyncIdGenerator, GenerationAttempt, IdError, IdGenerationFuture, IdGenerator, TryIdGenerator,
 };
 
 /// Default Sonyflake start time as Unix epoch milliseconds.
@@ -34,6 +27,7 @@ pub(super) const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
 /// The generator is thread-safe. One shared live instance never returns the
 /// same ID twice, provided its machine identifier is exclusive within the ID
 /// namespace. Retry waits use the timer injected through the builder.
+#[derive(Clone)]
 #[must_use]
 pub struct SonyflakeGenerator {
     /// Blocking driver over the shared allocation core.
@@ -88,10 +82,7 @@ impl SonyflakeGenerator {
     ///
     /// A synchronous generator backed by `core` and `timer`.
     #[inline]
-    pub(super) fn from_core(
-        core: SnowflakeCore<SonyflakeLayout>,
-        timer: Arc<dyn Timer>,
-    ) -> Self {
+    pub(super) fn from_core(core: SnowflakeCore<SonyflakeLayout>, timer: Arc<dyn Timer>) -> Self {
         Self {
             inner: BlockingSnowflake::new(core, timer),
         }
@@ -113,7 +104,7 @@ impl SonyflakeGenerator {
     /// ```
     #[must_use = "use the returned layout reference"]
     #[inline(always)]
-    pub const fn layout(&self) -> &SonyflakeLayout {
+    pub fn layout(&self) -> &SonyflakeLayout {
         self.inner.core().layout()
     }
 
@@ -124,7 +115,7 @@ impl SonyflakeGenerator {
     /// The wall time represented by elapsed time zero.
     #[must_use]
     #[inline(always)]
-    pub const fn start_time(&self) -> SystemTime {
+    pub fn start_time(&self) -> SystemTime {
         self.inner.core().epoch()
     }
 
@@ -135,7 +126,7 @@ impl SonyflakeGenerator {
     /// The first wall time that cannot be represented by this generator.
     #[must_use]
     #[inline(always)]
-    pub const fn expires_at(&self) -> SystemTime {
+    pub fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
 
@@ -154,6 +145,35 @@ impl SonyflakeGenerator {
     #[inline(always)]
     pub fn generate(&self) -> Result<u64, IdError> {
         self.inner.generate()
+    }
+
+    /// Attempts to generate an ID without sleeping or awaiting.
+    ///
+    /// # Returns
+    ///
+    /// A generated ID or the minimum delay before another attempt can make
+    /// progress.
+    ///
+    /// # Errors
+    ///
+    /// Returns the non-retryable allocation errors described by
+    /// [`IdGenerator::generate`].
+    #[inline]
+    pub fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+        self.inner.try_generate()
+    }
+
+    /// Generates the next Sonyflake ID asynchronously.
+    ///
+    /// # Returns
+    ///
+    /// A cancellation-safe future for the next generated ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`IdGenerator::generate`].
+    pub async fn generate_async(&self) -> Result<u64, IdError> {
+        self.inner.generate_async().await
     }
 }
 
@@ -174,5 +194,21 @@ impl IdGenerator<u64> for SonyflakeGenerator {
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
         SonyflakeGenerator::generate(self)
+    }
+}
+
+impl TryIdGenerator<u64> for SonyflakeGenerator {
+    /// Attempts one non-blocking Sonyflake allocation.
+    #[inline]
+    fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+        SonyflakeGenerator::try_generate(self)
+    }
+}
+
+impl AsyncIdGenerator<u64> for SonyflakeGenerator {
+    /// Generates a Sonyflake ID asynchronously.
+    #[inline]
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
+        Box::pin(SonyflakeGenerator::generate_async(self))
     }
 }

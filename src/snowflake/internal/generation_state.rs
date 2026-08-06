@@ -10,16 +10,8 @@
 
 use std::time::Duration;
 
-use super::{
-    ClockObservation,
-    GenerationAttempt,
-    RestartFence,
-    TimeSlice,
-};
-use crate::{
-    IdError,
-    RestartPolicy,
-};
+use super::{ClockObservation, GenerationAttempt, RestartFence, TimeSlice};
+use crate::{IdError, RestartPolicy};
 
 /// Mutable high-water and sequence state protected by a generator lock.
 #[derive(Debug)]
@@ -90,12 +82,14 @@ impl GenerationState {
                     max_skew: max_clock_skew,
                 });
             }
-            return Ok(GenerationAttempt::RetryAfter(skew));
+            return Ok(GenerationAttempt::RetryAfter { delay: skew });
         }
         self.last_observed_elapsed = Some(observation.elapsed);
 
         if self.restart_fence.should_wait(observation.timestamp) {
-            return Ok(GenerationAttempt::RetryAfter(observation.retry_after));
+            return Ok(GenerationAttempt::RetryAfter {
+                delay: observation.retry_after,
+            });
         }
 
         let Some(time_slice) = self.time_slice.as_mut() else {
@@ -109,7 +103,9 @@ impl GenerationState {
         }
         debug_assert_eq!(observation.timestamp, time_slice.timestamp);
         if time_slice.sequence == max_sequence {
-            return Ok(GenerationAttempt::RetryAfter(observation.retry_after));
+            return Ok(GenerationAttempt::RetryAfter {
+                delay: observation.retry_after,
+            });
         }
         time_slice.sequence += 1;
         Ok(GenerationAttempt::Generated(*time_slice))

@@ -9,10 +9,7 @@
 
 use std::sync::Arc;
 
-use crate::{
-    IdError,
-    IdGenerationFuture,
-};
+use crate::{IdError, IdGenerationFuture};
 
 /// Generates identifiers asynchronously.
 ///
@@ -22,9 +19,7 @@ use crate::{
 /// [`IdError`]. Implementations that mutate allocation state must synchronize
 /// that state internally because generation uses a shared reference and may be
 /// called concurrently.
-pub trait AsyncIdGenerator<T: Send + 'static, E = IdError>:
-    Send + Sync
-{
+pub trait AsyncIdGenerator<T: Send + 'static, E = IdError>: Send + Sync {
     /// Generates the next identifier asynchronously.
     ///
     /// Implementations should yield while waiting for time or other external

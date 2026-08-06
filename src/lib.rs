@@ -9,8 +9,8 @@
 //! # Qubit ID
 //!
 //! IoC-friendly ID generation utilities for Rust services. The crate provides
-//! object-safe synchronous [`IdGenerator`] and asynchronous
-//! [`AsyncIdGenerator`] contracts, three Snowflake-family
+//! object-safe non-blocking [`TryIdGenerator`], synchronous [`IdGenerator`],
+//! and asynchronous [`AsyncIdGenerator`] contracts, three Snowflake-family
 //! algorithms, decimal string adaptation, and standards-compliant UUID v4.
 //!
 //! ## Cargo features
@@ -34,17 +34,20 @@
 //!
 //! ## Allocation and lifetime
 //!
-//! [`IdGenerator::generate`] may block while a Snowflake generator waits for
-//! time to advance. Concrete asynchronous generators expose an inherent
-//! `generate_async` method whose outer future is unboxed. Calling
+//! [`TryIdGenerator::try_generate`] never sleeps or awaits and returns a
+//! [`GenerationAttempt`] when the caller must schedule a retry. A Snowflake
+//! [`IdGenerator::generate`] may block while waiting for time to advance.
+//! Concrete generators expose an inherent `generate_async` method whose outer
+//! future is unboxed. Calling
 //! [`AsyncIdGenerator::generate_async`] through the object-safe trait boxes the
 //! future and awaits the injected `qubit_clock::Timer` without blocking an
 //! executor. Configure
-//! `RestartPolicy::WaitNextSlice` when a fresh instance should skip its first
-//! observed logical time slice. This policy does not know the predecessor's
-//! allocation watermark, so clock rollback across a restart can still repeat
-//! IDs. The default `RestartPolicy::Immediate` can repeat IDs after
-//! same-slice allocation state is lost.
+//! `RestartPolicy::WaitNextSlice` is the default and makes a fresh instance
+//! skip its first observed logical time slice. This policy does not know the
+//! predecessor's allocation watermark, so clock rollback across a restart can
+//! still repeat IDs. `RestartPolicy::Immediate` can repeat IDs after same-slice
+//! allocation state is lost and should only be selected when restart separation
+//! is guaranteed externally.
 //!
 //! Every Snowflake layout calculates an exclusive expiration boundary from its
 //! time origin, unit, and maximum timestamp. Generators cache that value and
@@ -66,6 +69,7 @@
 #![deny(missing_docs)]
 
 mod async_id_generator;
+mod generation_attempt;
 mod id_error;
 mod id_generation_future;
 mod id_generator;
@@ -83,11 +87,13 @@ mod id_generator;
     )))
 )]
 pub mod snowflake;
+mod try_id_generator;
 #[cfg(feature = "uuid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
 pub mod uuid;
 
 pub use async_id_generator::AsyncIdGenerator;
+pub use generation_attempt::GenerationAttempt;
 pub use id_error::IdError;
 pub use id_generation_future::IdGenerationFuture;
 pub use id_generator::IdGenerator;
@@ -122,40 +128,21 @@ pub use snowflake::SnowflakeStringGenerator;
 #[cfg(feature = "qubit-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
 pub use snowflake::{
-    AsyncQubitSnowflakeGenerator,
-    DEFAULT_MAX_CLOCK_SKEW,
-    HOST_BITS,
-    HOST_MAX,
-    HOST_MIN,
-    IdMode,
-    PRECISION_BITS,
-    QubitSnowflakeGenerator,
-    QubitSnowflakeGeneratorBuilder,
-    QubitSnowflakeLayout,
-    QubitSnowflakeParts,
-    TimestampPrecision,
+    DEFAULT_MAX_CLOCK_SKEW, HOST_BITS, HOST_MAX, HOST_MIN, IdMode, PRECISION_BITS,
+    QubitSnowflakeGenerator, QubitSnowflakeGeneratorBuilder, QubitSnowflakeLayout,
+    QubitSnowflakeParts, TimestampPrecision,
 };
 #[cfg(feature = "classic-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
 pub use snowflake::{
-    AsyncSnowflakeGenerator,
-    SnowflakeGenerator,
-    SnowflakeGeneratorBuilder,
-    SnowflakeLayout,
-    SnowflakeParts,
+    SnowflakeGenerator, SnowflakeGeneratorBuilder, SnowflakeLayout, SnowflakeParts,
 };
 #[cfg(feature = "sonyflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
 pub use snowflake::{
-    AsyncSonyflakeGenerator,
-    SonyflakeGenerator,
-    SonyflakeGeneratorBuilder,
-    SonyflakeLayout,
-    SonyflakeParts,
+    SonyflakeGenerator, SonyflakeGeneratorBuilder, SonyflakeLayout, SonyflakeParts,
 };
+pub use try_id_generator::TryIdGenerator;
 #[cfg(feature = "uuid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
-pub use uuid::{
-    UuidV4Generator,
-    UuidV4StringGenerator,
-};
+pub use uuid::{UuidV4Generator, UuidV4StringGenerator};
