@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Optional serde integration for [`crate::Id`].
+// qubit-style: allow source-test-pair
 
 use crate::Id;
 
