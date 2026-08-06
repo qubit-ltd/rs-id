@@ -19,7 +19,7 @@ use std::sync::Arc;
 /// concurrently.
 pub trait IdGenerator: Send + Sync {
     /// Value produced by this generator.
-    type Output: Send + 'static;
+    type Output;
     /// Error returned by this generator.
     type Error;
 

@@ -9,6 +9,7 @@
 
 mod id_generator_support;
 
+use std::rc::Rc;
 use std::sync::Arc;
 
 use qubit_id::IdGenerator;
@@ -17,6 +18,29 @@ use self::id_generator_support::{
     CounterGenerator,
     IoCounterGenerator,
 };
+
+struct LocalOutput(Rc<()>);
+
+struct LocalOutputGenerator;
+
+impl IdGenerator for LocalOutputGenerator {
+    type Output = LocalOutput;
+    type Error = std::convert::Infallible;
+
+    /// Generates a synchronous output that is intentionally not `Send`.
+    fn generate(&self) -> Result<Self::Output, Self::Error> {
+        Ok(LocalOutput(Rc::new(())))
+    }
+}
+
+#[test]
+fn test_id_generator_allows_non_send_synchronous_output() {
+    let output = LocalOutputGenerator
+        .generate()
+        .expect("local output generation should succeed");
+
+    assert_eq!(Rc::strong_count(&output.0), 1);
+}
 
 #[test]
 fn test_id_generator_is_object_safe_for_one_output_type() {
