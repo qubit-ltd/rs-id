@@ -13,8 +13,9 @@
 
 ## 主要特性
 
-- `TryIdGenerator`、`IdGenerator` 与 `AsyncIdGenerator` 分别表达非阻塞、阻塞和异步分配契约。
-- 每种 Snowflake 类型都实现这三个契约，并在同步和异步调用路径之间共享同一分配状态。
+- `IdGenerator` 只提供 `Output` 与 `Error` 类型契约；`BlockingIdGenerator`、
+  `TryIdGenerator` 与 `AsyncIdGenerator` 分别提供阻塞、非阻塞和异步分配能力。
+- 每种 Snowflake 类型都实现这三种分配能力，并在同步和异步调用路径之间共享同一分配状态。
 - `try_generate()`、`generate()` 与 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
 - Builder 接受来自 [`qubit-clock`](https://crates.io/crates/qubit-clock) 的
   `Arc<dyn WallClock>` 与 `Arc<dyn Timer>`。
@@ -53,15 +54,18 @@ serde_json = "1"
 每个生成器通过关联类型声明自己的 `Output` 和 `Error`。内置生成器使用
 `IdGenerationError`，第三方生成器可以提供自己的具体错误类型。
 
+`IdGenerator` 只提供 `Output` 与 `Error` 类型契约。应按调用方的调度模型选择
+相应能力，因此阻塞、重试和异步依赖可以独立注入。
+
 同步 Snowflake 依赖使用
-`Arc<dyn IdGenerator<Output = Id, Error = IdGenerationError>>`：
+`Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`：
 
 ```rust
 use std::sync::Arc;
-use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};
+use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn IdGenerator<Output = Id, Error = IdGenerationError>> =
+    let generator: Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>> =
         Arc::new(SnowflakeGenerator::new(7)?);
     let id = generator.generate()?;
     assert_ne!(id.value(), 0);
@@ -72,6 +76,7 @@ fn main() -> Result<(), IdGenerationError> {
 调用方需要自行调度重试时，可以使用 `TryIdGenerator`：
 
 ```rust
+use std::sync::Arc;
 use qubit_id::{
     GenerationAttempt,
     Id,
@@ -90,8 +95,9 @@ fn allocate(
 }
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator = SnowflakeGenerator::new(7)?;
-    let _ = allocate(&generator);
+    let generator: Arc<dyn TryIdGenerator<Output = Id, Error = IdGenerationError>> =
+        Arc::new(SnowflakeGenerator::new(7)?);
+    let _ = allocate(generator.as_ref());
     Ok(())
 }
 ```
@@ -134,7 +140,7 @@ fn main() -> Result<(), IdGenerationError> {
 }
 ```
 
-测试 mock 只需为本地类型实现相应 trait。
+测试 mock 需要为本地类型实现 `IdGenerator` 以及相应的能力 trait。
 
 ## Snowflake 生成器
 
@@ -168,6 +174,11 @@ Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作
 
 每个 Builder 只提供一个 `build()`。生成器的 `try_generate()`、`generate()` 与
 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
+
+三种 Snowflake 生成器具有相同的主要 API：`new(...)`、`builder(...)`、`layout()`、
+`epoch()`、`expires_at()`、`max_clock_skew()`、`try_generate()`、`generate()`、
+`generate_async()` 和 `compose_at(time, sequence)`。通过每个 Builder 的
+`epoch(...)` 与 `max_clock_skew(...)` 配置这些共用契约。
 
 ### 存储与传输兼容性
 
@@ -209,10 +220,15 @@ Snowflake 生成器返回 `Id`。它是透明的 `u64` 值包装，并提供十�
 调用方可以在应用边界选择需要的表示：
 
 ```rust
-use qubit_id::{IdGenerationError, SnowflakeGenerator};
+use std::sync::Arc;
+use qubit_id::{
+    BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator,
+};
 
 fn main() -> Result<(), IdGenerationError> {
-    let id = SnowflakeGenerator::new(7)?.generate()?;
+    let generator: Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>> =
+        Arc::new(SnowflakeGenerator::new(7)?);
+    let id = generator.generate()?;
     let numeric: u64 = id.into();
     let text = id.to_string();
     assert_eq!(text, numeric.to_string());
@@ -227,11 +243,13 @@ fn main() -> Result<(), IdGenerationError> {
 阻塞边界包装同步调用：
 
 ```rust
-use qubit_id::{IdGenerationError, UuidV4Generator};
+use std::sync::Arc;
+use qubit_id::{BlockingIdGenerator, IdGenerationError, UuidV4Generator};
 use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
-    let uuid = UuidV4Generator::new().generate()?;
+    let generator: Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>> = Arc::new(UuidV4Generator::new());
+    let uuid = generator.generate()?;
     let numeric = Uuid::as_u128(&uuid);
     let text = uuid.to_string();
     assert_ne!(numeric, 0);
@@ -255,21 +273,21 @@ fn main() -> Result<(), IdGenerationError> {
 
 ## 有效期、时钟与部署身份
 
-`expires_at()` 返回排他的到期边界。Builder 会读取注入的 WallClock。
-构建器会在 `now >= expires_at` 时返回 `IdGenerationError::GeneratorExpired`，因为该配置
-无法继续提供 ID。运行中的生成器随后到达相同边界时返回相同错误。
+`expires_at()` 返回排他的到期边界。Builder 会读取注入的 WallClock，并在 epoch
+晚于当前时间时返回 `IdGenerationError::EpochAhead`。构建器会在 `now >= expires_at` 时返回 `IdGenerationError::GeneratorExpired`，因为该配置无法继续提供 ID。运行中的生成器随后到达相同边界时返回相同错误。
 
-Qubit 的小幅回拨可以在 `max_clock_skew` 内等待，超过该值时返回
-`IdGenerationError::ClockMovedBackwards`。经典 Snowflake 与 Sonyflake 拒绝任何回拨。
-Timer 注册或阻塞适配失败会返回 `IdGenerationError::WaitFailed`，并保留原始 `TimeError`。
+每种 Snowflake Builder 都提供 `max_clock_skew(...)`。原始 WallClock 回拨在该范围内
+可以等待，超过该值时返回 `IdGenerationError::ClockMovedBackwards`。经典 Snowflake
+与 Sonyflake 默认容忍度为零，Qubit 使用其文档化的默认容忍度。Timer 注册或阻塞适配
+失败会返回 `IdGenerationError::WaitFailed`，并保留原始 `TimeError`。
 
 同一命名空间中，每个并发运行的生成器必须拥有独占的 host、node 或 machine ID。
 本库不持久化分配状态，也不提供分布式租约。
 
-`RestartPolicy::WaitNextSlice` 是所有 Snowflake Builder 的默认值，会把首次分配推迟到
-后续时间片，从而降低旧实例停止后被替换时复用同一时间片的风险。
-`RestartPolicy::Immediate` 供部署环境能够保证重启间隔时使用。两种策略都不能协调并发
-运行的生成器，也无法防止时钟重启到更早时间片，不能替代持久化分配状态或独占的分布式身份租约。
+`RestartPolicy::Immediate` 是所有 Snowflake Builder 的默认值。它会在当前时间片开始
+分配。`RestartPolicy::WaitNextSlice` 是显式启用的选项，会把首次分配推迟到后续时间片，
+从而降低旧实例停止后被替换时复用同一时间片的风险。两种策略都不能协调并发运行的
+生成器，也无法替代持久化分配状态或独占的分布式身份租约。
 
 ## Feature 与基准测试
 

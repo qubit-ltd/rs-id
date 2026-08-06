@@ -1,0 +1,42 @@
+[package]
+name = "qubit-id-fuzz"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.94"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+qubit-id = { path = "..", default-features = false, features = ["qubit-snowflake", "classic-snowflake", "sonyflake"] }
+qubit-clock = { version = "0.12", features = ["test-util"] }
+
+[[bin]]
+name = "qubit_layout_round_trip"
+path = "fuzz_targets/qubit_layout_round_trip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "classical_layout_round_trip"
+path = "fuzz_targets/classical_layout_round_trip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sonyflake_layout_round_trip"
+path = "fuzz_targets/sonyflake_layout_round_trip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "snowflake_state_machine"
+path = "fuzz_targets/snowflake_state_machine.rs"
+test = false
+doc = false
+bench = false
