@@ -109,51 +109,12 @@ impl<'de> serde::Deserialize<'de> for Id {
         D: serde::Deserializer<'de>,
     {
         if deserializer.is_human_readable() {
-            deserializer.deserialize_str(IdStringVisitor)
+            let value =
+                <String as serde::Deserialize>::deserialize(deserializer)?;
+            value.parse().map_err(serde::de::Error::custom)
         } else {
-            deserializer.deserialize_u64(IdU64Visitor)
+            let value = <u64 as serde::Deserialize>::deserialize(deserializer)?;
+            Ok(Id::from(value))
         }
-    }
-}
-
-#[cfg(feature = "serde")]
-struct IdStringVisitor;
-
-#[cfg(feature = "serde")]
-impl<'de> serde::de::Visitor<'de> for IdStringVisitor {
-    type Value = Id;
-
-    /// Describes the decimal string accepted by this visitor.
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("an unsigned 64-bit identifier in decimal text")
-    }
-
-    /// Parses one decimal identifier string.
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        value.parse().map_err(E::custom)
-    }
-}
-
-#[cfg(feature = "serde")]
-struct IdU64Visitor;
-
-#[cfg(feature = "serde")]
-impl<'de> serde::de::Visitor<'de> for IdU64Visitor {
-    type Value = Id;
-
-    /// Describes the compact unsigned integer accepted by this visitor.
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("an unsigned 64-bit identifier")
-    }
-
-    /// Wraps one compact unsigned identifier value.
-    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(Id::from(value))
     }
 }

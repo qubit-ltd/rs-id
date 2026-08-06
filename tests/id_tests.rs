@@ -84,7 +84,7 @@ mod serde_tests {
         assert_tokens(&Id::from(u64::MAX).compact(), &[Token::U64(u64::MAX)]);
         assert_de_tokens_error::<Compact<Id>>(
             &[Token::String("42")],
-            "invalid type: string \"42\", expected an unsigned 64-bit identifier",
+            "invalid type: string \"42\", expected u64",
         );
     }
 }
