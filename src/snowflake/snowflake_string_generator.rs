@@ -7,11 +7,7 @@
 // =============================================================================
 //! Decimal-string adapter for Snowflake-family generators.
 
-use crate::{
-    AsyncIdGenerator,
-    IdGenerationFuture,
-    IdGenerator,
-};
+use crate::{AsyncIdGenerator, GenerationAttempt, IdGenerationFuture, IdGenerator, TryIdGenerator};
 
 /// Adapts a numeric Snowflake generator to decimal [`String`] output.
 ///
@@ -81,6 +77,25 @@ impl<G> SnowflakeStringGenerator<G> {
         self.inner.generate().map(|id| id.to_string())
     }
 
+    /// Attempts to generate decimal text without sleeping or awaiting.
+    ///
+    /// # Returns
+    ///
+    /// A generated decimal string or the minimum retry delay.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error produced by the wrapped generator.
+    #[inline]
+    pub fn try_generate<E>(&self) -> Result<GenerationAttempt<String>, E>
+    where
+        G: TryIdGenerator<u64, E>,
+    {
+        self.inner
+            .try_generate()
+            .map(|attempt| attempt.map(|id| id.to_string()))
+    }
+
     /// Generates a Snowflake ID as unsigned decimal text asynchronously.
     ///
     /// Concrete callers use this inherent method without allocating an
@@ -139,8 +154,17 @@ where
     /// boxed future returned by the wrapped generator.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, String, E> {
-        Box::pin(async move {
-            self.inner.generate_async().await.map(|id| id.to_string())
-        })
+        Box::pin(async move { self.inner.generate_async().await.map(|id| id.to_string()) })
+    }
+}
+
+impl<G, E> TryIdGenerator<String, E> for SnowflakeStringGenerator<G>
+where
+    G: TryIdGenerator<u64, E>,
+{
+    /// Attempts one non-blocking decimal-text allocation.
+    #[inline]
+    fn try_generate(&self) -> Result<GenerationAttempt<String>, E> {
+        SnowflakeStringGenerator::try_generate(self)
     }
 }

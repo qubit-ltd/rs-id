@@ -7,10 +7,7 @@
 // =============================================================================
 //! Error type returned by ID generators.
 
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::{Duration, SystemTime};
 
 use thiserror::Error;
 
@@ -82,9 +79,7 @@ pub enum IdError {
         epoch: SystemTime,
     },
     /// The configured Sonyflake start time is ahead of the generator clock.
-    #[error(
-        "start time {start_time:?} is ahead of generator clock {current_time:?}"
-    )]
+    #[error("start time {start_time:?} is ahead of generator clock {current_time:?}")]
     StartTimeAhead {
         /// Configured Sonyflake start time.
         start_time: SystemTime,

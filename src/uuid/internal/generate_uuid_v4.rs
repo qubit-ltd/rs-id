@@ -8,10 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Shared standards-compliant UUID v4 generation.
 
-use ::uuid::{
-    Builder,
-    Uuid,
-};
+use ::uuid::{Builder, Uuid};
 
 use crate::IdError;
 
@@ -28,7 +25,6 @@ use crate::IdError;
 #[inline(always)]
 pub(crate) fn generate_uuid_v4() -> Result<Uuid, IdError> {
     let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes)
-        .map_err(|source| IdError::RandomSourceFailed { source })?;
+    getrandom::fill(&mut bytes).map_err(|source| IdError::RandomSourceFailed { source })?;
     Ok(Builder::from_random_bytes(bytes).into_uuid())
 }

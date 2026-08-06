@@ -8,10 +8,7 @@
 //! Standards-compliant UUID v4 numeric generator.
 
 use super::internal::generate_uuid_v4;
-use crate::{
-    IdError,
-    IdGenerator,
-};
+use crate::{IdError, IdGenerator};
 
 /// Generates UUID v4 values as native [`u128`] identifiers.
 ///

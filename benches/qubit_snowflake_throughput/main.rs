@@ -12,30 +12,14 @@ mod throughput_sample;
 mod throughput_summary;
 
 use std::hint::black_box;
-use std::sync::atomic::{
-    AtomicU64,
-    Ordering,
-};
-use std::sync::{
-    Arc,
-    Barrier,
-};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Barrier};
 use std::thread;
-use std::time::{
-    Duration,
-    Instant,
-    SystemTime,
-};
+use std::time::{Duration, Instant, SystemTime};
 
 use qubit_id::{
-    AsyncIdGenerator,
-    AsyncQubitSnowflakeGenerator,
-    IdGenerator,
-    IdMode,
-    QubitSnowflakeGenerator,
-    QubitSnowflakeLayout,
-    SnowflakeStringGenerator,
-    TimestampPrecision,
+    AsyncIdGenerator, IdGenerator, IdMode, QubitSnowflakeGenerator, QubitSnowflakeLayout,
+    SnowflakeStringGenerator, TimestampPrecision,
 };
 
 use self::startup_latency_summary::StartupLatencySummary;
@@ -69,9 +53,7 @@ fn main() {
 
     measure_dispatch_paths();
 
-    for precision in
-        [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-    {
+    for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
         for worker_count in WORKER_COUNTS {
             let summary = summarize_case(precision, worker_count);
             println!(
@@ -94,9 +76,7 @@ fn main() {
         }
     }
 
-    for precision in
-        [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-    {
+    for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
         let summary = measure_startup_latency(precision);
         println!(
             "startup precision={} samples={} latency_min_ns={} \
@@ -153,13 +133,12 @@ fn measure_dispatch_paths() {
             .expect("concrete string generation must succeed")
     });
 
-    let string_dynamic: Arc<dyn IdGenerator<String>> =
-        Arc::new(SnowflakeStringGenerator::new(
-            QubitSnowflakeGenerator::builder(HOST)
-                .precision(TimestampPrecision::Second)
-                .build()
-                .expect("dynamic string benchmark generator must be valid"),
-        ));
+    let string_dynamic: Arc<dyn IdGenerator<String>> = Arc::new(SnowflakeStringGenerator::new(
+        QubitSnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .build()
+            .expect("dynamic string benchmark generator must be valid"),
+    ));
     run_dispatch_case("sync_string_arc_dyn", || {
         string_dynamic
             .generate()
@@ -169,9 +148,9 @@ fn measure_dispatch_paths() {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()
         .expect("benchmark runtime must build");
-    let async_concrete = AsyncQubitSnowflakeGenerator::builder(HOST)
+    let async_concrete = QubitSnowflakeGenerator::builder(HOST)
         .precision(TimestampPrecision::Second)
-        .build_async()
+        .build()
         .expect("async concrete benchmark generator must be valid");
     run_dispatch_case("async_concrete_unboxed_future", || {
         runtime
@@ -180,9 +159,9 @@ fn measure_dispatch_paths() {
     });
 
     let async_dynamic: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(
-        AsyncQubitSnowflakeGenerator::builder(HOST)
+        QubitSnowflakeGenerator::builder(HOST)
             .precision(TimestampPrecision::Second)
-            .build_async()
+            .build()
             .expect("async dynamic benchmark generator must be valid"),
     );
     run_dispatch_case("async_arc_dyn_boxed_future", || {
@@ -192,9 +171,9 @@ fn measure_dispatch_paths() {
     });
 
     let async_string_concrete = SnowflakeStringGenerator::new(
-        AsyncQubitSnowflakeGenerator::builder(HOST)
+        QubitSnowflakeGenerator::builder(HOST)
             .precision(TimestampPrecision::Second)
-            .build_async()
+            .build()
             .expect("async concrete string benchmark generator must be valid"),
     );
     run_dispatch_case("async_string_concrete", || {
@@ -205,12 +184,10 @@ fn measure_dispatch_paths() {
 
     let async_string_dynamic: Arc<dyn AsyncIdGenerator<String>> =
         Arc::new(SnowflakeStringGenerator::new(
-            AsyncQubitSnowflakeGenerator::builder(HOST)
+            QubitSnowflakeGenerator::builder(HOST)
                 .precision(TimestampPrecision::Second)
-                .build_async()
-                .expect(
-                    "async dynamic string benchmark generator must be valid",
-                ),
+                .build()
+                .expect("async dynamic string benchmark generator must be valid"),
         ));
     run_dispatch_case("async_string_arc_dyn", || {
         runtime
@@ -259,17 +236,12 @@ where
 /// # Panics
 ///
 /// Panics under the same conditions as [`measure_throughput`].
-fn summarize_case(
-    precision: TimestampPrecision,
-    worker_count: usize,
-) -> ThroughputSummary {
+fn summarize_case(precision: TimestampPrecision, worker_count: usize) -> ThroughputSummary {
     let mut samples = Vec::with_capacity(SAMPLE_COUNT);
     for _ in 0..SAMPLE_COUNT {
         samples.push(measure_throughput(precision, worker_count));
     }
-    samples.sort_by(|left, right| {
-        left.throughput().total_cmp(&right.throughput())
-    });
+    samples.sort_by(|left, right| left.throughput().total_cmp(&right.throughput()));
 
     ThroughputSummary {
         min: samples[0],
@@ -298,10 +270,7 @@ fn summarize_case(
 ///
 /// Panics when generator construction or generation fails, a worker panics,
 /// no ID is measured, or the observed count exceeds theoretical capacity.
-fn measure_throughput(
-    precision: TimestampPrecision,
-    worker_count: usize,
-) -> ThroughputSample {
+fn measure_throughput(precision: TimestampPrecision, worker_count: usize) -> ThroughputSample {
     let generator = Arc::new(
         QubitSnowflakeGenerator::builder(HOST)
             .mode(IdMode::Sequential)
@@ -391,9 +360,7 @@ fn warm_up(generator: &QubitSnowflakeGenerator) {
 /// # Panics
 ///
 /// Panics when generator construction or first-ID generation fails.
-fn measure_startup_latency(
-    precision: TimestampPrecision,
-) -> StartupLatencySummary {
+fn measure_startup_latency(precision: TimestampPrecision) -> StartupLatencySummary {
     let mut samples = Vec::with_capacity(STARTUP_SAMPLE_COUNT);
     for _ in 0..STARTUP_SAMPLE_COUNT {
         let started = Instant::now();
@@ -491,10 +458,7 @@ fn generate_until_target(
 ///
 /// Panics when the epoch is ahead of the system clock or the timestamp does
 /// not fit in `u64`.
-fn wait_for_fresh_slice(
-    epoch: SystemTime,
-    precision: TimestampPrecision,
-) -> u64 {
+fn wait_for_fresh_slice(epoch: SystemTime, precision: TimestampPrecision) -> u64 {
     let initial = current_timestamp(epoch, precision);
     let sleep_duration = match precision {
         TimestampPrecision::Millisecond => Duration::from_micros(50),
@@ -528,8 +492,7 @@ fn current_timestamp(epoch: SystemTime, precision: TimestampPrecision) -> u64 {
     let elapsed = SystemTime::now()
         .duration_since(epoch)
         .expect("benchmark epoch must be in the past");
-    let timestamp =
-        elapsed.as_millis() / u128::from(precision.divisor_millis());
+    let timestamp = elapsed.as_millis() / u128::from(precision.divisor_millis());
     u64::try_from(timestamp).expect("benchmark timestamp must fit in u64")
 }
 

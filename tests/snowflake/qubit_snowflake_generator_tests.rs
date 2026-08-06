@@ -10,28 +10,16 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::thread;
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use qubit_id::{
-    DEFAULT_MAX_CLOCK_SKEW,
-    IdError,
-    IdMode,
-    QubitSnowflakeGenerator,
-    QubitSnowflakeLayout,
-    RestartPolicy,
-    TimestampPrecision,
+    DEFAULT_MAX_CLOCK_SKEW, GenerationAttempt, IdError, IdMode, QubitSnowflakeGenerator,
+    QubitSnowflakeLayout, RestartPolicy, TimestampPrecision, TryIdGenerator,
 };
 
 use qubit_clock::{
     TimeError,
-    test_util::{
-        FaultInjectingTimer,
-        TimerFailurePoint,
-    },
+    test_util::{FaultInjectingTimer, TimerFailurePoint},
 };
 
 use crate::support::ManualTime;
@@ -60,6 +48,7 @@ fn build_generator(
     let generator = QubitSnowflakeGenerator::builder(host)
         .precision(precision)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .max_clock_skew(max_clock_skew)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
@@ -70,20 +59,62 @@ fn build_generator(
 
 #[test]
 fn test_qubit_snowflake_generator_new_uses_defaults() {
-    let generator = QubitSnowflakeGenerator::new(17)
-        .expect("default configuration should be valid");
+    let generator =
+        QubitSnowflakeGenerator::new(17).expect("default configuration should be valid");
 
     assert_eq!(generator.layout().host(), 17);
     assert_eq!(generator.max_clock_skew(), DEFAULT_MAX_CLOCK_SKEW);
 }
 
+#[test]
+fn test_qubit_snowflake_default_waits_without_blocking() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator = QubitSnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Millisecond)
+        .epoch(epoch)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::RetryAfter { delay })
+            if delay == Duration::from_millis(1)
+    ));
+    time.advance(Duration::from_millis(1));
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
+}
+
+#[test]
+fn test_qubit_snowflake_supports_nonblocking_trait_object() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator: Arc<dyn TryIdGenerator<u64>> = Arc::new(
+        QubitSnowflakeGenerator::builder(7)
+            .precision(TimestampPrecision::Millisecond)
+            .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build()
+            .expect("configuration should be valid"),
+    );
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
+}
+
 mod inherent_api_tests {
     use super::TimestampPrecision;
     use super::build_generator;
-    use std::time::{
-        Duration,
-        UNIX_EPOCH,
-    };
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
     fn test_qubit_snowflake_generator_supports_inherent_generate() {
@@ -152,17 +183,15 @@ fn test_qubit_snowflake_generator_accessors_return_configuration() {
         .mode(IdMode::Spread)
         .precision(TimestampPrecision::Millisecond)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .max_clock_skew(Duration::from_millis(37))
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
         .expect("configuration should be valid");
-    let expected_layout = QubitSnowflakeLayout::new(
-        IdMode::Spread,
-        TimestampPrecision::Millisecond,
-        17,
-    )
-    .expect("layout should be valid");
+    let expected_layout =
+        QubitSnowflakeLayout::new(IdMode::Spread, TimestampPrecision::Millisecond, 17)
+            .expect("layout should be valid");
 
     assert_eq!(generator.layout(), &expected_layout);
     assert_eq!(generator.epoch(), epoch);
@@ -259,12 +288,8 @@ fn test_qubit_snowflake_generator_reports_large_clock_rollback() {
 #[test]
 fn test_qubit_snowflake_generator_reports_runtime_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = QubitSnowflakeLayout::new(
-        IdMode::Sequential,
-        TimestampPrecision::Second,
-        7,
-    )
-    .expect("layout should be valid");
+    let layout = QubitSnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
+        .expect("layout should be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("expiration should be representable");
@@ -290,12 +315,8 @@ fn test_qubit_snowflake_generator_reports_runtime_expiration() {
 #[test]
 fn test_qubit_snowflake_generator_rejects_expired_explicit_time() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = QubitSnowflakeLayout::new(
-        IdMode::Sequential,
-        TimestampPrecision::Second,
-        7,
-    )
-    .expect("layout should be valid");
+    let layout = QubitSnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
+        .expect("layout should be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("expiration should be representable");
@@ -324,6 +345,7 @@ fn test_qubit_snowflake_generator_waits_with_injected_timer() {
         QubitSnowflakeGenerator::builder(7)
             .precision(TimestampPrecision::Second)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
@@ -351,6 +373,7 @@ fn test_qubit_snowflake_generator_preserves_wait_failure_source() {
     let generator = QubitSnowflakeGenerator::builder(7)
         .precision(TimestampPrecision::Second)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .restart_policy(RestartPolicy::WaitNextSlice)
         .wall_clock(time.wall_clock())
         .timer(Arc::new(FaultInjectingTimer::new(

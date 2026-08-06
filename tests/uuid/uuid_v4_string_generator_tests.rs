@@ -9,14 +9,8 @@
 
 use std::sync::Arc;
 
-use qubit_id::{
-    IdGenerator,
-    UuidV4StringGenerator,
-};
-use uuid::{
-    Uuid,
-    Variant,
-};
+use qubit_id::{IdGenerator, UuidV4StringGenerator};
+use uuid::{Uuid, Variant};
 
 /// Asserts that `value` is a canonical hyphenated UUID v4 string.
 ///
@@ -36,8 +30,7 @@ fn assert_uuid_v4_string(value: &str) {
 
 #[test]
 fn test_uuid_v4_string_generator_returns_canonical_string() {
-    let generator: Arc<dyn IdGenerator<String>> =
-        Arc::new(UuidV4StringGenerator::new());
+    let generator: Arc<dyn IdGenerator<String>> = Arc::new(UuidV4StringGenerator::new());
 
     let value = generator.generate().expect("UUID should generate");
 
