@@ -8,14 +8,28 @@
 //! Builder for classic Snowflake generators.
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH,
+};
 
-use qubit_clock::{Timer, WallClock};
+use qubit_clock::{
+    Timer,
+    WallClock,
+};
 
 use super::internal::{
-    DEFAULT_SNOWFLAKE_EPOCH_MILLIS, SnowflakeCore, default_timer, default_wall_clock,
+    DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
+    SnowflakeCore,
+    default_timer,
+    default_wall_clock,
 };
-use super::{RestartPolicy, SnowflakeGenerator, SnowflakeLayout};
+use super::{
+    RestartPolicy,
+    SnowflakeGenerator,
+    SnowflakeLayout,
+};
 use crate::IdError;
 
 /// Configures synchronous or asynchronous classic Snowflake generators.
@@ -48,7 +62,8 @@ impl SnowflakeGeneratorBuilder {
     pub(crate) fn new(node_id: u64) -> Self {
         Self {
             node_id,
-            epoch: UNIX_EPOCH + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
+            epoch: UNIX_EPOCH
+                + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             restart_policy: RestartPolicy::WaitNextSlice,
             wall_clock: default_wall_clock(),
             timer: default_timer(),
@@ -152,7 +167,9 @@ impl SnowflakeGeneratorBuilder {
     /// [`IdError::ExpirationTimeOverflow`] for an invalid configuration, or
     /// [`IdError::GeneratorExpired`] when the configured wall clock has
     /// reached the expiration boundary.
-    fn into_core(self) -> Result<(SnowflakeCore<SnowflakeLayout>, Arc<dyn Timer>), IdError> {
+    fn into_core(
+        self,
+    ) -> Result<(SnowflakeCore<SnowflakeLayout>, Arc<dyn Timer>), IdError> {
         let layout = SnowflakeLayout::new(self.node_id)?;
         let expires_at = layout.expires_at(self.epoch)?;
         let current_time = self.wall_clock.now();

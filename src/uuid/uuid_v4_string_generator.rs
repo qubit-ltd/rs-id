@@ -8,7 +8,10 @@
 //! Standards-compliant UUID v4 string generator.
 
 use super::internal::generate_uuid_v4;
-use crate::{IdError, IdGenerator};
+use crate::{
+    IdError,
+    IdGenerator,
+};
 
 /// Generates canonical lowercase hyphenated UUID v4 strings.
 ///

@@ -8,15 +8,25 @@
 //! Integration tests for the asynchronous Sonyflake generator.
 
 use std::sync::Arc;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
-use qubit_id::{AsyncIdGenerator, IdError, RestartPolicy, SonyflakeGenerator, SonyflakeLayout};
+use qubit_id::{
+    AsyncIdGenerator,
+    IdError,
+    RestartPolicy,
+    SonyflakeGenerator,
+    SonyflakeLayout,
+};
 
 use crate::support::ManualTime;
 
 #[test]
 fn test_async_sonyflake_generator_convenience_api() {
-    let generator = SonyflakeGenerator::new(17).expect("default configuration should be valid");
+    let generator = SonyflakeGenerator::new(17)
+        .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().machine_id(), 17);
     assert_eq!(
@@ -85,7 +95,8 @@ async fn test_async_sonyflake_generator_waits_with_injected_timer() {
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker = tokio::spawn(async move { worker_generator.generate_async().await });
+    let worker =
+        tokio::spawn(async move { worker_generator.generate_async().await });
 
     assert_eq!(
         time.advance_to_next_deadline_async()
@@ -103,8 +114,8 @@ async fn test_async_sonyflake_generator_waits_with_injected_timer() {
 #[tokio::test]
 async fn test_async_sonyflake_generator_reports_runtime_expiration() {
     let start_time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout =
-        SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10)).expect("layout should be valid");
+    let layout = SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10))
+        .expect("layout should be valid");
     let expires_at = layout
         .expires_at(start_time)
         .expect("expiration should be representable");

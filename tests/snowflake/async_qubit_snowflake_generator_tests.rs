@@ -8,18 +8,34 @@
 //! Integration tests for the asynchronous Qubit Snowflake generator.
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH,
+};
 
 use qubit_clock::{
-    TimeError, TimerUnavailableError,
-    test_util::{FaultInjectingTimer, TimerFailurePoint},
+    TimeError,
+    TimerUnavailableError,
+    test_util::{
+        FaultInjectingTimer,
+        TimerFailurePoint,
+    },
 };
 use qubit_id::{
-    DEFAULT_MAX_CLOCK_SKEW, GenerationAttempt, IdError, QubitSnowflakeGenerator,
-    QubitSnowflakeLayout, RestartPolicy, TimestampPrecision,
+    DEFAULT_MAX_CLOCK_SKEW,
+    GenerationAttempt,
+    IdError,
+    QubitSnowflakeGenerator,
+    QubitSnowflakeLayout,
+    RestartPolicy,
+    TimestampPrecision,
 };
 
-use crate::support::{CompletionFailingTimer, ManualTime};
+use crate::support::{
+    CompletionFailingTimer,
+    ManualTime,
+};
 
 /// Builds an asynchronous Qubit generator on one manual timeline.
 ///
@@ -54,8 +70,8 @@ fn build_generator(
 
 #[test]
 fn test_async_qubit_snowflake_generator_convenience_api() {
-    let generator =
-        QubitSnowflakeGenerator::new(17).expect("default configuration should be valid");
+    let generator = QubitSnowflakeGenerator::new(17)
+        .expect("default configuration should be valid");
 
     assert_eq!(generator.layout().host(), 17);
     assert_eq!(generator.max_clock_skew(), DEFAULT_MAX_CLOCK_SKEW);
@@ -147,7 +163,8 @@ async fn test_async_qubit_snowflake_generator_waits_for_sequence_capacity() {
             .expect("sequence should remain available");
     }
     let worker_generator = Arc::clone(&generator);
-    let worker = tokio::spawn(async move { worker_generator.generate_async().await });
+    let worker =
+        tokio::spawn(async move { worker_generator.generate_async().await });
     let deadline = time.advance_to_next_deadline_async().await;
 
     assert_eq!(deadline.elapsed_since_origin(), Duration::from_millis(1));
@@ -178,7 +195,8 @@ async fn test_async_qubit_snowflake_generator_wait_is_cancellation_safe() {
     }
     let waiter_observer = time.wait_for_waiters_async(1);
     let worker_generator = Arc::clone(&generator);
-    let worker = tokio::spawn(async move { worker_generator.generate_async().await });
+    let worker =
+        tokio::spawn(async move { worker_generator.generate_async().await });
     waiter_observer.await;
     assert_eq!(time.pending_waiters(), 1);
 
@@ -213,7 +231,8 @@ async fn test_async_qubit_snowflake_generator_waits_for_small_rollback() {
         .expect("first ID should generate");
     time.reanchor(epoch + Duration::from_millis(9));
     let worker_generator = Arc::clone(&generator);
-    let worker = tokio::spawn(async move { worker_generator.generate_async().await });
+    let worker =
+        tokio::spawn(async move { worker_generator.generate_async().await });
 
     assert_eq!(
         time.advance_to_next_deadline_async()
@@ -244,7 +263,8 @@ async fn test_async_qubit_restart_fence_retries_the_baseline_slice() {
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker = tokio::spawn(async move { worker_generator.generate_async().await });
+    let worker =
+        tokio::spawn(async move { worker_generator.generate_async().await });
 
     assert_eq!(
         time.wait_for_next_deadline_async()
@@ -324,7 +344,8 @@ async fn test_async_qubit_snowflake_generator_preserves_wait_failure_source() {
 }
 
 #[tokio::test]
-async fn test_async_qubit_snowflake_generator_preserves_completion_failure_source() {
+async fn test_async_qubit_snowflake_generator_preserves_completion_failure_source()
+ {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10_250));
     let generator = QubitSnowflakeGenerator::builder(7)
@@ -350,9 +371,12 @@ async fn test_async_qubit_snowflake_generator_preserves_completion_failure_sourc
 #[tokio::test]
 async fn test_async_qubit_snowflake_generator_reports_runtime_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout =
-        QubitSnowflakeLayout::new(qubit_id::IdMode::Sequential, TimestampPrecision::Second, 7)
-            .expect("layout should be valid");
+    let layout = QubitSnowflakeLayout::new(
+        qubit_id::IdMode::Sequential,
+        TimestampPrecision::Second,
+        7,
+    )
+    .expect("layout should be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("expiration should be representable");

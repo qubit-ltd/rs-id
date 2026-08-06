@@ -8,7 +8,10 @@
 //! Tests for `IdError` formatting and error sources.
 
 use std::error::Error;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{
+    Duration,
+    UNIX_EPOCH,
+};
 
 use qubit_id::IdError;
 

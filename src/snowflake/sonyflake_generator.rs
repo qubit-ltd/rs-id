@@ -12,10 +12,21 @@ use std::time::SystemTime;
 
 use qubit_clock::Timer;
 
-use super::internal::{BlockingSnowflake, SnowflakeCore};
-use super::{SonyflakeGeneratorBuilder, SonyflakeLayout};
+use super::internal::{
+    BlockingSnowflake,
+    SnowflakeCore,
+};
+use super::{
+    SonyflakeGeneratorBuilder,
+    SonyflakeLayout,
+};
 use crate::{
-    AsyncIdGenerator, GenerationAttempt, IdError, IdGenerationFuture, IdGenerator, TryIdGenerator,
+    AsyncIdGenerator,
+    GenerationAttempt,
+    IdError,
+    IdGenerationFuture,
+    IdGenerator,
+    TryIdGenerator,
 };
 
 /// Default Sonyflake start time as Unix epoch milliseconds.
@@ -82,7 +93,10 @@ impl SonyflakeGenerator {
     ///
     /// A synchronous generator backed by `core` and `timer`.
     #[inline]
-    pub(super) fn from_core(core: SnowflakeCore<SonyflakeLayout>, timer: Arc<dyn Timer>) -> Self {
+    pub(super) fn from_core(
+        core: SnowflakeCore<SonyflakeLayout>,
+        timer: Arc<dyn Timer>,
+    ) -> Self {
         Self {
             inner: BlockingSnowflake::new(core, timer),
         }

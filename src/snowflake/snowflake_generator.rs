@@ -12,10 +12,21 @@ use std::time::SystemTime;
 
 use qubit_clock::Timer;
 
-use super::internal::{BlockingSnowflake, SnowflakeCore};
-use super::{SnowflakeGeneratorBuilder, SnowflakeLayout};
+use super::internal::{
+    BlockingSnowflake,
+    SnowflakeCore,
+};
+use super::{
+    SnowflakeGeneratorBuilder,
+    SnowflakeLayout,
+};
 use crate::{
-    AsyncIdGenerator, GenerationAttempt, IdError, IdGenerationFuture, IdGenerator, TryIdGenerator,
+    AsyncIdGenerator,
+    GenerationAttempt,
+    IdError,
+    IdGenerationFuture,
+    IdGenerator,
+    TryIdGenerator,
 };
 
 /// Generates classic Snowflake IDs with 41 timestamp, 10 node, and 12
@@ -79,7 +90,10 @@ impl SnowflakeGenerator {
     ///
     /// A synchronous generator backed by `core` and `timer`.
     #[inline]
-    pub(super) fn from_core(core: SnowflakeCore<SnowflakeLayout>, timer: Arc<dyn Timer>) -> Self {
+    pub(super) fn from_core(
+        core: SnowflakeCore<SnowflakeLayout>,
+        timer: Arc<dyn Timer>,
+    ) -> Self {
         Self {
             inner: BlockingSnowflake::new(core, timer),
         }

@@ -10,8 +10,16 @@
 
 use std::time::Duration;
 
-use super::{ClockObservation, GenerationAttempt, RestartFence, TimeSlice};
-use crate::{IdError, RestartPolicy};
+use super::{
+    ClockObservation,
+    GenerationAttempt,
+    RestartFence,
+    TimeSlice,
+};
+use crate::{
+    IdError,
+    RestartPolicy,
+};
 
 /// Mutable high-water and sequence state protected by a generator lock.
 #[derive(Debug)]

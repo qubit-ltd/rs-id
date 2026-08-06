@@ -128,21 +128,38 @@ pub use snowflake::SnowflakeStringGenerator;
 #[cfg(feature = "qubit-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
 pub use snowflake::{
-    DEFAULT_MAX_CLOCK_SKEW, HOST_BITS, HOST_MAX, HOST_MIN, IdMode, PRECISION_BITS,
-    QubitSnowflakeGenerator, QubitSnowflakeGeneratorBuilder, QubitSnowflakeLayout,
-    QubitSnowflakeParts, TimestampPrecision,
+    DEFAULT_MAX_CLOCK_SKEW,
+    HOST_BITS,
+    HOST_MAX,
+    HOST_MIN,
+    IdMode,
+    PRECISION_BITS,
+    QubitSnowflakeGenerator,
+    QubitSnowflakeGeneratorBuilder,
+    QubitSnowflakeLayout,
+    QubitSnowflakeParts,
+    TimestampPrecision,
 };
 #[cfg(feature = "classic-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
 pub use snowflake::{
-    SnowflakeGenerator, SnowflakeGeneratorBuilder, SnowflakeLayout, SnowflakeParts,
+    SnowflakeGenerator,
+    SnowflakeGeneratorBuilder,
+    SnowflakeLayout,
+    SnowflakeParts,
 };
 #[cfg(feature = "sonyflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
 pub use snowflake::{
-    SonyflakeGenerator, SonyflakeGeneratorBuilder, SonyflakeLayout, SonyflakeParts,
+    SonyflakeGenerator,
+    SonyflakeGeneratorBuilder,
+    SonyflakeLayout,
+    SonyflakeParts,
 };
 pub use try_id_generator::TryIdGenerator;
 #[cfg(feature = "uuid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
-pub use uuid::{UuidV4Generator, UuidV4StringGenerator};
+pub use uuid::{
+    UuidV4Generator,
+    UuidV4StringGenerator,
+};

@@ -9,7 +9,10 @@
 
 use std::fmt::Write as _;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 use std::process::Command;
 
 /// Compiles all Rust snippets in the English and Chinese README files.
@@ -51,9 +54,11 @@ fn test_readme_rust_examples_compile() {
 /// Panics when the directory cannot be removed or created.
 fn recreate_dir(path: &Path) {
     if path.exists() {
-        fs::remove_dir_all(path).expect("failed to remove old markdown doctest directory");
+        fs::remove_dir_all(path)
+            .expect("failed to remove old markdown doctest directory");
     }
-    fs::create_dir_all(path).expect("failed to create markdown doctest directory");
+    fs::create_dir_all(path)
+        .expect("failed to create markdown doctest directory");
 }
 
 /// Extracts Rust code fences from a Markdown file.
@@ -70,7 +75,8 @@ fn recreate_dir(path: &Path) {
 ///
 /// Panics when the Markdown file cannot be read.
 fn extract_rust_snippets(path: &Path) -> Vec<String> {
-    let content = fs::read_to_string(path).expect("failed to read markdown file");
+    let content =
+        fs::read_to_string(path).expect("failed to read markdown file");
     let mut snippets = Vec::new();
     let mut in_rust = false;
     let mut current = String::new();
@@ -127,13 +133,20 @@ fn is_rust_fence(language: &str) -> bool {
 /// # Panics
 ///
 /// Panics when temporary crate files cannot be written or `cargo check` fails.
-fn compile_snippets(manifest_dir: &Path, output_dir: &Path, name: &str, snippets: &[String]) {
+fn compile_snippets(
+    manifest_dir: &Path,
+    output_dir: &Path,
+    name: &str,
+    snippets: &[String],
+) {
     let crate_dir = output_dir.join(name);
     let bin_dir = crate_dir.join("src/bin");
-    fs::create_dir_all(&bin_dir).expect("failed to create snippet bin directory");
+    fs::create_dir_all(&bin_dir)
+        .expect("failed to create snippet bin directory");
 
     let manifest = build_markdown_doctest_manifest(name, manifest_dir);
-    fs::write(crate_dir.join("Cargo.toml"), manifest).expect("failed to write snippet Cargo.toml");
+    fs::write(crate_dir.join("Cargo.toml"), manifest)
+        .expect("failed to write snippet Cargo.toml");
 
     for (index, snippet) in snippets.iter().enumerate() {
         let source = normalize_snippet(snippet);
@@ -222,7 +235,8 @@ fn toml_basic_string(value: &str) -> String {
 ///
 /// Source code that can be compiled as a binary target.
 fn normalize_snippet(snippet: &str) -> String {
-    let allow_example_noise = "#![allow(dead_code, unused_imports, unused_variables)]\n";
+    let allow_example_noise =
+        "#![allow(dead_code, unused_imports, unused_variables)]\n";
     if snippet.contains("fn main") {
         format!("{allow_example_noise}{snippet}\n")
     } else {
@@ -233,7 +247,10 @@ fn normalize_snippet(snippet: &str) -> String {
 /// Verifies that Windows dependency paths are escaped in the generated TOML.
 #[test]
 fn test_build_markdown_doctest_manifest_escapes_windows_dependency_path() {
-    let manifest = build_markdown_doctest_manifest("readme_en", Path::new(r"D:\a\rs-id\rs-id"));
+    let manifest = build_markdown_doctest_manifest(
+        "readme_en",
+        Path::new(r"D:\a\rs-id\rs-id"),
+    );
 
     assert!(
         manifest.contains(r#"path = "D:\\a\\rs-id\\rs-id""#),
@@ -244,7 +261,10 @@ fn test_build_markdown_doctest_manifest_escapes_windows_dependency_path() {
 /// Verifies that README examples can use every feature-gated public API.
 #[test]
 fn test_build_markdown_doctest_manifest_enables_all_example_features() {
-    let manifest = build_markdown_doctest_manifest("readme_en", Path::new("/workspace/rs-id"));
+    let manifest = build_markdown_doctest_manifest(
+        "readme_en",
+        Path::new("/workspace/rs-id"),
+    );
 
     assert!(
         manifest.contains(
@@ -299,7 +319,9 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         "cargo bench --no-default-features --features uuid --bench uuid_comparison",
     ];
 
-    for (name, feature_summary, lifetime_summary, deployment_fragments) in readmes {
+    for (name, feature_summary, lifetime_summary, deployment_fragments) in
+        readmes
+    {
         let content = fs::read_to_string(manifest_dir.join(name))
             .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
         for fragment in [feature_summary, lifetime_summary] {
@@ -328,11 +350,13 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
 #[test]
 fn test_async_documentation_describes_unboxed_outer_future() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let readme =
-        fs::read_to_string(manifest_dir.join("README.md")).expect("README.md should be readable");
+    let readme = fs::read_to_string(manifest_dir.join("README.md"))
+        .expect("README.md should be readable");
 
     assert!(
-        readme.contains("concrete asynchronous method has an unboxed outer Future"),
+        readme.contains(
+            "concrete asynchronous method has an unboxed outer Future"
+        ),
         "README.md must describe the concrete async method precisely"
     );
     assert!(
@@ -374,7 +398,9 @@ fn test_readmes_document_structured_generation_failures() {
         ),
     ];
 
-    for (name, random_failure, expiration_failure, forbidden_fragments) in readmes {
+    for (name, random_failure, expiration_failure, forbidden_fragments) in
+        readmes
+    {
         let content = fs::read_to_string(manifest_dir.join(name))
             .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
         for fragment in [random_failure, expiration_failure] {
@@ -396,8 +422,8 @@ fn test_readmes_document_structured_generation_failures() {
 #[test]
 fn test_docs_rs_build_enables_all_features() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let manifest =
-        fs::read_to_string(manifest_dir.join("Cargo.toml")).expect("Cargo.toml should be readable");
+    let manifest = fs::read_to_string(manifest_dir.join("Cargo.toml"))
+        .expect("Cargo.toml should be readable");
 
     assert!(
         manifest.contains("[package.metadata.docs.rs]\nall-features = true"),
@@ -408,8 +434,8 @@ fn test_docs_rs_build_enables_all_features() {
         "Cargo.toml must enable docsrs cfg for feature annotations"
     );
 
-    let crate_root =
-        fs::read_to_string(manifest_dir.join("src/lib.rs")).expect("src/lib.rs should be readable");
+    let crate_root = fs::read_to_string(manifest_dir.join("src/lib.rs"))
+        .expect("src/lib.rs should be readable");
     for fragment in [
         "#![cfg_attr(docsrs, feature(doc_cfg))]",
         "doc(cfg(feature = \"qubit-snowflake\"))",

@@ -7,10 +7,18 @@
 // =============================================================================
 //! Defines a timer whose first future fails after successful registration.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{
+    AtomicUsize,
+    Ordering,
+};
 
 use qubit_clock::{
-    MonotonicClock, MonotonicInstant, StdMonotonicClock, TimeError, Timer, TimerFuture,
+    MonotonicClock,
+    MonotonicInstant,
+    StdMonotonicClock,
+    TimeError,
+    Timer,
+    TimerFuture,
     TimerUnavailableError,
 };
 
@@ -65,7 +73,10 @@ impl Timer for CompletionFailingTimer {
     ///
     /// Returns [`TimeError::InstantOverflow`] on every later registration.
     #[inline]
-    fn at(&self, _deadline: MonotonicInstant) -> Result<TimerFuture, TimeError> {
+    fn at(
+        &self,
+        _deadline: MonotonicInstant,
+    ) -> Result<TimerFuture, TimeError> {
         if self.registrations.fetch_add(1, Ordering::Relaxed) == 0 {
             return Ok(Box::pin(async {
                 Err(TimeError::TimerUnavailable {

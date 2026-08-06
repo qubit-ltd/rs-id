@@ -8,15 +8,26 @@
 //! Qubit snowflake generator.
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{
+    Duration,
+    SystemTime,
+};
 
 use qubit_clock::Timer;
 
 use super::QubitSnowflakeLayout;
-use super::internal::{BlockingSnowflake, SnowflakeCore};
+use super::internal::{
+    BlockingSnowflake,
+    SnowflakeCore,
+};
 use super::qubit_snowflake_generator_builder::QubitSnowflakeGeneratorBuilder;
 use crate::{
-    AsyncIdGenerator, GenerationAttempt, IdError, IdGenerationFuture, IdGenerator, TryIdGenerator,
+    AsyncIdGenerator,
+    GenerationAttempt,
+    IdError,
+    IdGenerationFuture,
+    IdGenerator,
+    TryIdGenerator,
 };
 
 /// Qubit Snowflake generator.
@@ -247,7 +258,11 @@ impl QubitSnowflakeGenerator {
     /// expiration boundary, or [`IdError::SequenceOverflow`] when `sequence`
     /// does not fit the layout.
     #[inline(always)]
-    pub fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<u64, IdError> {
+    pub fn compose_at(
+        &self,
+        time: SystemTime,
+        sequence: u64,
+    ) -> Result<u64, IdError> {
         self.inner.core().compose_at(time, sequence)
     }
 }
