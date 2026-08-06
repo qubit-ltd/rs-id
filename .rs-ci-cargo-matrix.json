@@ -3,6 +3,7 @@
   "checks": [
     {
       "name": "no-default-features",
+      "packages": ["qubit-id"],
       "defaultFeatures": false,
       "commands": [
         "check",
@@ -12,6 +13,7 @@
     },
     {
       "name": "qubit-snowflake",
+      "packages": ["qubit-id"],
       "defaultFeatures": false,
       "features": [
         "qubit-snowflake"
@@ -24,6 +26,7 @@
     },
     {
       "name": "classic-snowflake",
+      "packages": ["qubit-id"],
       "defaultFeatures": false,
       "features": [
         "classic-snowflake"
@@ -36,6 +39,7 @@
     },
     {
       "name": "sonyflake",
+      "packages": ["qubit-id"],
       "defaultFeatures": false,
       "features": [
         "sonyflake"
@@ -48,6 +52,7 @@
     },
     {
       "name": "uuid",
+      "packages": ["qubit-id"],
       "defaultFeatures": false,
       "features": [
         "uuid"
@@ -60,6 +65,7 @@
     },
     {
       "name": "all-features-clippy",
+      "packages": ["qubit-id"],
       "allFeatures": true,
       "commands": [
         "clippy"
