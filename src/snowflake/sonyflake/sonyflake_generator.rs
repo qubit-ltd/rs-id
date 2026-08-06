@@ -8,7 +8,10 @@
 //! Synchronous Sonyflake-style 63-bit ID generator.
 
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{
+    Duration,
+    SystemTime,
+};
 
 use qubit_clock::Timer;
 
@@ -22,6 +25,7 @@ use super::{
 };
 use crate::{
     AsyncIdGenerator,
+    BlockingIdGenerator,
     GenerationAttempt,
     Id,
     IdGenerationError,
@@ -30,15 +34,18 @@ use crate::{
     TryIdGenerator,
 };
 
-/// Default Sonyflake start time as Unix epoch milliseconds.
-pub(super) const DEFAULT_START_MILLIS: u64 = 1_735_689_600_000;
+/// Default Sonyflake epoch as Unix epoch milliseconds.
+pub(super) const DEFAULT_EPOCH_MILLIS: u64 = 1_735_689_600_000;
 
 /// Generates Sonyflake-style IDs with configurable time, sequence, and
 /// machine fields.
 ///
 /// The generator is thread-safe. One shared live instance never returns the
 /// same ID twice, provided its machine identifier is exclusive within the ID
-/// namespace. Retry waits use the timer injected through the builder.
+/// namespace. Retry waits use the timer injected through the builder. A
+/// backwards clock movement within [`Self::max_clock_skew`] is retried after
+/// waiting; a larger movement returns
+/// [`IdGenerationError::ClockMovedBackwards`].
 #[derive(Clone)]
 #[must_use]
 pub struct SonyflakeGenerator {
@@ -63,7 +70,7 @@ impl SonyflakeGenerator {
     /// exceeds the default 16-bit field,
     /// [`IdGenerationError::ExpirationTimeOverflow`] when the
     /// lifetime boundary cannot be represented,
-    /// [`IdGenerationError::StartTimeAhead`] when the default start time is
+    /// [`IdGenerationError::EpochAhead`] when the default epoch is
     /// later than the current wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when that clock has reached the
     /// boundary.
@@ -95,7 +102,7 @@ impl SonyflakeGenerator {
     ///
     /// # Returns
     ///
-    /// A synchronous generator backed by `core` and `timer`.
+    /// A generator backed by `core` and `timer`.
     #[inline]
     pub(super) fn from_core(
         core: SnowflakeCore<SonyflakeLayout>,
@@ -126,14 +133,14 @@ impl SonyflakeGenerator {
         self.inner.core().layout()
     }
 
-    /// Returns the configured elapsed-time origin.
+    /// Returns the configured epoch.
     ///
     /// # Returns
     ///
     /// The wall time represented by elapsed time zero.
     #[must_use]
     #[inline(always)]
-    pub fn start_time(&self) -> SystemTime {
+    pub fn epoch(&self) -> SystemTime {
         self.inner.core().epoch()
     }
 
@@ -148,10 +155,22 @@ impl SonyflakeGenerator {
         self.inner.core().expires_at()
     }
 
+    /// Returns the maximum tolerated backwards clock movement.
+    ///
+    /// # Returns
+    ///
+    /// Maximum tolerated raw wall-clock rollback.
+    #[must_use]
+    #[inline(always)]
+    pub fn max_clock_skew(&self) -> Duration {
+        self.inner.core().max_clock_skew()
+    }
+
     /// Generates the next Sonyflake-style ID.
     ///
     /// This inherent method is convenient for concrete callers. Use
-    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
+    /// [`BlockingIdGenerator`] when an object-safe dynamic-dispatch boundary is
+    /// needed.
     ///
     /// # Returns
     ///
@@ -159,7 +178,8 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as the [`IdGenerator::generate`] implementation.
+    /// Returns the same errors as the [`BlockingIdGenerator::generate`]
+    /// implementation.
     #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate().map(Id::from)
@@ -175,7 +195,7 @@ impl SonyflakeGenerator {
     /// # Errors
     ///
     /// Returns the non-retryable allocation errors described by
-    /// [`IdGenerator::generate`].
+    /// [`BlockingIdGenerator::generate`].
     #[inline]
     pub fn try_generate(
         &self,
@@ -193,16 +213,47 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as [`IdGenerator::generate`].
+    /// Returns the same errors as [`BlockingIdGenerator::generate`].
     pub async fn generate_async(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate_async().await.map(Id::from)
+    }
+
+    /// Composes an ID for an explicit time and sequence.
+    ///
+    /// This operation is stateless and provides no uniqueness guarantee.
+    ///
+    /// # Parameters
+    ///
+    /// * `time` - Wall time to encode.
+    /// * `sequence` - Sequence to encode within that elapsed-time unit.
+    ///
+    /// # Returns
+    ///
+    /// A Sonyflake ID containing the specified elapsed time and sequence.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdGenerationError::TimeBeforeEpoch`] if `time` is before the
+    /// configured epoch, [`IdGenerationError::GeneratorExpired`] if `time`
+    /// has reached the exclusive expiration boundary, or
+    /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
+    /// the layout.
+    #[inline(always)]
+    pub fn compose_at(
+        &self,
+        time: SystemTime,
+        sequence: u64,
+    ) -> Result<Id, IdGenerationError> {
+        self.inner.core().compose_at(time, sequence).map(Id::from)
     }
 }
 
 impl IdGenerator for SonyflakeGenerator {
     type Output = Id;
     type Error = IdGenerationError;
+}
 
+impl BlockingIdGenerator for SonyflakeGenerator {
     /// Generates the next Sonyflake-style ID.
     ///
     /// # Returns
@@ -212,10 +263,11 @@ impl IdGenerator for SonyflakeGenerator {
     /// # Errors
     ///
     /// Returns [`IdGenerationError::TimeBeforeEpoch`] when the wall clock
-    /// precedes the start time, [`IdGenerationError::GeneratorExpired`] at
-    /// the lifetime boundary, [`IdGenerationError::ClockMovedBackwards`]
-    /// after any wall-clock rollback, or [`IdGenerationError::WaitFailed`]
-    /// when a retry wait cannot be registered or completed.
+    /// precedes the epoch, [`IdGenerationError::GeneratorExpired`] at
+    /// the lifetime boundary, [`IdGenerationError::ClockMovedBackwards`] when
+    /// a wall-clock rollback exceeds the configured tolerance, or
+    /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
+    /// registered or completed.
     #[inline(always)]
     fn generate(&self) -> Result<Self::Output, Self::Error> {
         SonyflakeGenerator::generate(self)
@@ -223,9 +275,6 @@ impl IdGenerator for SonyflakeGenerator {
 }
 
 impl TryIdGenerator for SonyflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-
     /// Attempts one non-blocking Sonyflake allocation.
     #[inline]
     fn try_generate(
@@ -236,9 +285,6 @@ impl TryIdGenerator for SonyflakeGenerator {
 }
 
 impl AsyncIdGenerator for SonyflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-
     /// Generates a Sonyflake ID asynchronously.
     #[inline]
     fn generate_async(

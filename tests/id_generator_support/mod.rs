@@ -9,6 +9,7 @@
 
 mod counter_generator_tests;
 
+#[allow(unused_imports)]
 pub(crate) use counter_generator_tests::{
     CounterGenerator,
     IoCounterGenerator,

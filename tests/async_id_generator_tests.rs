@@ -16,12 +16,46 @@ use std::task::{
     Waker,
 };
 
-use qubit_id::AsyncIdGenerator;
+use qubit_id::{
+    AsyncIdGenerator,
+    IdGenerationFuture,
+    IdGenerator,
+};
 
 use self::id_generator_support::{
     CounterGenerator,
     IoCounterGenerator,
 };
+
+struct AsyncOnlyGenerator;
+
+impl IdGenerator for AsyncOnlyGenerator {
+    type Output = u64;
+    type Error = std::convert::Infallible;
+}
+
+impl AsyncIdGenerator for AsyncOnlyGenerator {
+    fn generate_async(
+        &self,
+    ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
+        Box::pin(async { Ok(42) })
+    }
+}
+
+#[test]
+fn test_async_id_generator_can_be_used_without_blocking_capability() {
+    let generator: Arc<
+        dyn AsyncIdGenerator<Output = u64, Error = std::convert::Infallible>,
+    > = Arc::new(AsyncOnlyGenerator);
+    let mut future = generator.generate_async();
+    let waker = Waker::noop();
+    let mut context = Context::from_waker(waker);
+
+    assert!(matches!(
+        future.as_mut().poll(&mut context),
+        Poll::Ready(Ok(42))
+    ));
+}
 
 #[test]
 fn test_async_id_generator_is_object_safe_for_one_output_type() {
