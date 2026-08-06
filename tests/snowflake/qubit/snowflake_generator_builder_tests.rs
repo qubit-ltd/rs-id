@@ -56,7 +56,7 @@ fn test_snowflake_generator_builder_builds_configuration() {
     let id = generator
         .generate()
         .expect("the injected clock should generate an ID");
-    let parts = SnowflakeLayout::decode(id.value());
+    let parts = SnowflakeLayout::decode(id);
     assert_eq!(parts.timestamp(), 100);
     assert_eq!(parts.sequence(), 0);
 }

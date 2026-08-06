@@ -477,7 +477,7 @@ fn generate_until_target(
         generated += batch
             .iter()
             .filter(|id| {
-                let timestamp = SnowflakeLayout::decode(id.value()).timestamp();
+                let timestamp = SnowflakeLayout::decode(**id).timestamp();
                 (start_timestamp..target_timestamp).contains(&timestamp)
             })
             .count() as u64;

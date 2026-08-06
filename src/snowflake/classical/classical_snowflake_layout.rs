@@ -17,7 +17,10 @@ use super::super::internal::{
     expiration_time,
 };
 use super::classical_snowflake_parts::ClassicalSnowflakeParts;
-use crate::IdGenerationError;
+use crate::{
+    Id,
+    IdGenerationError,
+};
 
 /// Number of bits used for the timestamp field.
 const TIMESTAMP_BITS: u8 = 41;
@@ -142,7 +145,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a part exceeds its field.
-    pub fn compose(
+    pub fn compose_raw(
         &self,
         timestamp: u64,
         sequence: u64,
@@ -177,11 +180,39 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Timestamp, node, and sequence fields decoded from `id`.
     #[inline]
-    pub const fn decode(id: u64) -> ClassicalSnowflakeParts {
+    pub const fn decode(id: Id) -> ClassicalSnowflakeParts {
+        Self::decode_raw(id.value())
+    }
+
+    /// Decodes a classic Snowflake bit pattern.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - Classic Snowflake bit pattern to decode.
+    ///
+    /// # Returns
+    ///
+    /// Timestamp, node, and sequence fields decoded from `id`.
+    #[inline]
+    pub const fn decode_raw(id: u64) -> ClassicalSnowflakeParts {
         let timestamp = id >> (NODE_BITS + SEQUENCE_BITS);
         let node_id = (id >> SEQUENCE_BITS) & MAX_NODE_ID;
         let sequence = id & ((1_u64 << SEQUENCE_BITS) - 1);
         ClassicalSnowflakeParts::new(timestamp, node_id, sequence)
+    }
+
+    /// Composes a classic Snowflake ID from timestamp and sequence parts.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same overflow errors as [`Self::compose_raw`].
+    #[inline(always)]
+    pub fn compose(
+        &self,
+        timestamp: u64,
+        sequence: u64,
+    ) -> Result<Id, IdGenerationError> {
+        self.compose_raw(timestamp, sequence).map(Id::from)
     }
 }
 
@@ -237,6 +268,6 @@ impl SnowflakeLayoutSpec for ClassicalSnowflakeLayout {
         timestamp: u64,
         sequence: u64,
     ) -> Result<u64, IdGenerationError> {
-        ClassicalSnowflakeLayout::compose(self, timestamp, sequence)
+        ClassicalSnowflakeLayout::compose_raw(self, timestamp, sequence)
     }
 }
