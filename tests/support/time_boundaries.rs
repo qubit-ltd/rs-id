@@ -7,11 +7,7 @@
 // =============================================================================
 //! Boundary values shared by integration tests.
 
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Finds the latest representable whole-second timestamp.
 ///

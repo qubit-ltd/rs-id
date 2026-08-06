@@ -8,10 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Defines an unquantized wall-clock observation.
 
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::{Duration, SystemTime};
 
 use crate::IdError;
 

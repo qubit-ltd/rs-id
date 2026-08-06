@@ -10,11 +10,7 @@
 mod id_generator_support;
 
 use std::sync::Arc;
-use std::task::{
-    Context,
-    Poll,
-    Waker,
-};
+use std::task::{Context, Poll, Waker};
 
 use qubit_id::AsyncIdGenerator;
 
@@ -22,8 +18,7 @@ use self::id_generator_support::CounterGenerator;
 
 #[test]
 fn test_async_id_generator_is_object_safe_for_one_output_type() {
-    let generator: Arc<dyn AsyncIdGenerator<u64>> =
-        Arc::new(CounterGenerator::default());
+    let generator: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(CounterGenerator::default());
     let mut future = generator.generate_async();
     let waker = Waker::noop();
     let mut context = Context::from_waker(waker);

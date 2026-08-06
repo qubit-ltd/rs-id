@@ -7,10 +7,7 @@
 // =============================================================================
 //! Decoded fields of a Qubit snowflake ID.
 
-use super::{
-    IdMode,
-    TimestampPrecision,
-};
+use super::{IdMode, TimestampPrecision};
 
 /// Fields decoded from a Qubit snowflake ID.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]

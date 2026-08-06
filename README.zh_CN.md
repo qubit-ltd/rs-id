@@ -12,11 +12,10 @@
 
 ## 主要特性
 
-- `IdGenerator<T, E = IdError>` 与
-  `AsyncIdGenerator<T, E = IdError>` 支持生成器自有错误类型，并使用 `&self`；
-  状态变化由实现内部同步。
-- Qubit Snowflake、经典 Snowflake 与 Sonyflake 共享一个分配核心，同时使用独立的
-  阻塞和异步等待驱动器。
+- `TryIdGenerator<T, E = IdError>`、`IdGenerator<T, E = IdError>` 与
+  `AsyncIdGenerator<T, E = IdError>` 分别表达非阻塞、阻塞和异步分配契约。
+- 每种 Snowflake 类型都实现这三个契约，并在同步和异步调用路径之间共享同一分配状态。
+- `try_generate()`、`generate()` 与 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
 - Builder 接受来自 [`qubit-clock`](https://crates.io/crates/qubit-clock) 的
   `Arc<dyn WallClock>` 与 `Arc<dyn Timer>`。
 - UUID 输出符合版本 4 标准，可以选择 `u128` 或规范的连字符字符串。
@@ -63,25 +62,27 @@ fn main() -> Result<(), IdError> {
 }
 ```
 
-具体异步生成器提供不装箱的 inherent Future：
+每种 Snowflake 生成器都提供阻塞、非阻塞和异步方法。具体异步方法的外层 Future
+不装箱；重试时仍可能创建 Timer 的内部 Future：
 
 ```rust
-use qubit_id::{AsyncQubitSnowflakeGenerator, IdError};
+use qubit_id::{QubitSnowflakeGenerator, IdError};
 
 async fn allocate_concrete(
-    generator: &AsyncQubitSnowflakeGenerator,
+    generator: &QubitSnowflakeGenerator,
 ) -> Result<u64, IdError> {
     generator.generate_async().await
 }
 ```
 
-需要 object-safe 注入边界时使用 `Arc<dyn AsyncIdGenerator<u64>>`。动态分发
+调用方需要自行调度重试时使用 `Arc<dyn TryIdGenerator<u64>>`。需要异步 object-safe
+注入边界时使用 `Arc<dyn AsyncIdGenerator<u64>>`。动态分发
 返回装箱 Future，并且不要求 Tokio：
 
 ```rust
 use std::sync::Arc;
 use qubit_id::{
-    AsyncIdGenerator, AsyncQubitSnowflakeGenerator, IdError,
+    AsyncIdGenerator, QubitSnowflakeGenerator, IdError,
 };
 
 async fn allocate(
@@ -92,7 +93,7 @@ async fn allocate(
 
 fn main() -> Result<(), IdError> {
     let generator: Arc<dyn AsyncIdGenerator<u64>> =
-        Arc::new(AsyncQubitSnowflakeGenerator::new(7)?);
+        Arc::new(QubitSnowflakeGenerator::new(7)?);
     let _injected = generator;
     Ok(())
 }
@@ -102,22 +103,19 @@ fn main() -> Result<(), IdError> {
 
 ## Snowflake 生成器
 
-| Feature | 同步类型 | 异步类型 | 自然输出 |
-| --- | --- | --- | --- |
-| `qubit-snowflake` | `QubitSnowflakeGenerator` | `AsyncQubitSnowflakeGenerator` | `u64` |
-| `classic-snowflake` | `SnowflakeGenerator` | `AsyncSnowflakeGenerator` | `u64` |
-| `sonyflake` | `SonyflakeGenerator` | `AsyncSonyflakeGenerator` | `u64` |
+| Feature | 生成器类型 | 自然输出 |
+| --- | --- | --- |
+| `qubit-snowflake` | `QubitSnowflakeGenerator` | `u64` |
+| `classic-snowflake` | `SnowflakeGenerator` | `u64` |
+| `sonyflake` | `SonyflakeGenerator` | `u64` |
 
 “经典 Snowflake”表示 41/10/12 位布局，并不代表存在一个通用的固定 epoch。
 `SnowflakeGenerator` 默认使用 `2018-12-02T00:00:00Z`，与 Qubit Snowflake
 相同。与使用其他时间起点的既有 ID 命名空间互操作时，应通过 Builder 的
 `epoch(...)` 显式设置时间起点。
 
-每个 Builder 都提供 `build()` 与 `build_async()`；两条路径复用相同的布局、
-epoch/start time、restart policy、WallClock 与 Timer 配置。
-
-每次成功调用 `build()` 或 `build_async()` 都会创建独立的分配状态。即使配置完全
-相同，两个生成器也不会协调序列，包括一个同步生成器和一个异步生成器的组合。
+每个 Builder 只提供一个 `build()`。生成器的 `try_generate()`、`generate()` 与
+`generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
 
 ### 存储与传输兼容性
 
@@ -142,20 +140,20 @@ let clock = ManualMonotonicClock::new_shared();
 let generator = QubitSnowflakeGenerator::builder(7)
     .wall_clock(clock.new_wall_clock(initial_time))
     .timer(clock.new_timer())
-    .build_async()?;
+    .build()?;
 ```
 
 Manual Timer observer 可以先确认 deadline 已注册，再推进逻辑时钟，避免真实 sleep
 和异步调度猜测。
 
-Tokio Timer 会保留目标 runtime handle，因此异步生成器可以从其他 runtime 或执行
+Tokio Timer 会保留目标 runtime handle，因此 `generate_async()` 可以从其他 runtime 或执行
 上下文轮询 timer future；目标 `Runtime` 必须保持存活并持续驱动。同步生成器会阻塞
-等待，因此 timer 后端必须独立于调用线程推进；不要依赖仅由同一调用线程驱动的
-Tokio current-thread runtime。
+等待，因此 timer 后端必须独立于调用线程推进；调用方需要自行控制调度时应使用
+`try_generate()`，不要依赖仅由同一调用线程驱动的 Tokio current-thread runtime。
 
 ## 字符串与 UUID 输出
 
-IoC 边界需要十进制文本时，可以包装任意同步或异步 Snowflake `u64` 生成器：
+IoC 边界需要十进制文本时，可以包装任意 Snowflake `u64` 生成器：
 
 ```rust
 use std::sync::Arc;
@@ -206,10 +204,10 @@ Timer 注册或阻塞适配失败会返回 `IdError::WaitFailed`，并保留原�
 同一命名空间中，每个并发运行的生成器必须拥有独占的 host、node 或 machine ID。
 本库不持久化分配状态，也不提供分布式租约。
 
-`RestartPolicy::Immediate` 会在当前时间片开始分配，不提供重启隔离。
-`RestartPolicy::WaitNextSlice` 会把首次分配推迟到后续时间片，从而降低旧实例停止后
-被替换时复用同一时间片的风险；它不能协调并发运行的生成器，也无法防止时钟重启到
-更早时间片。两种策略都不能替代持久化分配状态或独占的分布式身份租约。
+`RestartPolicy::WaitNextSlice` 是所有 Snowflake Builder 的默认值，会把首次分配推迟到
+后续时间片，从而降低旧实例停止后被替换时复用同一时间片的风险。
+`RestartPolicy::Immediate` 供部署环境能够保证重启间隔时使用。两种策略都不能协调并发
+运行的生成器，也无法防止时钟重启到更早时间片，不能替代持久化分配状态或独占的分布式身份租约。
 
 ## Feature 与基准测试
 
