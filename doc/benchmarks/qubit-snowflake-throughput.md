@@ -27,11 +27,13 @@ systems, Rust versions, or workloads.
 
 The benchmark uses the real system clock and one sequential-mode Qubit
 Snowflake generator shared by all worker threads. It obtains the default epoch
-from the generator instead of substituting a benchmark-only epoch. Each
-throughput sample constructs a fresh generator, generates 100,000 untimed
-warm-up IDs, aligns to a fresh clock slice, and then measures 2,000 millisecond
-slices or 2 second slices. Every precision and worker-count combination is
-sampled three times.
+from the generator instead of substituting a benchmark-only epoch. Benchmark
+generators explicitly use `RestartPolicy::Immediate` so setup and dispatch
+measurements do not include the default restart-fence wait. Each throughput
+sample constructs a fresh generator, generates 100,000 untimed warm-up IDs,
+aligns to a fresh clock slice, and then measures 2,000 millisecond slices or 2
+second slices. Every precision and worker-count combination is sampled three
+times.
 
 Workers generate IDs in batches of 64. Normal batches remain on the generation
 hot path; only the final boundary batch is decoded so IDs outside the measured
@@ -40,10 +42,11 @@ exceed the layout capacity: 4,096 IDs per millisecond slice or 4,194,304 IDs
 per second slice. The tables report the sample with the median throughput, plus
 the minimum and maximum throughput across all three samples.
 
-Startup latency is measured separately over 10,000 fresh instances. Each
-observation includes builder construction and the first `generate` call. This
-captures the immediate first allocation and is excluded from sustained
-throughput timing.
+Startup latency is measured separately over 10,000 fresh instances with
+`RestartPolicy::Immediate`. Each observation includes builder construction and
+the first `generate` call, measuring immediate allocation rather than the
+default `WaitNextSlice` policy's intentional time-slice wait. It is excluded
+from sustained throughput timing.
 
 Before sustained-throughput sampling, the benchmark also runs 200,000-operation
 fixed workloads through concrete and `Arc<dyn ...>` synchronous and
@@ -112,11 +115,10 @@ their observed ranges. Once the sequence space is exhausted, thread scheduling
 around the next clock boundary can affect elapsed time but cannot increase
 capacity.
 
-The median build-plus-first-ID latency was 880 ns in both precision modes. The
-increase from the previous record is material in this run, but this benchmark
-does not isolate which working-tree or dependency change caused it. Tail values
-remain sensitive to scheduling and interruption, and immediate first allocation
-still avoids a time-slice startup fence.
+The median build-plus-first-ID latency was 880 ns in both precision modes under
+`RestartPolicy::Immediate`. These values are a setup baseline and do not
+describe the default `WaitNextSlice` first-allocation latency. Tail values
+remain sensitive to scheduling and interruption.
 
 String conversion reduced observed synchronous dispatch throughput by roughly
 26% to 31% relative to the corresponding numeric path, and asynchronous
