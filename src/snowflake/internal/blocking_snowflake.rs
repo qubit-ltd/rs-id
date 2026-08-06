@@ -10,22 +10,16 @@
 
 use std::sync::Arc;
 
-use qubit_clock::{
-    BlockingSleeper,
-    Timer,
-};
+use qubit_clock::{BlockingSleeper, Timer};
 
-use super::{
-    GenerationAttempt,
-    SnowflakeCore,
-    SnowflakeLayoutSpec,
-};
+use super::{GenerationAttempt, SnowflakeCore, SnowflakeLayoutSpec};
 use crate::IdError;
 
 /// Adapts a non-waiting Snowflake core to synchronous generation.
+#[derive(Clone)]
 pub(crate) struct BlockingSnowflake<L> {
     /// Shared allocation and layout logic.
-    core: SnowflakeCore<L>,
+    core: Arc<SnowflakeCore<L>>,
     /// Blocking adapter over the injected timer.
     sleeper: BlockingSleeper,
 }
@@ -47,7 +41,7 @@ where
     #[inline]
     pub(crate) fn new(core: SnowflakeCore<L>, timer: Arc<dyn Timer>) -> Self {
         Self {
-            core,
+            core: Arc::new(core),
             sleeper: BlockingSleeper::new(timer),
         }
     }
@@ -69,11 +63,33 @@ where
     /// complete a retry wait.
     pub(crate) fn generate(&self) -> Result<u64, IdError> {
         loop {
-            match self.core.try_generate()? {
+            match self.try_generate()? {
                 GenerationAttempt::Generated(id) => return Ok(id),
-                GenerationAttempt::RetryAfter(duration) => {
+                GenerationAttempt::RetryAfter { delay } => {
                     self.sleeper
-                        .sleep_for(duration)
+                        .sleep_for(delay)
+                        .map_err(|source| IdError::WaitFailed { source })?;
+                }
+            }
+        }
+    }
+
+    /// Performs one non-blocking allocation attempt.
+    pub(crate) fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+        self.core.try_generate()
+    }
+
+    /// Generates an ID asynchronously, yielding across retryable outcomes.
+    pub(crate) async fn generate_async(&self) -> Result<u64, IdError> {
+        loop {
+            match self.try_generate()? {
+                GenerationAttempt::Generated(id) => return Ok(id),
+                GenerationAttempt::RetryAfter { delay } => {
+                    self.sleeper
+                        .timer()
+                        .after(delay)
+                        .map_err(|source| IdError::WaitFailed { source })?
+                        .await
                         .map_err(|source| IdError::WaitFailed { source })?;
                 }
             }
@@ -87,7 +103,7 @@ where
     /// The allocation core adapted by this blocking driver.
     #[must_use]
     #[inline(always)]
-    pub(crate) const fn core(&self) -> &SnowflakeCore<L> {
-        &self.core
+    pub(crate) fn core(&self) -> &SnowflakeCore<L> {
+        self.core.as_ref()
     }
 }

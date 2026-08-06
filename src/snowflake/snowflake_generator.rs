@@ -12,17 +12,10 @@ use std::time::SystemTime;
 
 use qubit_clock::Timer;
 
-use super::internal::{
-    BlockingSnowflake,
-    SnowflakeCore,
-};
-use super::{
-    SnowflakeGeneratorBuilder,
-    SnowflakeLayout,
-};
+use super::internal::{BlockingSnowflake, SnowflakeCore};
+use super::{SnowflakeGeneratorBuilder, SnowflakeLayout};
 use crate::{
-    IdError,
-    IdGenerator,
+    AsyncIdGenerator, GenerationAttempt, IdError, IdGenerationFuture, IdGenerator, TryIdGenerator,
 };
 
 /// Generates classic Snowflake IDs with 41 timestamp, 10 node, and 12
@@ -32,6 +25,7 @@ use crate::{
 /// same ID twice, provided its node identifier is exclusive within the ID
 /// namespace. [`IdGenerator::generate`] blocks when sequence capacity is
 /// exhausted until the injected timer allows wall time to advance.
+#[derive(Clone)]
 #[must_use]
 pub struct SnowflakeGenerator {
     /// Blocking driver over the shared allocation core.
@@ -85,10 +79,7 @@ impl SnowflakeGenerator {
     ///
     /// A synchronous generator backed by `core` and `timer`.
     #[inline]
-    pub(super) fn from_core(
-        core: SnowflakeCore<SnowflakeLayout>,
-        timer: Arc<dyn Timer>,
-    ) -> Self {
+    pub(super) fn from_core(core: SnowflakeCore<SnowflakeLayout>, timer: Arc<dyn Timer>) -> Self {
         Self {
             inner: BlockingSnowflake::new(core, timer),
         }
@@ -110,7 +101,7 @@ impl SnowflakeGenerator {
     /// ```
     #[must_use = "use the returned layout reference"]
     #[inline(always)]
-    pub const fn layout(&self) -> &SnowflakeLayout {
+    pub fn layout(&self) -> &SnowflakeLayout {
         self.inner.core().layout()
     }
 
@@ -121,7 +112,7 @@ impl SnowflakeGenerator {
     /// The timestamp origin represented by timestamp zero.
     #[must_use]
     #[inline(always)]
-    pub const fn epoch(&self) -> SystemTime {
+    pub fn epoch(&self) -> SystemTime {
         self.inner.core().epoch()
     }
 
@@ -132,7 +123,7 @@ impl SnowflakeGenerator {
     /// The first wall time that cannot be represented by this generator.
     #[must_use]
     #[inline(always)]
-    pub const fn expires_at(&self) -> SystemTime {
+    pub fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
 
@@ -151,6 +142,35 @@ impl SnowflakeGenerator {
     #[inline(always)]
     pub fn generate(&self) -> Result<u64, IdError> {
         self.inner.generate()
+    }
+
+    /// Attempts to generate an ID without sleeping or awaiting.
+    ///
+    /// # Returns
+    ///
+    /// A generated ID or the minimum delay before another attempt can make
+    /// progress.
+    ///
+    /// # Errors
+    ///
+    /// Returns the non-retryable allocation errors described by
+    /// [`IdGenerator::generate`].
+    #[inline]
+    pub fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+        self.inner.try_generate()
+    }
+
+    /// Generates the next classic Snowflake ID asynchronously.
+    ///
+    /// # Returns
+    ///
+    /// A cancellation-safe future for the next generated ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`IdGenerator::generate`].
+    pub async fn generate_async(&self) -> Result<u64, IdError> {
+        self.inner.generate_async().await
     }
 }
 
@@ -171,5 +191,21 @@ impl IdGenerator<u64> for SnowflakeGenerator {
     #[inline(always)]
     fn generate(&self) -> Result<u64, IdError> {
         SnowflakeGenerator::generate(self)
+    }
+}
+
+impl TryIdGenerator<u64> for SnowflakeGenerator {
+    /// Attempts one non-blocking classic Snowflake allocation.
+    #[inline]
+    fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdError> {
+        SnowflakeGenerator::try_generate(self)
+    }
+}
+
+impl AsyncIdGenerator<u64> for SnowflakeGenerator {
+    /// Generates a classic Snowflake ID asynchronously.
+    #[inline]
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
+        Box::pin(SnowflakeGenerator::generate_async(self))
     }
 }
