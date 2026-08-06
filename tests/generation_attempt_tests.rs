@@ -11,9 +11,14 @@ use std::time::Duration;
 
 use qubit_id::GenerationAttempt;
 
+/// Converts a numeric test identifier to its string representation.
+fn stringify_id(id: u64) -> String {
+    id.to_string()
+}
+
 #[test]
 fn test_generation_attempt_maps_generated_values() {
-    let attempt = GenerationAttempt::Generated(7_u64).map(|id| id.to_string());
+    let attempt = GenerationAttempt::Generated(7_u64).map(stringify_id);
     assert_eq!(attempt, GenerationAttempt::Generated("7".to_owned()));
 }
 
@@ -22,7 +27,7 @@ fn test_generation_attempt_preserves_retry_delay() {
     let attempt = std::hint::black_box(GenerationAttempt::<u64>::RetryAfter {
         delay: Duration::from_millis(3),
     })
-    .map(|id| id.to_string());
+    .map(stringify_id);
 
     assert_eq!(
         attempt,
