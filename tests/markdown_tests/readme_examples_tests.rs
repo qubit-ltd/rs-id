@@ -276,7 +276,7 @@ fn test_build_markdown_doctest_manifest_enables_all_example_features() {
     );
 }
 
-/// Verifies that both READMEs explain feature selection, IoC injection,
+/// Verifies that both READMEs explain feature selection, IoC capabilities,
 /// deterministic clocks, generator lifetime, storage compatibility, restart
 /// behavior, and UUID v4 output.
 #[test]
@@ -290,8 +290,11 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
             [
                 "`IdMode::Spread` always sets bit 63, so its IDs exceed `i64::MAX`.",
                 "`try_generate()`, `generate()`, and `generate_async()`",
-                "`RestartPolicy::Immediate` is available",
-                "`RestartPolicy::WaitNextSlice` is the default",
+                "`RestartPolicy::Immediate` is the default for all Snowflake builders.",
+                "`IdGenerationError::EpochAhead`",
+                "`compose_at(time, sequence)`",
+                "`max_clock_skew(...)`",
+                "`IdGenerator` supplies only the `Output` and `Error` type contract.",
                 "JavaScript or JSON boundaries.",
             ],
         ),
@@ -302,8 +305,11 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
             [
                 "`IdMode::Spread` 始终设置第 63 位，因此生成的 ID 必然超过 `i64::MAX`。",
                 "`try_generate()`、`generate()` 与 `generate_async()`",
-                "`RestartPolicy::Immediate` 供部署环境能够保证重启间隔时使用",
-                "`RestartPolicy::WaitNextSlice` 是所有 Snowflake Builder 的默认值",
+                "`RestartPolicy::Immediate` 是所有 Snowflake Builder 的默认值。",
+                "`IdGenerationError::EpochAhead`",
+                "`compose_at(time, sequence)`",
+                "`max_clock_skew(...)`",
+                "`IdGenerator` 只提供 `Output` 与 `Error` 类型契约。",
                 "ID 经过 JavaScript 或 JSON 边界时应使用",
             ],
         ),
@@ -313,7 +319,8 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         r#"default-features = false, features = ["sonyflake"]"#,
         r#"default-features = false, features = ["uuid"]"#,
         "`now >= expires_at`",
-        "`Arc<dyn IdGenerator<Output = Id, Error = IdGenerationError>>`",
+        "`Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`",
+        "Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>>",
         "`Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>`",
         "`ManualMonotonicClock`",
         "`UuidV4Generator`",
@@ -342,6 +349,17 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
             assert!(
                 content.contains(fragment),
                 "{name} must contain `{fragment}`"
+            );
+        }
+        for stale_fragment in [
+            "IdGenerator::generate",
+            "start_time",
+            "StartTimeAhead",
+            "UuidV4Generator::new().generate()",
+        ] {
+            assert!(
+                !content.contains(stale_fragment),
+                "{name} must not contain obsolete API `{stale_fragment}`"
             );
         }
     }

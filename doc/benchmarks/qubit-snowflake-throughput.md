@@ -28,9 +28,9 @@ systems, Rust versions, or workloads.
 The benchmark uses the real system clock and one sequential-mode Qubit
 Snowflake generator shared by all worker threads. It obtains the default epoch
 from the generator instead of substituting a benchmark-only epoch. Benchmark
-generators explicitly use `RestartPolicy::Immediate` so setup and dispatch
-measurements do not include the default restart-fence wait. Each throughput
-sample constructs a fresh generator, generates 100,000 untimed warm-up IDs,
+generators explicitly use `RestartPolicy::Immediate`, matching the current
+builder default. Each throughput sample constructs a fresh generator, generates
+100,000 untimed warm-up IDs,
 aligns to a fresh clock slice, and then measures 2,000 millisecond slices or 2
 second slices. Every precision and worker-count combination is sampled three
 times.
@@ -44,15 +44,17 @@ the minimum and maximum throughput across all three samples.
 
 Startup latency is measured separately over 10,000 fresh instances with
 `RestartPolicy::Immediate`. Each observation includes builder construction and
-the first `generate` call, measuring immediate allocation rather than the
-default `WaitNextSlice` policy's intentional time-slice wait. It is excluded
-from sustained throughput timing.
+the first `generate` call, measuring the default immediate-allocation path. It
+is excluded from sustained throughput timing.
 
 Before sustained-throughput sampling, the benchmark also runs 200,000-operation
-fixed workloads through concrete and `Arc<dyn ...>` synchronous and
-asynchronous call paths. Both numeric and `Id::to_string()` paths are included.
-These measurements compare dispatch and string-conversion costs;
-they are not capacity measurements because they can cross clock slices.
+fixed workloads through concrete and
+`Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`
+synchronous paths, plus concrete and
+`Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>`
+asynchronous paths. Both numeric and `Id::to_string()` paths are included.
+These measurements compare dispatch and string-conversion costs; they are not
+capacity measurements because they can cross clock slices.
 
 ## Command
 
@@ -117,8 +119,8 @@ capacity.
 
 The median build-plus-first-ID latency was 880 ns in both precision modes under
 `RestartPolicy::Immediate`. These values are a setup baseline and do not
-describe the default `WaitNextSlice` first-allocation latency. Tail values
-remain sensitive to scheduling and interruption.
+describe the explicit `WaitNextSlice` first-allocation delay. Tail values remain
+sensitive to scheduling and interruption.
 
 String conversion reduced observed synchronous dispatch throughput by roughly
 26% to 31% relative to the corresponding numeric path, and asynchronous

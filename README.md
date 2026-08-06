@@ -15,9 +15,10 @@ boundary.
 
 ## Highlights
 
-- `TryIdGenerator`, `IdGenerator`, and `AsyncIdGenerator` separate non-blocking, blocking, and
-  asynchronous allocation contracts.
-- Each Snowflake type implements all three contracts and shares one allocation
+- `IdGenerator` supplies only the `Output` and `Error` type contract.
+  `BlockingIdGenerator`, `TryIdGenerator`, and `AsyncIdGenerator` independently
+  provide blocking, non-blocking, and asynchronous allocation capabilities.
+- Each Snowflake type implements all three allocation capabilities and shares one allocation
   state across its synchronous and asynchronous call paths.
 - Builders accept `Arc<dyn WallClock>` and `Arc<dyn Timer>` from
   [`qubit-clock`](https://crates.io/crates/qubit-clock).
@@ -58,15 +59,19 @@ Each generator declares its `Output` and `Error` as associated types. Built-in
 generators use `IdGenerationError`; third-party generators can provide their
 own concrete error type.
 
-Use `Arc<dyn IdGenerator<Output = Id, Error = IdGenerationError>>` for a
+`IdGenerator` supplies only the `Output` and `Error` type contract. Select the
+capability matching the caller's scheduling model; this keeps blocking, retry,
+and asynchronous dependencies independently injectable.
+
+Use `Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>` for a
 synchronous Snowflake dependency:
 
 ```rust
 use std::sync::Arc;
-use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};
+use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn IdGenerator<Output = Id, Error = IdGenerationError>> =
+    let generator: Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>> =
         Arc::new(SnowflakeGenerator::new(7)?);
     let id = generator.generate()?;
     assert_ne!(id.value(), 0);
@@ -132,7 +137,8 @@ fn main() -> Result<(), IdGenerationError> {
 }
 ```
 
-A test mock only needs to implement the relevant trait for its local type.
+A test mock implements `IdGenerator` plus the relevant capability trait for its
+local type.
 
 ## Snowflake generators
 
@@ -168,6 +174,12 @@ existing ID namespace that uses a different timestamp origin.
 Each builder has one `build()` method. The resulting generator shares one
 allocation state across `try_generate()`, `generate()`, and `generate_async()`;
 cloning a generator, when supported, also shares that state.
+
+All three Snowflake generators expose the same primary API: `new(...)`,
+`builder(...)`, `layout()`, `epoch()`, `expires_at()`, `max_clock_skew()`,
+`try_generate()`, `generate()`, `generate_async()`, and
+`compose_at(time, sequence)`. Use each builder's `epoch(...)` and
+`max_clock_skew(...)` options to configure that shared contract.
 
 ### Storage and transport compatibility
 
@@ -211,10 +223,15 @@ Snowflake generators return `Id`. It is a transparent `u64` value with decimal
 application boundary:
 
 ```rust
-use qubit_id::{IdGenerationError, SnowflakeGenerator};
+use std::sync::Arc;
+use qubit_id::{
+    BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator,
+};
 
 fn main() -> Result<(), IdGenerationError> {
-    let id = SnowflakeGenerator::new(7)?.generate()?;
+    let generator: Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>> =
+        Arc::new(SnowflakeGenerator::new(7)?);
+    let id = generator.generate()?;
     let numeric: u64 = id.into();
     let text = id.to_string();
     assert_eq!(text, numeric.to_string());
@@ -230,11 +247,13 @@ random bytes. Async applications should place the synchronous call behind the
 blocking boundary supplied by their chosen runtime:
 
 ```rust
-use qubit_id::{IdGenerationError, UuidV4Generator};
+use std::sync::Arc;
+use qubit_id::{BlockingIdGenerator, IdGenerationError, UuidV4Generator};
 use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
-    let uuid = UuidV4Generator::new().generate()?;
+    let generator: Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>> = Arc::new(UuidV4Generator::new());
+    let uuid = generator.generate()?;
     let numeric = Uuid::as_u128(&uuid);
     let text = uuid.to_string();
     assert_ne!(numeric, 0);
@@ -261,23 +280,25 @@ native `uuid` crate contract: canonical text for human-readable formats and
 ## Lifetime, clocks, and deployment identity
 
 `expires_at()` returns the exclusive expiration boundary. A builder samples
-its injected wall clock; builders return `IdGenerationError::GeneratorExpired` when `now >= expires_at`,
-because that configuration cannot serve IDs. A live generator that later
-reaches the same boundary returns the same error.
+its injected wall clock and rejects a future epoch with
+`IdGenerationError::EpochAhead`; builders return `IdGenerationError::GeneratorExpired` when `now >= expires_at`, because that configuration cannot serve IDs. A live generator
+that later reaches the same boundary returns the same error.
 
-A small Qubit clock rollback can wait up to `max_clock_skew`; a larger rollback
-returns `IdGenerationError::ClockMovedBackwards`. Classic Snowflake and Sonyflake reject
-any rollback. Timer registration or blocking-adapter failures are returned as
+Each Snowflake builder exposes `max_clock_skew(...)`. A raw wall-clock rollback
+within that bound can wait; a larger rollback returns
+`IdGenerationError::ClockMovedBackwards`. Classic Snowflake and Sonyflake
+default to zero tolerance, while Qubit uses its documented default tolerance.
+Timer registration or blocking-adapter failures are returned as
 `IdGenerationError::WaitFailed` with the original `TimeError` source.
 
 Applications must assign an exclusive host, node, or machine identifier to
 every concurrently active generator in the same namespace. This crate does not
 persist allocation state or provide a distributed lease.
 
-`RestartPolicy::WaitNextSlice` is the default for all Snowflake builders. It
-delays the first allocation until a later time slice, reducing same-slice reuse
-after a stopped instance is replaced. `RestartPolicy::Immediate` is available
-for deployments that externally guarantee restart separation. Neither policy
+`RestartPolicy::Immediate` is the default for all Snowflake builders. It starts
+allocation in the current time slice. `RestartPolicy::WaitNextSlice` is an
+explicit opt-in that delays the first allocation until a later slice, reducing
+same-slice reuse after a stopped instance is replaced. Neither policy
 coordinates concurrently active generators or replaces persistent allocation
 state and an exclusive distributed identity lease.
 
