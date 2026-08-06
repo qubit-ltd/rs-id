@@ -74,6 +74,8 @@ mod id;
 mod id_generation_error;
 mod id_generation_future;
 mod id_generator;
+#[cfg(feature = "serde")]
+mod id_serde;
 #[cfg(any(
     feature = "qubit-snowflake",
     feature = "classic-snowflake",
