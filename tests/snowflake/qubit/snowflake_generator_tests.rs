@@ -187,7 +187,7 @@ fn test_compose_at_matches_layout_parts() {
     let id = generator
         .compose_at(epoch + Duration::from_millis(45), 9)
         .expect("timestamp and sequence should be valid");
-    let parts = SnowflakeLayout::decode(id.value());
+    let parts = SnowflakeLayout::decode(id);
 
     assert_eq!(parts.timestamp(), 45);
     assert_eq!(parts.sequence(), 9);
@@ -260,8 +260,8 @@ fn test_snowflake_generator_increments_sequence_in_same_slice() {
 
     let first = generator.generate().expect("first ID should generate");
     let second = generator.generate().expect("second ID should generate");
-    let first_parts = SnowflakeLayout::decode(first.value());
-    let second_parts = SnowflakeLayout::decode(second.value());
+    let first_parts = SnowflakeLayout::decode(first);
+    let second_parts = SnowflakeLayout::decode(second);
 
     assert_eq!(first_parts.timestamp(), 10);
     assert_eq!(second_parts.timestamp(), 10);
@@ -405,7 +405,7 @@ fn test_snowflake_generator_waits_with_injected_timer() {
         .join()
         .expect("worker should finish")
         .expect("next slice should allocate");
-    let parts = SnowflakeLayout::decode(id.value());
+    let parts = SnowflakeLayout::decode(id);
 
     assert_eq!(parts.timestamp(), 11);
     assert_eq!(parts.sequence(), 0);
@@ -527,7 +527,7 @@ mod async_tests {
         let id = generator
             .compose_at(generator.epoch(), 3)
             .expect("the first timestamp should be representable");
-        let parts = SnowflakeLayout::decode(id.value());
+        let parts = SnowflakeLayout::decode(id);
         assert_eq!(parts.host(), 17);
         assert_eq!(parts.timestamp(), 0);
         assert_eq!(parts.sequence(), 3);
@@ -571,8 +571,8 @@ mod async_tests {
             .await
             .expect("second ID should generate");
 
-        assert_eq!(SnowflakeLayout::decode(first.value()).sequence(), 0);
-        assert_eq!(SnowflakeLayout::decode(second.value()).sequence(), 1);
+        assert_eq!(SnowflakeLayout::decode(first).sequence(), 0);
+        assert_eq!(SnowflakeLayout::decode(second).sequence(), 1);
     }
 
     #[tokio::test]
@@ -602,8 +602,8 @@ mod async_tests {
             .await
             .expect("async allocation should succeed");
 
-        assert_eq!(SnowflakeLayout::decode(first.value()).sequence(), 0);
-        assert_eq!(SnowflakeLayout::decode(second.value()).sequence(), 1);
+        assert_eq!(SnowflakeLayout::decode(first).sequence(), 0);
+        assert_eq!(SnowflakeLayout::decode(second).sequence(), 1);
     }
 
     #[tokio::test]
@@ -634,7 +634,7 @@ mod async_tests {
             .await
             .expect("worker should finish")
             .expect("next time slice should allocate");
-        let parts = SnowflakeLayout::decode(id.value());
+        let parts = SnowflakeLayout::decode(id);
         assert_eq!(parts.timestamp(), 11);
         assert_eq!(parts.sequence(), 0);
     }
@@ -676,7 +676,7 @@ mod async_tests {
             .generate_async()
             .await
             .expect("generator should remain usable after cancellation");
-        assert_eq!(SnowflakeLayout::decode(id.value()).timestamp(), 11);
+        assert_eq!(SnowflakeLayout::decode(id).timestamp(), 11);
     }
 
     #[tokio::test]
@@ -710,7 +710,7 @@ mod async_tests {
             .await
             .expect("worker should finish")
             .expect("generation should resume after rollback catches up");
-        assert_eq!(SnowflakeLayout::decode(id.value()).sequence(), 1);
+        assert_eq!(SnowflakeLayout::decode(id).sequence(), 1);
     }
 
     #[tokio::test]
@@ -761,7 +761,7 @@ mod async_tests {
             .await
             .expect("worker should finish")
             .expect("generation should resume after the baseline slice");
-        assert_eq!(SnowflakeLayout::decode(id.value()).timestamp(), 11);
+        assert_eq!(SnowflakeLayout::decode(id).timestamp(), 11);
     }
 
     #[tokio::test]

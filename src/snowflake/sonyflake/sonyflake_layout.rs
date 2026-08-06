@@ -17,7 +17,10 @@ use super::super::internal::{
     expiration_time,
 };
 use super::sonyflake_parts::SonyflakeParts;
-use crate::IdGenerationError;
+use crate::{
+    Id,
+    IdGenerationError,
+};
 
 /// Default number of bits used for the sequence field.
 pub(super) const DEFAULT_BITS_SEQUENCE: u8 = 8;
@@ -253,7 +256,7 @@ impl SonyflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a part exceeds its field.
-    pub fn compose(
+    pub fn compose_raw(
         &self,
         elapsed_time: u64,
         sequence: u64,
@@ -288,13 +291,41 @@ impl SonyflakeLayout {
     ///
     /// Elapsed-time, sequence, and machine fields decoded from `id`.
     #[inline]
-    pub const fn decode(&self, id: u64) -> SonyflakeParts {
+    pub const fn decode(&self, id: Id) -> SonyflakeParts {
+        self.decode_raw(id.value())
+    }
+
+    /// Decodes a Sonyflake bit pattern using this layout.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - Sonyflake bit pattern to decode.
+    ///
+    /// # Returns
+    ///
+    /// Elapsed-time, sequence, and machine fields decoded from `id`.
+    #[inline]
+    pub const fn decode_raw(&self, id: u64) -> SonyflakeParts {
         let elapsed_time = id >> (self.bits_sequence + self.bits_machine);
         let sequence_mask =
             ((1_u64 << self.bits_sequence) - 1) << self.bits_machine;
         let sequence = (id & sequence_mask) >> self.bits_machine;
         let machine_id = id & ((1_u64 << self.bits_machine) - 1);
         SonyflakeParts::new(elapsed_time, sequence, machine_id)
+    }
+
+    /// Composes a Sonyflake ID from elapsed-time and sequence parts.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same overflow errors as [`Self::compose_raw`].
+    #[inline(always)]
+    pub fn compose(
+        &self,
+        elapsed_time: u64,
+        sequence: u64,
+    ) -> Result<Id, IdGenerationError> {
+        self.compose_raw(elapsed_time, sequence).map(Id::from)
     }
 
     /// Normalizes and validates one configurable field width.
@@ -383,6 +414,6 @@ impl SnowflakeLayoutSpec for SonyflakeLayout {
         timestamp: u64,
         sequence: u64,
     ) -> Result<u64, IdGenerationError> {
-        SonyflakeLayout::compose(self, timestamp, sequence)
+        SonyflakeLayout::compose_raw(self, timestamp, sequence)
     }
 }

@@ -43,7 +43,7 @@ fn test_classical_snowflake_generator_builder_builds_configuration() {
     let id = generator
         .generate()
         .expect("default immediate policy should allocate");
-    let parts = ClassicalSnowflakeLayout::decode(id.value());
+    let parts = ClassicalSnowflakeLayout::decode(id);
     assert_eq!(parts.timestamp(), 100);
     assert_eq!(parts.sequence(), 0);
 }

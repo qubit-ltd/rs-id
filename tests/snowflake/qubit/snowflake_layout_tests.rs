@@ -88,14 +88,14 @@ fn next_property_value(state: &mut u64) -> u64 {
 ///
 /// Panics when decoded fields cannot construct a layout or recompose to `id`.
 fn assert_id_round_trip(id: u64) {
-    let parts = SnowflakeLayout::decode(id);
+    let parts = SnowflakeLayout::decode_raw(id);
     let layout =
         SnowflakeLayout::new(parts.mode(), parts.precision(), parts.host())
             .expect("a decoded host must fit its field");
 
     assert_eq!(
         layout
-            .compose(parts.timestamp(), parts.sequence())
+            .compose_raw(parts.timestamp(), parts.sequence())
             .expect("decoded parts should recompose"),
         id,
         "round trip failed for ID {id:#018x}",
@@ -135,7 +135,7 @@ fn test_compose_all_fixed_header_layouts() {
 
             assert_eq!(
                 layout
-                    .compose(timestamp, sequence)
+                    .compose_raw(timestamp, sequence)
                     .expect("fixed parts should fit"),
                 expected
             );
@@ -157,11 +157,12 @@ fn test_compose_spread_ids_always_set_bit_63() {
             let id = layout
                 .compose(timestamp, sequence)
                 .expect("boundary parts should fit");
+            let value = id.value();
 
-            assert_eq!(id >> 63, 1, "spread ID {id:#018x} must set bit 63");
+            assert_eq!(value >> 63, 1, "spread ID {value:#018x} must set bit 63");
             assert!(
-                id > i64::MAX as u64,
-                "spread ID {id:#018x} must exceed i64::MAX"
+                value > i64::MAX as u64,
+                "spread ID {value:#018x} must exceed i64::MAX"
             );
         }
     }

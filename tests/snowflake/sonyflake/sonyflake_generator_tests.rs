@@ -125,8 +125,8 @@ fn test_sonyflake_generator_increments_sequence_in_same_time_unit() {
     let first = generator.generate().expect("first ID should generate");
     let second = generator.generate().expect("second ID should generate");
 
-    assert_eq!(generator.layout().decode(first.value()).sequence(), 0);
-    assert_eq!(generator.layout().decode(second.value()).sequence(), 1);
+    assert_eq!(generator.layout().decode(first).sequence(), 0);
+    assert_eq!(generator.layout().decode(second).sequence(), 1);
 }
 
 #[test]
@@ -152,8 +152,8 @@ fn test_sonyflake_generator_waits_with_injected_timer() {
         .expect("worker should finish")
         .expect("next time unit should allocate");
 
-    assert_eq!(generator.layout().decode(id.value()).elapsed_time(), 11);
-    assert_eq!(generator.layout().decode(id.value()).sequence(), 0);
+    assert_eq!(generator.layout().decode(id).elapsed_time(), 11);
+    assert_eq!(generator.layout().decode(id).sequence(), 0);
 }
 
 #[test]
@@ -286,8 +286,8 @@ mod async_tests {
             .await
             .expect("second ID should generate");
 
-        assert_eq!(generator.layout().decode(first.value()).sequence(), 0);
-        assert_eq!(generator.layout().decode(second.value()).sequence(), 1);
+        assert_eq!(generator.layout().decode(first).sequence(), 0);
+        assert_eq!(generator.layout().decode(second).sequence(), 1);
     }
 
     #[tokio::test]
@@ -320,7 +320,7 @@ mod async_tests {
             .await
             .expect("worker should finish")
             .expect("next time unit should allocate");
-        assert_eq!(generator.layout().decode(id.value()).elapsed_time(), 11);
+        assert_eq!(generator.layout().decode(id).elapsed_time(), 11);
     }
 
     #[tokio::test]

@@ -27,7 +27,10 @@ use super::{
     SnowflakeParts,
     TimestampPrecision,
 };
-use crate::IdGenerationError;
+use crate::{
+    Id,
+    IdGenerationError,
+};
 
 /// Immutable Qubit snowflake bit layout used to compose IDs.
 ///
@@ -251,7 +254,7 @@ impl SnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a part does not fit.
-    pub fn compose(
+    pub fn compose_raw(
         &self,
         timestamp: u64,
         sequence: u64,
@@ -293,7 +296,20 @@ impl SnowflakeLayout {
     /// # Returns
     ///
     /// All fields decoded using the layout encoded in `id`.
-    pub fn decode(id: u64) -> SnowflakeParts {
+    pub fn decode(id: Id) -> SnowflakeParts {
+        Self::decode_raw(id.value())
+    }
+
+    /// Decodes a Qubit snowflake bit pattern without a preconfigured layout.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - Qubit snowflake bit pattern to decode.
+    ///
+    /// # Returns
+    ///
+    /// All fields decoded using the layout encoded in `id`.
+    pub fn decode_raw(id: u64) -> SnowflakeParts {
         let mode_shift = u64::BITS as u8 - MODE_BITS;
         let precision_shift = mode_shift - PRECISION_BITS;
         let mode = IdMode::from_bit((id >> mode_shift) & 1);
@@ -310,6 +326,20 @@ impl SnowflakeLayout {
         let host = (id >> layout.host_shift) & ((1_u64 << HOST_BITS) - 1);
         let sequence = id & layout.max_sequence;
         SnowflakeParts::new(mode, precision, timestamp, host, sequence)
+    }
+
+    /// Composes an ID from timestamp and sequence parts.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same overflow errors as [`Self::compose_raw`].
+    #[inline(always)]
+    pub fn compose(
+        &self,
+        timestamp: u64,
+        sequence: u64,
+    ) -> Result<Id, IdGenerationError> {
+        self.compose_raw(timestamp, sequence).map(Id::from)
     }
 
     /// Applies the reversible timestamp transform for the configured mode.
@@ -403,6 +433,6 @@ impl SnowflakeLayoutSpec for SnowflakeLayout {
         timestamp: u64,
         sequence: u64,
     ) -> Result<u64, IdGenerationError> {
-        SnowflakeLayout::compose(self, timestamp, sequence)
+        SnowflakeLayout::compose_raw(self, timestamp, sequence)
     }
 }

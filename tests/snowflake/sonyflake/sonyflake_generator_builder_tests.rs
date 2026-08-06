@@ -53,7 +53,7 @@ fn test_sonyflake_generator_builder_builds_configuration() {
     let id = generator
         .generate()
         .expect("the injected clock should generate an ID");
-    let parts = generator.layout().decode(id.value());
+    let parts = generator.layout().decode(id);
     assert_eq!(parts.elapsed_time(), 20);
     assert_eq!(parts.sequence(), 0);
 }
