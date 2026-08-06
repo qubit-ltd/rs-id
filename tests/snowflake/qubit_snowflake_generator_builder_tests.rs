@@ -8,24 +8,15 @@
 //! Tests for the Qubit snowflake generator builder.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, UNIX_EPOCH};
 
 use qubit_clock::FixedWallClock;
 use qubit_id::{
-    IdError,
-    IdMode,
-    QubitSnowflakeGenerator,
-    QubitSnowflakeLayout,
+    IdError, IdMode, QubitSnowflakeGenerator, QubitSnowflakeLayout, RestartPolicy,
     TimestampPrecision,
 };
 
-use crate::support::{
-    ManualTime,
-    latest_representable_whole_second,
-};
+use crate::support::{ManualTime, latest_representable_whole_second};
 
 /// Tests that every configurable Qubit generator option is applied.
 #[test]
@@ -36,6 +27,7 @@ fn test_qubit_snowflake_generator_builder_builds_configuration() {
         .mode(IdMode::Spread)
         .precision(TimestampPrecision::Millisecond)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .max_clock_skew(Duration::from_millis(37))
         .wall_clock(time.wall_clock())
         .timer(time.timer())
@@ -72,10 +64,9 @@ fn test_qubit_snowflake_generator_builder_rejects_invalid_host() {
 }
 
 #[tokio::test]
-async fn test_qubit_snowflake_generator_builder_async_propagates_layout_error()
-{
+async fn test_qubit_snowflake_generator_builder_async_propagates_layout_error() {
     assert!(matches!(
-        QubitSnowflakeGenerator::builder(512).build_async(),
+        QubitSnowflakeGenerator::builder(512).build(),
         Err(IdError::HostOutOfRange {
             host: 512,
             max: 511,
@@ -84,14 +75,14 @@ async fn test_qubit_snowflake_generator_builder_async_propagates_layout_error()
 }
 
 #[tokio::test]
-async fn test_qubit_snowflake_generator_builder_async_propagates_expiration_error()
- {
+async fn test_qubit_snowflake_generator_builder_async_propagates_expiration_error() {
     let epoch = latest_representable_whole_second();
 
     assert!(matches!(
         QubitSnowflakeGenerator::builder(17)
             .epoch(epoch)
-            .build_async(),
+            .restart_policy(RestartPolicy::Immediate)
+            .build(),
         Err(IdError::ExpirationTimeOverflow { .. })
     ));
 }
@@ -100,12 +91,8 @@ async fn test_qubit_snowflake_generator_builder_async_propagates_expiration_erro
 #[test]
 fn test_qubit_snowflake_generator_builder_enforces_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = QubitSnowflakeLayout::new(
-        IdMode::Sequential,
-        TimestampPrecision::Second,
-        17,
-    )
-    .expect("Qubit layout must be valid");
+    let layout = QubitSnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 17)
+        .expect("Qubit layout must be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("Qubit expiration must be representable");
@@ -113,6 +100,7 @@ fn test_qubit_snowflake_generator_builder_enforces_expiration() {
 
     let generator = QubitSnowflakeGenerator::builder(17)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(Arc::new(FixedWallClock::new(last_valid_time)))
         .build()
         .expect("the instant before expiration must remain valid");
@@ -121,15 +109,16 @@ fn test_qubit_snowflake_generator_builder_enforces_expiration() {
     for current_time in [expires_at, expires_at + Duration::from_nanos(1)] {
         assert!(
             matches!(
-                QubitSnowflakeGenerator::builder(17)
-                    .epoch(epoch)
-                    .wall_clock(Arc::new(FixedWallClock::new(current_time)))
-                    .build(),
-                Err(IdError::GeneratorExpired {
-                    observed_at,
-                    expires_at: actual_expiration,
-                }) if observed_at == current_time && actual_expiration == expires_at
-            ),
+                    QubitSnowflakeGenerator::builder(17)
+                        .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
+                        .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+                        .build(),
+                    Err(IdError::GeneratorExpired {
+                        observed_at,
+                        expires_at: actual_expiration,
+                    }) if observed_at == current_time && actual_expiration == expires_at
+                ),
             "construction at {current_time:?} must return GeneratorExpired"
         );
     }

@@ -7,16 +7,9 @@
 // =============================================================================
 //! Tests for the classic Snowflake bit layout.
 
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use qubit_id::{
-    IdError,
-    SnowflakeLayout,
-};
+use qubit_id::{IdError, SnowflakeLayout};
 
 /// Finds the latest whole-second time representable by [`SystemTime`].
 ///
@@ -46,8 +39,7 @@ fn latest_representable_whole_second() -> SystemTime {
 
 #[test]
 fn test_snowflake_layout_compose_decode_round_trip() {
-    let layout =
-        SnowflakeLayout::new(17).expect("node id must fit the classic layout");
+    let layout = SnowflakeLayout::new(17).expect("node id must fit the classic layout");
     let id = layout
         .compose(123_456, 789)
         .expect("parts must fit the classic layout");
@@ -60,8 +52,7 @@ fn test_snowflake_layout_compose_decode_round_trip() {
 
 #[test]
 fn test_snowflake_layout_getters_return_configuration_and_limits() {
-    let layout =
-        SnowflakeLayout::new(23).expect("node id must fit the classic layout");
+    let layout = SnowflakeLayout::new(23).expect("node id must fit the classic layout");
 
     assert_eq!(layout.node_id(), 23);
     assert_eq!(layout.max_timestamp(), (1_u64 << 41) - 1);
@@ -70,8 +61,7 @@ fn test_snowflake_layout_getters_return_configuration_and_limits() {
 
 #[test]
 fn test_snowflake_layout_rejects_out_of_range_node() {
-    let error = SnowflakeLayout::new(1_u64 << 10)
-        .expect_err("node id above 10 bits must fail");
+    let error = SnowflakeLayout::new(1_u64 << 10).expect_err("node id above 10 bits must fail");
 
     assert!(matches!(
         error,
@@ -84,8 +74,7 @@ fn test_snowflake_layout_rejects_out_of_range_node() {
 
 #[test]
 fn test_snowflake_layout_rejects_out_of_range_parts() {
-    let layout =
-        SnowflakeLayout::new(0).expect("node id must fit the classic layout");
+    let layout = SnowflakeLayout::new(0).expect("node id must fit the classic layout");
 
     assert!(matches!(
         layout.compose(layout.max_timestamp() + 1, 0),
@@ -114,8 +103,7 @@ fn test_snowflake_layout_accepts_maximum_parts() {
 #[test]
 fn test_snowflake_layout_calculates_exclusive_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout =
-        SnowflakeLayout::new(17).expect("node id must fit the classic layout");
+    let layout = SnowflakeLayout::new(17).expect("node id must fit the classic layout");
 
     assert_eq!(
         layout
@@ -128,8 +116,7 @@ fn test_snowflake_layout_calculates_exclusive_expiration() {
 #[test]
 fn test_snowflake_layout_reports_expiration_time_overflow() {
     let origin = latest_representable_whole_second();
-    let layout =
-        SnowflakeLayout::new(17).expect("node id must fit the classic layout");
+    let layout = SnowflakeLayout::new(17).expect("node id must fit the classic layout");
     let time_unit = Duration::from_millis(1);
 
     assert!(matches!(

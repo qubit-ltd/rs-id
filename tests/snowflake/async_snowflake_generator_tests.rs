@@ -8,26 +8,15 @@
 //! Integration tests for the asynchronous classic Snowflake generator.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, UNIX_EPOCH};
 
-use qubit_id::{
-    AsyncIdGenerator,
-    AsyncSnowflakeGenerator,
-    IdError,
-    RestartPolicy,
-    SnowflakeGenerator,
-    SnowflakeLayout,
-};
+use qubit_id::{AsyncIdGenerator, IdError, RestartPolicy, SnowflakeGenerator, SnowflakeLayout};
 
 use crate::support::ManualTime;
 
 #[test]
 fn test_async_snowflake_generator_convenience_api() {
-    let generator = AsyncSnowflakeGenerator::new(17)
-        .expect("default configuration should be valid");
+    let generator = SnowflakeGenerator::new(17).expect("default configuration should be valid");
 
     assert_eq!(generator.layout().node_id(), 17);
     assert_eq!(
@@ -46,9 +35,10 @@ async fn test_async_snowflake_generator_supports_async_trait_object() {
     let generator: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(
         SnowflakeGenerator::builder(17)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
-            .build_async()
+            .build()
             .expect("configuration should be valid"),
     );
 
@@ -59,11 +49,12 @@ async fn test_async_snowflake_generator_supports_async_trait_object() {
 async fn test_async_snowflake_generator_increments_sequence() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
-    let generator: AsyncSnowflakeGenerator = SnowflakeGenerator::builder(17)
+    let generator: SnowflakeGenerator = SnowflakeGenerator::builder(17)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
-        .build_async()
+        .build()
         .expect("configuration should be valid");
 
     let first = generator
@@ -86,15 +77,15 @@ async fn test_async_snowflake_generator_waits_with_injected_timer() {
     let generator = Arc::new(
         SnowflakeGenerator::builder(17)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .restart_policy(RestartPolicy::WaitNextSlice)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
-            .build_async()
+            .build()
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker =
-        tokio::spawn(async move { worker_generator.generate_async().await });
+    let worker = tokio::spawn(async move { worker_generator.generate_async().await });
 
     assert_eq!(
         time.advance_to_next_deadline_async()
@@ -119,9 +110,10 @@ async fn test_async_snowflake_generator_reports_runtime_expiration() {
     let time = ManualTime::new(expires_at - Duration::from_nanos(1));
     let generator = SnowflakeGenerator::builder(17)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
-        .build_async()
+        .build()
         .expect("configuration should be valid");
     time.reanchor(expires_at);
 
@@ -140,9 +132,10 @@ async fn test_async_snowflake_generator_reports_time_before_epoch() {
     let time = ManualTime::new(epoch + Duration::from_millis(1));
     let generator = SnowflakeGenerator::builder(17)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
-        .build_async()
+        .build()
         .expect("configuration should be valid");
     time.reanchor(epoch - Duration::from_millis(1));
 

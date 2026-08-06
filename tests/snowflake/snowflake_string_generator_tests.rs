@@ -8,21 +8,12 @@
 //! Tests for the Snowflake decimal-string adapter.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::{Duration, UNIX_EPOCH};
 
 use qubit_id::{
-    AsyncIdGenerator,
-    DEFAULT_MAX_CLOCK_SKEW,
-    IdError,
-    IdGenerator,
-    IdMode,
-    QubitSnowflakeGenerator,
-    QubitSnowflakeLayout,
-    SnowflakeStringGenerator,
-    TimestampPrecision,
+    AsyncIdGenerator, DEFAULT_MAX_CLOCK_SKEW, GenerationAttempt, IdError, IdGenerator, IdMode,
+    QubitSnowflakeGenerator, QubitSnowflakeLayout, RestartPolicy, SnowflakeStringGenerator,
+    TimestampPrecision, TryIdGenerator,
 };
 
 use crate::support::ManualTime;
@@ -34,6 +25,7 @@ fn test_snowflake_string_generator_adapts_sync_generator() {
     let numeric = QubitSnowflakeGenerator::builder(7)
         .precision(TimestampPrecision::Millisecond)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
@@ -57,6 +49,7 @@ fn test_snowflake_string_generator_wraps_arc_dyn_sync_generator() {
     let numeric: Arc<dyn IdGenerator<u64>> = Arc::new(
         QubitSnowflakeGenerator::builder(7)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
             .build()
@@ -69,16 +62,46 @@ fn test_snowflake_string_generator_wraps_arc_dyn_sync_generator() {
     assert!(value.parse::<u64>().is_ok());
 }
 
+#[test]
+fn test_snowflake_string_generator_supports_nonblocking_concrete_and_trait_calls() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let numeric = QubitSnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Millisecond)
+        .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+    let adapter = SnowflakeStringGenerator::new(numeric);
+
+    assert!(matches!(
+        adapter.try_generate::<IdError>(),
+        Ok(GenerationAttempt::Generated(value)) if value.parse::<u64>().is_ok()
+    ));
+
+    let numeric = QubitSnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Millisecond)
+        .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+    let generator: Arc<dyn TryIdGenerator<String>> =
+        Arc::new(SnowflakeStringGenerator::new(numeric));
+
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(value)) if value.parse::<u64>().is_ok()
+    ));
+}
+
 mod inherent_api_tests {
     use super::ManualTime;
-    use qubit_id::{
-        QubitSnowflakeGenerator,
-        SnowflakeStringGenerator,
-    };
-    use std::time::{
-        Duration,
-        UNIX_EPOCH,
-    };
+    use qubit_id::{QubitSnowflakeGenerator, RestartPolicy, SnowflakeStringGenerator};
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
     fn test_snowflake_string_generator_supports_inherent_generate() {
@@ -86,6 +109,7 @@ mod inherent_api_tests {
         let time = ManualTime::new(epoch + Duration::from_millis(10));
         let numeric = QubitSnowflakeGenerator::builder(7)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
             .build()
@@ -107,9 +131,10 @@ async fn test_snowflake_string_generator_adapts_async_generator() {
     let numeric = QubitSnowflakeGenerator::builder(7)
         .precision(TimestampPrecision::Millisecond)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
-        .build_async()
+        .build()
         .expect("configuration should be valid");
     let generator: Arc<dyn qubit_id::AsyncIdGenerator<String>> =
         Arc::new(SnowflakeStringGenerator::new(numeric));
@@ -130,9 +155,10 @@ async fn test_snowflake_string_generator_wraps_arc_dyn_async_generator() {
     let numeric: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(
         QubitSnowflakeGenerator::builder(7)
             .epoch(epoch)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(time.wall_clock())
             .timer(time.timer())
-            .build_async()
+            .build()
             .expect("configuration should be valid"),
     );
     let adapter = SnowflakeStringGenerator::new(numeric);
@@ -149,9 +175,10 @@ async fn test_snowflake_string_generator_supports_concrete_async_call() {
     let numeric = QubitSnowflakeGenerator::builder(7)
         .precision(TimestampPrecision::Millisecond)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
-        .build_async()
+        .build()
         .expect("configuration should be valid");
     let generator = SnowflakeStringGenerator::new(numeric);
 
@@ -167,18 +194,15 @@ async fn test_snowflake_string_generator_supports_concrete_async_call() {
 #[test]
 fn test_snowflake_string_generator_preserves_generation_error() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = QubitSnowflakeLayout::new(
-        IdMode::Sequential,
-        TimestampPrecision::Second,
-        7,
-    )
-    .expect("layout should be valid");
+    let layout = QubitSnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
+        .expect("layout should be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("expiration should be representable");
     let time = ManualTime::new(expires_at - Duration::from_nanos(1));
     let numeric = QubitSnowflakeGenerator::builder(7)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .max_clock_skew(DEFAULT_MAX_CLOCK_SKEW)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
@@ -202,6 +226,7 @@ fn test_snowflake_string_generator_returns_owned_inner_generator() {
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let numeric = QubitSnowflakeGenerator::builder(7)
         .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
         .wall_clock(time.wall_clock())
         .timer(time.timer())
         .build()
