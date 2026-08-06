@@ -8,8 +8,9 @@
 //! Standards-compliant UUID v4 ID generators.
 
 mod internal;
+#[allow(clippy::module_inception)]
+mod uuid;
 mod uuid_v4_generator;
-mod uuid_v4_string_generator;
 
+pub use uuid::Uuid;
 pub use uuid_v4_generator::UuidV4Generator;
-pub use uuid_v4_string_generator::UuidV4StringGenerator;

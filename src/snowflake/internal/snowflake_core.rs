@@ -24,7 +24,7 @@ use super::{
     SnowflakeLayoutSpec,
 };
 use crate::{
-    IdError,
+    IdGenerationError,
     RestartPolicy,
 };
 
@@ -93,13 +93,13 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::TimeBeforeEpoch`] when the clock precedes the epoch,
-    /// [`IdError::GeneratorExpired`] at the lifetime boundary, or
-    /// [`IdError::ClockMovedBackwards`] when rollback exceeds the configured
-    /// tolerance.
+    /// Returns [`IdGenerationError::TimeBeforeEpoch`] when the clock precedes
+    /// the epoch, [`IdGenerationError::GeneratorExpired`] at the lifetime
+    /// boundary, or [`IdGenerationError::ClockMovedBackwards`] when
+    /// rollback exceeds the configured tolerance.
     pub(crate) fn try_generate(
         &self,
-    ) -> Result<GenerationAttempt<u64>, IdError> {
+    ) -> Result<GenerationAttempt<u64>, IdGenerationError> {
         let mut state = self.state.lock();
         let observed_at = self.wall_clock.now();
         self.ensure_active(observed_at)?;
@@ -134,17 +134,18 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::TimeBeforeEpoch`] if `time` is before the configured
-    /// epoch, [`IdError::GeneratorExpired`] if `time` has reached the exclusive
-    /// expiration boundary, or [`IdError::SequenceOverflow`] when `sequence`
-    /// does not fit the layout.
+    /// Returns [`IdGenerationError::TimeBeforeEpoch`] if `time` is before the
+    /// configured epoch, [`IdGenerationError::GeneratorExpired`] if `time`
+    /// has reached the exclusive expiration boundary, or
+    /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
+    /// the layout.
     #[cfg(feature = "qubit-snowflake")]
     #[inline(always)]
     pub(crate) fn compose_at(
         &self,
         time: SystemTime,
         sequence: u64,
-    ) -> Result<u64, IdError> {
+    ) -> Result<u64, IdGenerationError> {
         self.ensure_active(time)?;
         let observation = self.observation_for(time)?;
         self.layout.compose(observation.timestamp, sequence)
@@ -204,12 +205,12 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::TimeBeforeEpoch`] when `time` precedes the
+    /// Returns [`IdGenerationError::TimeBeforeEpoch`] when `time` precedes the
     /// configured epoch.
     fn observation_for(
         &self,
         time: SystemTime,
-    ) -> Result<ClockObservation, IdError> {
+    ) -> Result<ClockObservation, IdGenerationError> {
         ClockObservation::from_time(
             time,
             self.epoch,
@@ -230,11 +231,14 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::GeneratorExpired`] when `observed_at` is equal to or
-    /// later than the exclusive expiration boundary.
-    fn ensure_active(&self, observed_at: SystemTime) -> Result<(), IdError> {
+    /// Returns [`IdGenerationError::GeneratorExpired`] when `observed_at` is
+    /// equal to or later than the exclusive expiration boundary.
+    fn ensure_active(
+        &self,
+        observed_at: SystemTime,
+    ) -> Result<(), IdGenerationError> {
         if observed_at >= self.expires_at {
-            return Err(IdError::GeneratorExpired {
+            return Err(IdGenerationError::GeneratorExpired {
                 observed_at,
                 expires_at: self.expires_at,
             });

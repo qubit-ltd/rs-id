@@ -16,17 +16,22 @@ use qubit_id::{
 
 struct Counter;
 
-impl TryIdGenerator<u64> for Counter {
+impl TryIdGenerator for Counter {
+    type Output = u64;
+    type Error = qubit_id::IdGenerationError;
+
     fn try_generate(
         &self,
-    ) -> Result<GenerationAttempt<u64>, qubit_id::IdError> {
+    ) -> Result<GenerationAttempt<Self::Output>, Self::Error> {
         Ok(GenerationAttempt::Generated(1))
     }
 }
 
 #[test]
 fn test_try_id_generator_arc_delegates() {
-    let generator: Arc<dyn TryIdGenerator<u64>> = Arc::new(Counter);
+    let generator: Arc<
+        dyn TryIdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+    > = Arc::new(Counter);
     assert!(matches!(
         generator.try_generate(),
         Ok(GenerationAttempt::Generated(1))

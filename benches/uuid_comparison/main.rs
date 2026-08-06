@@ -5,15 +5,12 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Fixed-workload comparison of qubit-id UUID wrappers and direct uuid calls.
+//! Fixed-workload comparison of qubit-id UUID values and direct uuid calls.
 
 use std::hint::black_box;
 use std::time::Instant;
 
-use qubit_id::{
-    UuidV4Generator,
-    UuidV4StringGenerator,
-};
+use qubit_id::UuidV4Generator;
 use uuid::Uuid;
 
 /// Number of untimed operations performed before each case.
@@ -40,14 +37,15 @@ fn main() {
         numeric
             .generate()
             .expect("UUID v4 numeric generation must succeed")
+            .value()
     });
     run_case("uuid_crate_v4_u128", || Uuid::new_v4().as_u128());
 
-    let string = UuidV4StringGenerator::new();
-    run_case("qubit_id_uuid_v4_string", || {
-        string
+    run_case("qubit_id_uuid_v4_display", || {
+        numeric
             .generate()
             .expect("UUID v4 string generation must succeed")
+            .to_string()
     });
     run_case("uuid_crate_v4_string", || {
         Uuid::new_v4().hyphenated().to_string()

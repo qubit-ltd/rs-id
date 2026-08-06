@@ -10,11 +10,9 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::IdError;
-
 /// Object-safe future returned by an asynchronous ID generator.
 ///
 /// The future may borrow its generator for `'a` and is safe to move between
-/// executor threads. `E` defaults to [`IdError`] for built-in generators.
-pub type IdGenerationFuture<'a, T, E = IdError> =
+/// executor threads.
+pub type IdGenerationFuture<'a, T, E> =
     Pin<Box<dyn Future<Output = Result<T, E>> + Send + 'a>>;

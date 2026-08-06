@@ -13,19 +13,17 @@ use std::thread;
 
 use qubit_id::{
     IdGenerator,
+    Uuid,
     UuidV4Generator,
 };
-use uuid::{
-    Uuid,
-    Variant,
-};
+use uuid::Variant;
 
 #[test]
 fn test_uuid_v4_generator_returns_standard_uuid_bits() {
     let generator = UuidV4Generator::new();
 
     let value = generator.generate().expect("UUID should generate");
-    let uuid = Uuid::from_u128(value);
+    let uuid = uuid::Uuid::from_u128(value.value());
 
     assert_eq!(uuid.get_version_num(), 4);
     assert_eq!(uuid.get_variant(), Variant::RFC4122);
@@ -41,14 +39,15 @@ mod inherent_api_tests {
             .generate()
             .expect("inherent generation should succeed");
 
-        assert_ne!(value, 0);
+        assert_ne!(value.value(), 0);
     }
 }
 
 #[test]
 fn test_uuid_v4_generator_supports_sync_trait_object() {
-    let generator: Arc<dyn IdGenerator<u128>> =
-        Arc::new(UuidV4Generator::new());
+    let generator: Arc<
+        dyn IdGenerator<Output = Uuid, Error = qubit_id::IdGenerationError>,
+    > = Arc::new(UuidV4Generator::new());
 
     assert!(generator.generate().is_ok());
 }
@@ -58,8 +57,9 @@ fn test_uuid_v4_generator_is_unique_across_concurrent_sample() {
     const WORKERS: usize = 8;
     const IDS_PER_WORKER: usize = 1_000;
 
-    let generator: Arc<dyn IdGenerator<u128>> =
-        Arc::new(UuidV4Generator::new());
+    let generator: Arc<
+        dyn IdGenerator<Output = Uuid, Error = qubit_id::IdGenerationError>,
+    > = Arc::new(UuidV4Generator::new());
     let workers = (0..WORKERS)
         .map(|_| {
             let generator = Arc::clone(&generator);

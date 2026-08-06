@@ -20,7 +20,7 @@ use super::{
     SnowflakeCore,
     SnowflakeLayoutSpec,
 };
-use crate::IdError;
+use crate::IdGenerationError;
 
 /// Adapts a non-waiting Snowflake core to synchronous generation.
 #[derive(Clone)]
@@ -63,19 +63,20 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::TimeBeforeEpoch`] when the clock precedes the epoch,
-    /// [`IdError::GeneratorExpired`] at the lifetime boundary,
-    /// [`IdError::ClockMovedBackwards`] when rollback exceeds the configured
-    /// tolerance, or [`IdError::WaitFailed`] when the timer cannot register or
+    /// Returns [`IdGenerationError::TimeBeforeEpoch`] when the clock precedes
+    /// the epoch, [`IdGenerationError::GeneratorExpired`] at the lifetime
+    /// boundary, [`IdGenerationError::ClockMovedBackwards`] when rollback
+    /// exceeds the configured tolerance, or
+    /// [`IdGenerationError::WaitFailed`] when the timer cannot register or
     /// complete a retry wait.
-    pub(crate) fn generate(&self) -> Result<u64, IdError> {
+    pub(crate) fn generate(&self) -> Result<u64, IdGenerationError> {
         loop {
             match self.try_generate()? {
                 GenerationAttempt::Generated(id) => return Ok(id),
                 GenerationAttempt::RetryAfter { delay } => {
-                    self.sleeper
-                        .sleep_for(delay)
-                        .map_err(|source| IdError::WaitFailed { source })?;
+                    self.sleeper.sleep_for(delay).map_err(|source| {
+                        IdGenerationError::WaitFailed { source }
+                    })?;
                 }
             }
         }
@@ -84,12 +85,14 @@ where
     /// Performs one non-blocking allocation attempt.
     pub(crate) fn try_generate(
         &self,
-    ) -> Result<GenerationAttempt<u64>, IdError> {
+    ) -> Result<GenerationAttempt<u64>, IdGenerationError> {
         self.core.try_generate()
     }
 
     /// Generates an ID asynchronously, yielding across retryable outcomes.
-    pub(crate) async fn generate_async(&self) -> Result<u64, IdError> {
+    pub(crate) async fn generate_async(
+        &self,
+    ) -> Result<u64, IdGenerationError> {
         loop {
             match self.try_generate()? {
                 GenerationAttempt::Generated(id) => return Ok(id),
@@ -97,9 +100,13 @@ where
                     self.sleeper
                         .timer()
                         .after(delay)
-                        .map_err(|source| IdError::WaitFailed { source })?
+                        .map_err(|source| IdGenerationError::WaitFailed {
+                            source,
+                        })?
                         .await
-                        .map_err(|source| IdError::WaitFailed { source })?;
+                        .map_err(|source| IdGenerationError::WaitFailed {
+                            source,
+                        })?;
                 }
             }
         }

@@ -9,11 +9,13 @@
 
 use super::internal::generate_uuid_v4;
 use crate::{
-    IdError,
+    IdGenerationError,
     IdGenerator,
 };
 
-/// Generates UUID v4 values as native [`u128`] identifiers.
+use super::Uuid;
+
+/// Generates UUID v4 values as [`Uuid`] identifiers.
 ///
 /// UUID uniqueness is probabilistic. This stateless generator is safe to share
 /// across threads and tasks.
@@ -25,7 +27,7 @@ use crate::{
 /// ```compile_fail
 /// use qubit_id::{AsyncIdGenerator, UuidV4Generator};
 ///
-/// fn require_async<G: AsyncIdGenerator<u128>>(_generator: &G) {}
+/// fn require_async<G: AsyncIdGenerator<Output = Uuid>>(_generator: &G) {}
 ///
 /// require_async(&UuidV4Generator::new());
 /// ```
@@ -34,7 +36,7 @@ use crate::{
 pub struct UuidV4Generator;
 
 impl UuidV4Generator {
-    /// Creates a UUID v4 numeric generator.
+    /// Creates a UUID v4 generator.
     ///
     /// # Returns
     ///
@@ -44,7 +46,7 @@ impl UuidV4Generator {
         Self
     }
 
-    /// Generates a UUID v4 as a native `u128`.
+    /// Generates a UUID v4 value.
     ///
     /// This inherent method is convenient for concrete callers. Use
     /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is needed.
@@ -55,15 +57,18 @@ impl UuidV4Generator {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::RandomSourceFailed`] when the operating-system random
-    /// source cannot provide UUID bytes.
+    /// Returns [`IdGenerationError::RandomSourceFailed`] when the
+    /// operating-system random source cannot provide UUID bytes.
     #[inline(always)]
-    pub fn generate(&self) -> Result<u128, IdError> {
-        generate_uuid_v4().map(|uuid| uuid.as_u128())
+    pub fn generate(&self) -> Result<Uuid, IdGenerationError> {
+        generate_uuid_v4().map(|uuid| Uuid::from(uuid.as_u128()))
     }
 }
 
-impl IdGenerator<u128> for UuidV4Generator {
+impl IdGenerator for UuidV4Generator {
+    type Output = Uuid;
+    type Error = IdGenerationError;
+
     /// Generates a UUID v4 as a native `u128`.
     ///
     /// # Returns
@@ -72,10 +77,10 @@ impl IdGenerator<u128> for UuidV4Generator {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::RandomSourceFailed`] when the operating-system
-    /// random source cannot provide UUID bytes.
+    /// Returns [`IdGenerationError::RandomSourceFailed`] when the
+    /// operating-system random source cannot provide UUID bytes.
     #[inline(always)]
-    fn generate(&self) -> Result<u128, IdError> {
+    fn generate(&self) -> Result<Self::Output, Self::Error> {
         UuidV4Generator::generate(self)
     }
 }

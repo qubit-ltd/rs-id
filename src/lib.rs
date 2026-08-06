@@ -11,7 +11,7 @@
 //! IoC-friendly ID generation utilities for Rust services. The crate provides
 //! object-safe non-blocking [`TryIdGenerator`], synchronous [`IdGenerator`],
 //! and asynchronous [`AsyncIdGenerator`] contracts, three Snowflake-family
-//! algorithms, decimal string adaptation, and standards-compliant UUID v4.
+//! algorithms, domain ID values, and standards-compliant UUID v4.
 //!
 //! ## Cargo features
 //!
@@ -26,7 +26,7 @@
 //! | `qubit-snowflake` | Synchronous and asynchronous Qubit Snowflake generators |
 //! | `classic-snowflake` | Synchronous and asynchronous classic Snowflake generators |
 //! | `sonyflake` | Synchronous and asynchronous Sonyflake generators |
-//! | `uuid` | Numeric and canonical-string UUID v4 generators |
+//! | `uuid` | UUID v4 generator and UUID domain values |
 //!
 //! UUID generators intentionally implement only [`IdGenerator`], because the
 //! operating-system random source may block. Async applications should choose
@@ -52,9 +52,9 @@
 //! Every Snowflake layout calculates an exclusive expiration boundary from its
 //! time origin, unit, and maximum timestamp. Generators cache that value and
 //! expose it through `expires_at()`. Construction returns
-//! [`IdError::GeneratorExpired`] when the configured wall clock is equal to or
-//! later than the boundary. An unrepresentable boundary returns
-//! [`IdError::ExpirationTimeOverflow`] instead.
+//! [`IdGenerationError::GeneratorExpired`] when the configured wall clock is
+//! equal to or later than the boundary. An unrepresentable boundary returns
+//! [`IdGenerationError::ExpirationTimeOverflow`] instead.
 //!
 //! This crate does not persist allocation state, coordinate generator
 //! identities across processes, reserve a layout version field, or provide an
@@ -70,7 +70,8 @@
 
 mod async_id_generator;
 mod generation_attempt;
-mod id_error;
+mod id;
+mod id_generation_error;
 mod id_generation_future;
 mod id_generator;
 #[cfg(any(
@@ -94,7 +95,8 @@ pub mod uuid;
 
 pub use async_id_generator::AsyncIdGenerator;
 pub use generation_attempt::GenerationAttempt;
-pub use id_error::IdError;
+pub use id::Id;
+pub use id_generation_error::IdGenerationError;
 pub use id_generation_future::IdGenerationFuture;
 pub use id_generator::IdGenerator;
 #[cfg(any(
@@ -111,20 +113,14 @@ pub use id_generator::IdGenerator;
     )))
 )]
 pub use snowflake::RestartPolicy;
-#[cfg(any(
-    feature = "qubit-snowflake",
-    feature = "classic-snowflake",
-    feature = "sonyflake",
-))]
-#[cfg_attr(
-    docsrs,
-    doc(cfg(any(
-        feature = "qubit-snowflake",
-        feature = "classic-snowflake",
-        feature = "sonyflake",
-    )))
-)]
-pub use snowflake::SnowflakeStringGenerator;
+#[cfg(feature = "classic-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
+pub use snowflake::{
+    ClassicalSnowflakeGenerator,
+    ClassicalSnowflakeGeneratorBuilder,
+    ClassicalSnowflakeLayout,
+    ClassicalSnowflakeParts,
+};
 #[cfg(feature = "qubit-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
 pub use snowflake::{
@@ -134,19 +130,11 @@ pub use snowflake::{
     HOST_MIN,
     IdMode,
     PRECISION_BITS,
-    QubitSnowflakeGenerator,
-    QubitSnowflakeGeneratorBuilder,
-    QubitSnowflakeLayout,
-    QubitSnowflakeParts,
-    TimestampPrecision,
-};
-#[cfg(feature = "classic-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
-pub use snowflake::{
     SnowflakeGenerator,
     SnowflakeGeneratorBuilder,
     SnowflakeLayout,
     SnowflakeParts,
+    TimestampPrecision,
 };
 #[cfg(feature = "sonyflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
@@ -160,6 +148,6 @@ pub use try_id_generator::TryIdGenerator;
 #[cfg(feature = "uuid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]
 pub use uuid::{
+    Uuid,
     UuidV4Generator,
-    UuidV4StringGenerator,
 };

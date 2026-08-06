@@ -29,12 +29,13 @@ use std::time::{
 
 use qubit_id::{
     AsyncIdGenerator,
+    Id,
+    IdGenerationError,
     IdGenerator,
     IdMode,
-    QubitSnowflakeGenerator,
-    QubitSnowflakeLayout,
     RestartPolicy,
-    SnowflakeStringGenerator,
+    SnowflakeGenerator,
+    SnowflakeLayout,
     TimestampPrecision,
 };
 
@@ -110,8 +111,8 @@ fn main() {
     }
 }
 
-/// Compares numeric and decimal-string generator call paths using concrete and
-/// dynamically dispatched synchronous and asynchronous APIs.
+/// Compares numeric and decimal `Id` call paths using concrete and dynamically
+/// dispatched synchronous and asynchronous APIs.
 ///
 /// Second precision provides enough sequence capacity that these fixed-size
 /// samples measure dispatch and Future allocation rather than clock waits.
@@ -121,7 +122,7 @@ fn main() {
 /// Panics when a generator cannot be constructed, ID generation fails, or the
 /// Tokio current-thread runtime cannot be built.
 fn measure_dispatch_paths() {
-    let concrete = QubitSnowflakeGenerator::builder(HOST)
+    let concrete = SnowflakeGenerator::builder(HOST)
         .precision(TimestampPrecision::Second)
         .restart_policy(RestartPolicy::Immediate)
         .build()
@@ -132,48 +133,50 @@ fn measure_dispatch_paths() {
             .expect("concrete generation must succeed")
     });
 
-    let dynamic: Arc<dyn IdGenerator<u64>> = Arc::new(
-        QubitSnowflakeGenerator::builder(HOST)
-            .precision(TimestampPrecision::Second)
-            .restart_policy(RestartPolicy::Immediate)
-            .build()
-            .expect("dynamic benchmark generator must be valid"),
-    );
+    let dynamic: Arc<dyn IdGenerator<Output = Id, Error = IdGenerationError>> =
+        Arc::new(
+            SnowflakeGenerator::builder(HOST)
+                .precision(TimestampPrecision::Second)
+                .restart_policy(RestartPolicy::Immediate)
+                .build()
+                .expect("dynamic benchmark generator must be valid"),
+        );
     run_dispatch_case("sync_arc_dyn", || {
         dynamic.generate().expect("dynamic generation must succeed")
     });
 
-    let string_concrete = SnowflakeStringGenerator::new(
-        QubitSnowflakeGenerator::builder(HOST)
-            .precision(TimestampPrecision::Second)
-            .restart_policy(RestartPolicy::Immediate)
-            .build()
-            .expect("concrete string benchmark generator must be valid"),
-    );
+    let string_concrete = SnowflakeGenerator::builder(HOST)
+        .precision(TimestampPrecision::Second)
+        .restart_policy(RestartPolicy::Immediate)
+        .build()
+        .expect("concrete string benchmark generator must be valid");
     run_dispatch_case("sync_string_concrete", || {
         string_concrete
             .generate()
             .expect("concrete string generation must succeed")
+            .to_string()
     });
 
-    let string_dynamic: Arc<dyn IdGenerator<String>> =
-        Arc::new(SnowflakeStringGenerator::new(
-            QubitSnowflakeGenerator::builder(HOST)
-                .precision(TimestampPrecision::Second)
-                .restart_policy(RestartPolicy::Immediate)
-                .build()
-                .expect("dynamic string benchmark generator must be valid"),
-        ));
+    let string_dynamic: Arc<
+        dyn IdGenerator<Output = Id, Error = IdGenerationError>,
+    > = Arc::new(
+        SnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .restart_policy(RestartPolicy::Immediate)
+            .build()
+            .expect("dynamic string benchmark generator must be valid"),
+    );
     run_dispatch_case("sync_string_arc_dyn", || {
         string_dynamic
             .generate()
             .expect("dynamic string generation must succeed")
+            .to_string()
     });
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()
         .expect("benchmark runtime must build");
-    let async_concrete = QubitSnowflakeGenerator::builder(HOST)
+    let async_concrete = SnowflakeGenerator::builder(HOST)
         .precision(TimestampPrecision::Second)
         .restart_policy(RestartPolicy::Immediate)
         .build()
@@ -184,8 +187,10 @@ fn measure_dispatch_paths() {
             .expect("async concrete generation must succeed")
     });
 
-    let async_dynamic: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(
-        QubitSnowflakeGenerator::builder(HOST)
+    let async_dynamic: Arc<
+        dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>,
+    > = Arc::new(
+        SnowflakeGenerator::builder(HOST)
             .precision(TimestampPrecision::Second)
             .restart_policy(RestartPolicy::Immediate)
             .build()
@@ -197,33 +202,32 @@ fn measure_dispatch_paths() {
             .expect("async dynamic generation must succeed")
     });
 
-    let async_string_concrete = SnowflakeStringGenerator::new(
-        QubitSnowflakeGenerator::builder(HOST)
-            .precision(TimestampPrecision::Second)
-            .restart_policy(RestartPolicy::Immediate)
-            .build()
-            .expect("async concrete string benchmark generator must be valid"),
-    );
+    let async_string_concrete = SnowflakeGenerator::builder(HOST)
+        .precision(TimestampPrecision::Second)
+        .restart_policy(RestartPolicy::Immediate)
+        .build()
+        .expect("async concrete string benchmark generator must be valid");
     run_dispatch_case("async_string_concrete", || {
         runtime
             .block_on(async_string_concrete.generate_async())
             .expect("async concrete string generation must succeed")
+            .to_string()
     });
 
-    let async_string_dynamic: Arc<dyn AsyncIdGenerator<String>> =
-        Arc::new(SnowflakeStringGenerator::new(
-            QubitSnowflakeGenerator::builder(HOST)
-                .precision(TimestampPrecision::Second)
-                .restart_policy(RestartPolicy::Immediate)
-                .build()
-                .expect(
-                    "async dynamic string benchmark generator must be valid",
-                ),
-        ));
+    let async_string_dynamic: Arc<
+        dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>,
+    > = Arc::new(
+        SnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .restart_policy(RestartPolicy::Immediate)
+            .build()
+            .expect("async dynamic string benchmark generator must be valid"),
+    );
     run_dispatch_case("async_string_arc_dyn", || {
         runtime
             .block_on(async_string_dynamic.generate_async())
             .expect("async dynamic string generation must succeed")
+            .to_string()
     });
 }
 
@@ -311,7 +315,7 @@ fn measure_throughput(
     worker_count: usize,
 ) -> ThroughputSample {
     let generator = Arc::new(
-        QubitSnowflakeGenerator::builder(HOST)
+        SnowflakeGenerator::builder(HOST)
             .mode(IdMode::Sequential)
             .precision(precision)
             .restart_policy(RestartPolicy::Immediate)
@@ -377,9 +381,9 @@ fn measure_throughput(
 /// # Panics
 ///
 /// Panics when warm-up ID generation fails.
-fn warm_up(generator: &QubitSnowflakeGenerator) {
+fn warm_up(generator: &SnowflakeGenerator) {
     for _ in 0..WARM_UP_IDS {
-        black_box(
+        let _ = black_box(
             generator
                 .generate()
                 .expect("warm-up ID generation must succeed"),
@@ -406,13 +410,13 @@ fn measure_startup_latency(
     let mut samples = Vec::with_capacity(STARTUP_SAMPLE_COUNT);
     for _ in 0..STARTUP_SAMPLE_COUNT {
         let started = Instant::now();
-        let generator = QubitSnowflakeGenerator::builder(HOST)
+        let generator = SnowflakeGenerator::builder(HOST)
             .mode(IdMode::Sequential)
             .precision(precision)
             .restart_policy(RestartPolicy::Immediate)
             .build()
             .expect("benchmark generator configuration must be valid");
-        black_box(
+        let _ = black_box(
             generator
                 .generate()
                 .expect("first ID generation must succeed"),
@@ -450,7 +454,7 @@ fn measure_startup_latency(
 ///
 /// Panics when ID generation or system-clock conversion fails.
 fn generate_until_target(
-    generator: &QubitSnowflakeGenerator,
+    generator: &SnowflakeGenerator,
     epoch: SystemTime,
     precision: TimestampPrecision,
     start_timestamp: u64,
@@ -458,7 +462,7 @@ fn generate_until_target(
 ) -> u64 {
     let target_timestamp = start_timestamp + measured_slices;
     let mut generated = 0_u64;
-    let mut batch = [0_u64; BATCH_SIZE];
+    let mut batch = [Id::from(0); BATCH_SIZE];
 
     loop {
         for id in &mut batch {
@@ -473,7 +477,7 @@ fn generate_until_target(
         generated += batch
             .iter()
             .filter(|id| {
-                let timestamp = QubitSnowflakeLayout::decode(**id).timestamp();
+                let timestamp = SnowflakeLayout::decode(id.value()).timestamp();
                 (start_timestamp..target_timestamp).contains(&timestamp)
             })
             .count() as u64;

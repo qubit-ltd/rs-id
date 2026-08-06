@@ -13,7 +13,7 @@ use std::time::{
     SystemTime,
 };
 
-use crate::IdError;
+use crate::IdGenerationError;
 
 /// Raw and quantized time observed during one allocation attempt.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -44,17 +44,18 @@ impl ClockObservation {
     ///
     /// # Errors
     ///
-    /// Returns [`IdError::TimeBeforeEpoch`] when `time` precedes `epoch`.
+    /// Returns [`IdGenerationError::TimeBeforeEpoch`] when `time` precedes
+    /// `epoch`.
     pub(crate) fn from_time(
         time: SystemTime,
         epoch: SystemTime,
         time_unit: Duration,
         max_timestamp: u64,
-    ) -> Result<Self, IdError> {
+    ) -> Result<Self, IdGenerationError> {
         debug_assert!(!time_unit.is_zero());
         let elapsed = time
             .duration_since(epoch)
-            .map_err(|_| IdError::TimeBeforeEpoch { time, epoch })?;
+            .map_err(|_| IdGenerationError::TimeBeforeEpoch { time, epoch })?;
         let unit_nanos = time_unit.as_nanos();
         let timestamp = elapsed.as_nanos() / unit_nanos;
         debug_assert!(timestamp <= u128::from(max_timestamp));

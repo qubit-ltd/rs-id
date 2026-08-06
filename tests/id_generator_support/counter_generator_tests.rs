@@ -14,7 +14,6 @@ use std::sync::atomic::{
 
 use qubit_id::{
     AsyncIdGenerator,
-    IdError,
     IdGenerationFuture,
     IdGenerator,
 };
@@ -26,7 +25,10 @@ pub(crate) struct CounterGenerator {
     value: AtomicU64,
 }
 
-impl IdGenerator<u64> for CounterGenerator {
+impl IdGenerator for CounterGenerator {
+    type Output = u64;
+    type Error = qubit_id::IdGenerationError;
+
     /// Increments and returns the fixture counter.
     ///
     /// # Returns
@@ -37,26 +39,38 @@ impl IdGenerator<u64> for CounterGenerator {
     ///
     /// This fixture does not return an error.
     #[inline(always)]
-    fn generate(&self) -> Result<u64, IdError> {
+    fn generate(&self) -> Result<Self::Output, Self::Error> {
         Ok(self.value.fetch_add(1, Ordering::Relaxed) + 1)
     }
 }
 
-impl AsyncIdGenerator<u64> for CounterGenerator {
+impl AsyncIdGenerator for CounterGenerator {
+    type Output = u64;
+    type Error = qubit_id::IdGenerationError;
+
     /// Asynchronously increments and returns the fixture counter.
     ///
     /// # Returns
     ///
     /// An immediately ready future containing the next counter value.
     #[inline(always)]
-    fn generate_async(&self) -> IdGenerationFuture<'_, u64> {
-        Box::pin(
-            async move { <Self as IdGenerator<u64, IdError>>::generate(self) },
-        )
+    fn generate_async(
+        &self,
+    ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
+        Box::pin(async move { <Self as IdGenerator>::generate(self) })
     }
 }
 
-impl IdGenerator<u64, std::io::Error> for CounterGenerator {
+#[derive(Debug, Default)]
+pub(crate) struct IoCounterGenerator {
+    /// Last numeric value returned by the fixture.
+    value: AtomicU64,
+}
+
+impl IdGenerator for IoCounterGenerator {
+    type Output = u64;
+    type Error = std::io::Error;
+
     /// Increments and returns the fixture counter with a custom error type.
     ///
     /// # Returns
@@ -67,12 +81,15 @@ impl IdGenerator<u64, std::io::Error> for CounterGenerator {
     ///
     /// This fixture does not return an error.
     #[inline(always)]
-    fn generate(&self) -> Result<u64, std::io::Error> {
+    fn generate(&self) -> Result<Self::Output, Self::Error> {
         Ok(self.value.fetch_add(1, Ordering::Relaxed) + 1)
     }
 }
 
-impl AsyncIdGenerator<u64, std::io::Error> for CounterGenerator {
+impl AsyncIdGenerator for IoCounterGenerator {
+    type Output = u64;
+    type Error = std::io::Error;
+
     /// Asynchronously increments and returns the fixture counter with a custom
     /// error type.
     ///
@@ -80,9 +97,9 @@ impl AsyncIdGenerator<u64, std::io::Error> for CounterGenerator {
     ///
     /// An immediately ready future containing the next counter value.
     #[inline(always)]
-    fn generate_async(&self) -> IdGenerationFuture<'_, u64, std::io::Error> {
-        Box::pin(async move {
-            <Self as IdGenerator<u64, std::io::Error>>::generate(self)
-        })
+    fn generate_async(
+        &self,
+    ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
+        Box::pin(async move { <Self as IdGenerator>::generate(self) })
     }
 }

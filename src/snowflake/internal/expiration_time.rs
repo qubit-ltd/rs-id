@@ -13,7 +13,7 @@ use std::time::{
     SystemTime,
 };
 
-use crate::IdError;
+use crate::IdGenerationError;
 
 /// Number of nanoseconds in one second.
 const NANOS_PER_SECOND: u128 = 1_000_000_000;
@@ -36,23 +36,23 @@ const NANOS_PER_SECOND: u128 = 1_000_000_000;
 ///
 /// # Errors
 ///
-/// Returns [`IdError::ExpirationTimeOverflow`] when the lifetime duration or
-/// resulting [`SystemTime`] cannot be represented.
+/// Returns [`IdGenerationError::ExpirationTimeOverflow`] when the lifetime
+/// duration or resulting [`SystemTime`] cannot be represented.
 pub(crate) fn expiration_time(
     origin: SystemTime,
     time_unit: Duration,
     max_timestamp: u64,
-) -> Result<SystemTime, IdError> {
+) -> Result<SystemTime, IdGenerationError> {
     let unit_count = u128::from(max_timestamp) + 1;
     let Some(total_nanos) = time_unit.as_nanos().checked_mul(unit_count) else {
-        return Err(IdError::ExpirationTimeOverflow {
+        return Err(IdGenerationError::ExpirationTimeOverflow {
             origin,
             time_unit,
             max_timestamp,
         });
     };
     let Ok(seconds) = u64::try_from(total_nanos / NANOS_PER_SECOND) else {
-        return Err(IdError::ExpirationTimeOverflow {
+        return Err(IdGenerationError::ExpirationTimeOverflow {
             origin,
             time_unit,
             max_timestamp,
@@ -60,11 +60,11 @@ pub(crate) fn expiration_time(
     };
     let subsec_nanos = (total_nanos % NANOS_PER_SECOND) as u32;
     let lifetime = Duration::new(seconds, subsec_nanos);
-    origin
-        .checked_add(lifetime)
-        .ok_or(IdError::ExpirationTimeOverflow {
+    origin.checked_add(lifetime).ok_or(
+        IdGenerationError::ExpirationTimeOverflow {
             origin,
             time_unit,
             max_timestamp,
-        })
+        },
+    )
 }
