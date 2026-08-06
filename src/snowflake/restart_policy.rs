@@ -10,10 +10,11 @@
 /// Determines when a fresh Snowflake generator may allocate its first ID.
 ///
 /// Allocation state is not persisted. The default [`Self::WaitNextSlice`]
-/// policy minimizes startup latency but can repeat IDs after state loss when
-/// the old and replacement instances use the same effective identity, layout,
-/// and reference time, allocate in the same logical time slice, and use
-/// overlapping sequence ranges.
+/// policy adds at most one logical-slice wait before the first allocation and
+/// reduces same-slice reuse after a sequential replacement. It can still
+/// repeat IDs after state loss when the old and replacement instances use the
+/// same effective identity, layout, and reference time, and the replacement
+/// clock has moved behind the predecessor's last allocated slice.
 ///
 /// [`Self::WaitNextSlice`] reduces that risk for sequential replacement only
 /// when the replacement's first observed slice is not earlier than the
