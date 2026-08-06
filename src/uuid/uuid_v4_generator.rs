@@ -13,8 +13,6 @@ use crate::{
     IdGenerator,
 };
 
-use super::Uuid;
-
 /// Generates UUID v4 values as [`Uuid`] identifiers.
 ///
 /// UUID uniqueness is probabilistic. This stateless generator is safe to share
@@ -27,7 +25,7 @@ use super::Uuid;
 /// ```compile_fail
 /// use qubit_id::{AsyncIdGenerator, UuidV4Generator};
 ///
-/// fn require_async<G: AsyncIdGenerator<Output = Uuid>>(_generator: &G) {}
+/// fn require_async<G: AsyncIdGenerator<Output = uuid::Uuid>>(_generator: &G) {}
 ///
 /// require_async(&UuidV4Generator::new());
 /// ```
@@ -60,16 +58,16 @@ impl UuidV4Generator {
     /// Returns [`IdGenerationError::RandomSourceFailed`] when the
     /// operating-system random source cannot provide UUID bytes.
     #[inline(always)]
-    pub fn generate(&self) -> Result<Uuid, IdGenerationError> {
-        generate_uuid_v4().map(|uuid| Uuid::from(uuid.as_u128()))
+    pub fn generate(&self) -> Result<uuid::Uuid, IdGenerationError> {
+        generate_uuid_v4()
     }
 }
 
 impl IdGenerator for UuidV4Generator {
-    type Output = Uuid;
+    type Output = uuid::Uuid;
     type Error = IdGenerationError;
 
-    /// Generates a UUID v4 as a native `u128`.
+    /// Generates a UUID v4 as a [`uuid::Uuid`].
     ///
     /// # Returns
     ///

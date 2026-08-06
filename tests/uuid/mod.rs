@@ -5,5 +5,4 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-mod uuid_tests;
 mod uuid_v4_generator_tests;

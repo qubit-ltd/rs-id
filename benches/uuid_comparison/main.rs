@@ -37,7 +37,7 @@ fn main() {
         numeric
             .generate()
             .expect("UUID v4 numeric generation must succeed")
-            .value()
+            .as_u128()
     });
     run_case("uuid_crate_v4_u128", || Uuid::new_v4().as_u128());
 
