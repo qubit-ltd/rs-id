@@ -126,14 +126,8 @@ fn test_classical_snowflake_generator_increments_sequence_in_same_millisecond()
     let first = generator.generate().expect("first ID should generate");
     let second = generator.generate().expect("second ID should generate");
 
-    assert_eq!(
-        ClassicalSnowflakeLayout::decode(first).sequence(),
-        0
-    );
-    assert_eq!(
-        ClassicalSnowflakeLayout::decode(second).sequence(),
-        1
-    );
+    assert_eq!(ClassicalSnowflakeLayout::decode(first).sequence(), 0);
+    assert_eq!(ClassicalSnowflakeLayout::decode(second).sequence(), 1);
 }
 
 #[test]
@@ -294,14 +288,8 @@ mod async_tests {
             .await
             .expect("second ID should generate");
 
-        assert_eq!(
-            ClassicalSnowflakeLayout::decode(first).sequence(),
-            0
-        );
-        assert_eq!(
-            ClassicalSnowflakeLayout::decode(second).sequence(),
-            1
-        );
+        assert_eq!(ClassicalSnowflakeLayout::decode(first).sequence(), 0);
+        assert_eq!(ClassicalSnowflakeLayout::decode(second).sequence(), 1);
     }
 
     #[tokio::test]
@@ -334,10 +322,7 @@ mod async_tests {
             .await
             .expect("worker should finish")
             .expect("next millisecond should allocate");
-        assert_eq!(
-            ClassicalSnowflakeLayout::decode(id).timestamp(),
-            11
-        );
+        assert_eq!(ClassicalSnowflakeLayout::decode(id).timestamp(), 11);
     }
 
     #[tokio::test]
