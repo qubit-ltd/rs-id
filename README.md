@@ -80,6 +80,9 @@ dependency.
 ## Quick start
 
 The following service-local generator uses host `7` and returns a typed `Id`:
+`SnowflakeGenerator::new` uses sequential mode and second precision by default;
+choose `TimestampPrecision::Millisecond` explicitly when millisecond timestamp
+resolution is required.
 
 ```rust
 use std::sync::Arc;
