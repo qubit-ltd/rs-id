@@ -8,22 +8,45 @@
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
 `qubit-id` provides object-safe, IoC-friendly synchronous and asynchronous ID
-generators. Snowflake generators return `Id`, while UUID generators return
-`uuid::Uuid`; applications can
-use their numeric values or their display forms at the storage and transport
-boundary.
+generators for applications that need a numeric ID boundary. It includes three
+Snowflake-family layouts and a UUID v4 generator, with typed `Id` values,
+structured errors, deterministic clock injection, and blocking, non-blocking,
+and asynchronous allocation APIs.
+
+## A practical choice
+
+Suppose an order service needs IDs from several processes and must decide
+whether IDs should remain compatible with signed 64-bit database keys, expose a
+large machine namespace, or support a configurable layout. Choose the Snowflake
+generator from the table below, then read the [user guide](doc/user_guide.md)
+for the deployment checklist and configuration trade-offs.
+
+| Generator | Layout and time unit | Nodes | Theoretical throughput per node | Time range | Choose it when |
+| --- | --- | ---: | ---: | ---: | --- |
+| `ClassicalSnowflakeGenerator` | `1 + 41 ms + 10 node + 12 sequence` | 1,024 | 4,096/ms, about 4.096 million/s | About 69.7 years | You want the simplest, traditional, signed-63-bit layout. |
+| `SnowflakeGenerator` | `1 mode + 1 precision + 41 ms + 9 host + 12 sequence` | 512 | 4,096/ms, about 4.096 million/s | About 69.7 years | You want a self-describing Qubit layout with millisecond precision. |
+| `SnowflakeGenerator` | `1 mode + 1 precision + 31 s + 9 host + 22 sequence` | 512 | 4,194,304/s, about 4.194 million/s | About 68.1 years | You can use second precision and need a large per-second burst budget. |
+| `SonyflakeGenerator` (default layout) | `1 + 39 time + 8 sequence + 16 machine`, 10 ms/unit | 65,536 | 256/10 ms, about 25,600/s | About 174.8 years | You need a larger machine namespace, a longer lifetime, or configurable bit widths. |
+
+The throughput figures are field-capacity limits, not benchmark guarantees. An
+ideal aggregate limit is the per-node figure multiplied by the node count; real
+throughput also depends on contention, clock progress, and retry waits. Sonyflake
+can trade time range, sequence capacity, and machine count by changing its
+field widths. Qubit `Spread` uses the same capacity as its selected precision,
+but reverses the timestamp bits to reduce direct numeric time correlation; it is
+reversible obfuscation, not encryption.
 
 ## Highlights
 
 - `IdGenerator` supplies only the `Output` and `Error` type contract.
   `BlockingIdGenerator`, `TryIdGenerator`, and `AsyncIdGenerator` independently
   provide blocking, non-blocking, and asynchronous allocation capabilities.
-- Each Snowflake type implements all three allocation capabilities and shares one allocation
-  state across its synchronous and asynchronous call paths.
+- Each Snowflake type implements all three allocation capabilities and shares
+  one allocation state across its synchronous and asynchronous call paths.
 - Builders accept `Arc<dyn WallClock>` and `Arc<dyn Timer>` from
-  [`qubit-clock`](https://crates.io/crates/qubit-clock).
-- UUID output is the standards-compliant `uuid::Uuid` version 4 type, with
-  canonical hyphenated text and the full `uuid` crate API.
+  [`qubit-clock`](https://crates.io/crates/qubit-clock), making clock rollback,
+  sequence rollover, and retry behavior deterministic in tests.
+- UUID output is the standards-compliant `uuid::Uuid` version 4 type.
 - The default feature set enables only `qubit-snowflake`.
 
 ## Installation
@@ -49,22 +72,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ```
 
-Asynchronous ID generation is runtime-neutral. Applications that need the
-Tokio timer enable the corresponding feature directly on their `qubit-clock`
+Asynchronous ID generation is runtime-neutral. Applications that need a Tokio
+timer enable the corresponding feature directly on their `qubit-clock`
 dependency.
 
-## IoC contracts
+## Quick start
 
-Each generator declares its `Output` and `Error` as associated types. Built-in
-generators use `IdGenerationError`; third-party generators can provide their
-own concrete error type.
-
-`IdGenerator` supplies only the `Output` and `Error` type contract. Select the
-capability matching the caller's scheduling model; this keeps blocking, retry,
-and asynchronous dependencies independently injectable.
-
-Use `Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>` for a
-synchronous Snowflake dependency:
+The following service-local generator uses host `7` and returns a typed `Id`:
 
 ```rust
 use std::sync::Arc;
@@ -79,78 +93,24 @@ fn main() -> Result<(), IdGenerationError> {
 }
 ```
 
-Every Snowflake generator exposes blocking, non-blocking, and asynchronous
-methods. The concrete asynchronous method has an unboxed outer Future; a retry
-may still create the timer's internal Future:
-
-```rust
-use qubit_id::{Id, IdGenerationError, SnowflakeGenerator};
-
-async fn allocate_concrete(
-    generator: &SnowflakeGenerator,
-) -> Result<Id, IdGenerationError> {
-    generator.generate_async().await
-}
-```
-
-Use `Arc<dyn TryIdGenerator<Output = Id, Error = IdGenerationError>>` when the
-caller owns retry scheduling:
-
-```rust
-use std::sync::Arc;
-use qubit_id::{GenerationAttempt, Id, IdGenerationError, SnowflakeGenerator, TryIdGenerator};
-
-fn allocate(
-    generator: &dyn TryIdGenerator<Output = Id, Error = IdGenerationError>,
-) -> Id {
-    match generator.try_generate().expect("allocation should be valid") {
-        GenerationAttempt::Generated(id) => id,
-        GenerationAttempt::RetryAfter { delay: _ } => Id::from(0),
-    }
-}
-
-let generator: Arc<dyn TryIdGenerator<Output = Id, Error = IdGenerationError>> =
-    Arc::new(SnowflakeGenerator::new(7).expect("valid host"));
-let _ = allocate(generator.as_ref());
-```
-
-Use `Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>` when an asynchronous object-safe injection
-boundary is required. Dynamic dispatch returns a boxed Future and does not require Tokio:
-
-```rust
-use std::sync::Arc;
-use qubit_id::{
-    AsyncIdGenerator, Id, IdGenerationError, SnowflakeGenerator,
-};
-
-async fn allocate(
-    generator: &dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>,
-) -> Result<Id, IdGenerationError> {
-    generator.generate_async().await
-}
-
-fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>> =
-        Arc::new(SnowflakeGenerator::new(7)?);
-    let _injected = generator;
-    Ok(())
-}
-```
-
-A test mock implements `IdGenerator` plus the relevant capability trait for its
-local type.
+Every Snowflake generator exposes `try_generate()`, `generate()`, and
+`generate_async()`. The concrete asynchronous method has an unboxed outer Future;
+a retry may still create the timer's internal Future. For synchronous injection,
+use `Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`. Use
+`Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>` when an
+asynchronous object-safe injection boundary is required.
 
 ## Snowflake generators
 
-| Feature | Generator type | Native output |
+| Feature | Generator type | Layout type |
 | --- | --- | --- |
-| `qubit-snowflake` | `SnowflakeGenerator` | `Id` |
-| `classic-snowflake` | `ClassicalSnowflakeGenerator` | `Id` |
-| `sonyflake` | `SonyflakeGenerator` | `Id` |
+| `qubit-snowflake` | `SnowflakeGenerator` | `SnowflakeLayout` |
+| `classic-snowflake` | `ClassicalSnowflakeGenerator` | `ClassicalSnowflakeLayout` |
+| `sonyflake` | `SonyflakeGenerator` | `SonyflakeLayout` |
 
-The three public Snowflake layouts use typed `Id` values at their primary
-boundaries. Use the explicit raw methods only when interoperating with a
-protocol, database bit pattern, or another `u64` API:
+The three layouts use typed `Id` values at their primary boundaries. Use raw
+methods only when interoperating with a protocol, database bit pattern, or
+another `u64` API:
 
 ```rust
 use qubit_id::ClassicalSnowflakeLayout;
@@ -168,36 +128,64 @@ fn main() -> Result<(), qubit_id::IdGenerationError> {
 
 “Classic Snowflake” describes the 41/10/12-bit layout, not a universal epoch.
 `ClassicalSnowflakeGenerator` defaults to `2018-12-02T00:00:00Z`, the same epoch
-used by Qubit Snowflake. Set the builder's `epoch(...)` when interoperating with an
-existing ID namespace that uses a different timestamp origin.
+used by Qubit Snowflake. Set the builder's `epoch(...)` when interoperating with
+an existing ID namespace that uses a different timestamp origin.
 
-Each builder has one `build()` method. The resulting generator shares one
-allocation state across `try_generate()`, `generate()`, and `generate_async()`;
-cloning a generator, when supported, also shares that state.
+The detailed comparison, selection rules, error handling, and deployment
+limits are in the [English user guide](doc/user_guide.md) and
+[中文用户手册](doc/user_guide.zh_CN.md).
 
-All three Snowflake generators expose the same primary API: `new(...)`,
-`builder(...)`, `layout()`, `epoch()`, `expires_at()`, `max_clock_skew()`,
-`try_generate()`, `generate()`, `generate_async()`, and
-`compose_at(time, sequence)`. Use each builder's `epoch(...)` and
-`max_clock_skew(...)` options to configure that shared contract.
+## IoC contracts and runtime behavior
 
-### Storage and transport compatibility
+Each generator declares concrete `Output` and `Error` associated types. Built-in
+generators use `IdGenerationError`; third-party generators can provide their own
+error type. Select `BlockingIdGenerator` for caller-transparent waits,
+`TryIdGenerator` when the caller owns retry scheduling, or `AsyncIdGenerator`
+for an object-safe asynchronous boundary.
 
-| Output | Compatible storage and transport |
+An object-safe synchronous dependency can use
+`Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`. A UUID
+dependency can use
+`Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>>`.
+
+All builders expose `epoch(...)`, `max_clock_skew(...)`, and
+`restart_policy(...)`. `RestartPolicy::Immediate` is the default for all Snowflake builders.
+`try_generate()`, `generate()`, and `generate_async()` share
+one allocation state; cloning a generator, when supported, also shares that
+state.
+
+All three Snowflake generators also expose `layout()`, `epoch()`,
+`expires_at()`, `max_clock_skew()`, and `compose_at(time, sequence)`.
+
+`expires_at()` returns the exclusive expiration boundary. Builders return
+`IdGenerationError::EpochAhead` when the epoch is later than the injected wall
+clock. At construction, builders return `IdGenerationError::GeneratorExpired` when `now >= expires_at`.
+Clock rollback beyond the configured tolerance returns
+`IdGenerationError::ClockMovedBackwards`; timer failures return
+`IdGenerationError::WaitFailed`. These are structured errors, not panic-based
+control flow. UUID generation returns `IdGenerationError::RandomSourceFailed`
+if the operating system cannot provide random bytes.
+
+Applications must assign an exclusive host, node, or machine identifier to
+every concurrently active generator in the same namespace. This crate does not
+persist allocation state or provide a distributed lease.
+
+## Storage and transport
+
+| Generator mode | Recommended representation |
 | --- | --- |
-| Sequential Qubit, classic Snowflake, Sonyflake | `Id`, `u64`, or decimal text; checked `i64` conversion when the selected layout remains within its range |
+| Sequential Qubit, classic Snowflake, Sonyflake | `Id`, `u64`, or decimal text; checked `i64` conversion when the selected layout remains within range |
 | Spread Qubit | `Id`, unsigned decimal text, or 8-byte binary data |
 | UUID v4 | `uuid::Uuid`, 16-byte binary data, or canonical UUID text |
 
-`IdMode::Spread` always sets bit 63, so its IDs exceed `i64::MAX`.
-Do not cast those IDs to a signed database key. Use decimal strings when IDs
-cross JavaScript or JSON boundaries.
+`IdMode::Spread` always sets bit 63, so its IDs exceed `i64::MAX`. Do not cast
+those IDs to a signed database key. Use decimal strings when IDs cross
+JavaScript or JSON boundaries. With the optional `serde` feature, human-readable
+`Id` serialization uses decimal strings and compact serialization uses `u64`.
 
 ## Deterministic time injection
 
-Derive the wall clock and timer from the same `ManualMonotonicClock` in tests.
-The same pattern works with `StdWallClock`, `StdMonotonicClock`, and a Tokio
-timer enabled directly through `qubit-clock`:
+Derive the wall clock and timer from the same `ManualMonotonicClock` in tests:
 
 ```text
 let clock = ManualMonotonicClock::new_shared();
@@ -210,41 +198,12 @@ let generator = SnowflakeGenerator::builder(7)
 Manual timer observers let tests wait until a deadline is registered before
 advancing logical time, avoiding real sleeps and scheduling guesses.
 
-A Tokio timer retains its target runtime handle, so `generate_async()` can be
-polled from another runtime or execution context. The target `Runtime` must
-remain alive and driven. `generate()` blocks while waiting, so its timer backend
-must progress independently of the caller thread; use `try_generate()` when the
-caller must own scheduling.
-
-## Domain values and text output
-
-Snowflake generators return `Id`. It is a transparent `u64` value with decimal
-`Display` formatting, so callers can choose the representation at the
-application boundary:
-
-```rust
-use std::sync::Arc;
-use qubit_id::{
-    BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator,
-};
-
-fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>> =
-        Arc::new(SnowflakeGenerator::new(7)?);
-    let id = generator.generate()?;
-    let numeric: u64 = id.into();
-    let text = id.to_string();
-    assert_eq!(text, numeric.to_string());
-    Ok(())
-}
-```
+## UUID v4
 
 `UuidV4Generator` returns `uuid::Uuid`. Import `Uuid` directly from the `uuid`
-dependency to use its parsing, formatting, version, and byte APIs. UUID
-generation returns `IdGenerationError::RandomSourceFailed`
-if the operating system cannot provide
-random bytes. Async applications should place the synchronous call behind the
-blocking boundary supplied by their chosen runtime:
+dependency to use its parsing, formatting, version, and byte APIs. Async
+applications should place this synchronous call behind the blocking boundary
+provided by their chosen runtime:
 
 ```rust
 use std::sync::Arc;
@@ -252,55 +211,13 @@ use qubit_id::{BlockingIdGenerator, IdGenerationError, UuidV4Generator};
 use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>> = Arc::new(UuidV4Generator::new());
+    let generator: Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>> =
+        Arc::new(UuidV4Generator::new());
     let uuid = generator.generate()?;
-    let numeric = Uuid::as_u128(&uuid);
-    let text = uuid.to_string();
-    assert_ne!(numeric, 0);
-    assert_eq!(text.len(), 36);
+    assert_eq!(uuid.to_string().len(), 36);
     Ok(())
 }
 ```
-
-### Serialization formats
-
-Enable the optional `serde` feature when serializing `Id`:
-
-| Format | `Id` representation | Accepted input |
-| --- | --- | --- |
-| Human-readable (JSON) | Decimal string, for example `"42"` | Decimal string only |
-| Compact/binary | Unsigned 64-bit integer | `u64` only |
-
-JSON numbers are rejected even when they are small enough for JavaScript's
-safe-integer range, because a JSON number can cross an IEEE-754 boundary and
-silently lose precision for a 64-bit ID. UUID serialization follows the
-native `uuid` crate contract: canonical text for human-readable formats and
-16 bytes for compact formats.
-
-## Lifetime, clocks, and deployment identity
-
-`expires_at()` returns the exclusive expiration boundary. A builder samples
-its injected wall clock and rejects a future epoch with
-`IdGenerationError::EpochAhead`; builders return `IdGenerationError::GeneratorExpired` when `now >= expires_at`, because that configuration cannot serve IDs. A live generator
-that later reaches the same boundary returns the same error.
-
-Each Snowflake builder exposes `max_clock_skew(...)`. A raw wall-clock rollback
-within that bound can wait; a larger rollback returns
-`IdGenerationError::ClockMovedBackwards`. Classic Snowflake and Sonyflake
-default to zero tolerance, while Qubit uses its documented default tolerance.
-Timer registration or blocking-adapter failures are returned as
-`IdGenerationError::WaitFailed` with the original `TimeError` source.
-
-Applications must assign an exclusive host, node, or machine identifier to
-every concurrently active generator in the same namespace. This crate does not
-persist allocation state or provide a distributed lease.
-
-`RestartPolicy::Immediate` is the default for all Snowflake builders. It starts
-allocation in the current time slice. `RestartPolicy::WaitNextSlice` is an
-explicit opt-in that delays the first allocation until a later slice, reducing
-same-slice reuse after a stopped instance is replaced. Neither policy
-coordinates concurrently active generators or replaces persistent allocation
-state and an exclusive distributed identity lease.
 
 ## Features and benchmarks
 
@@ -312,8 +229,12 @@ cargo bench --bench qubit_snowflake_throughput
 cargo bench --no-default-features --features uuid --bench uuid_comparison
 ```
 
-Benchmarks report measurements only; normal tests do not assert unstable
-performance thresholds.
+## Further reading
+
+- [English user guide](doc/user_guide.md)
+- [中文用户手册](doc/user_guide.zh_CN.md)
+- [中文 README](README.zh_CN.md)
+- [API documentation](https://docs.rs/qubit-id)
 
 ## Testing
 
