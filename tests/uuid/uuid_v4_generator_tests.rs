@@ -43,9 +43,8 @@ mod inherent_api_tests {
 
 #[test]
 fn test_uuid_v4_generator_supports_sync_trait_object() {
-    let generator: Arc<
-        dyn BlockingIdGenerator<uuid::Uuid>,
-    > = Arc::new(UuidV4Generator::new());
+    let generator: Arc<dyn BlockingIdGenerator<uuid::Uuid>> =
+        Arc::new(UuidV4Generator::new());
 
     assert!(generator.generate().is_ok());
 }
@@ -55,9 +54,8 @@ fn test_uuid_v4_generator_is_unique_across_concurrent_sample() {
     const WORKERS: usize = 8;
     const IDS_PER_WORKER: usize = 1_000;
 
-    let generator: Arc<
-        dyn BlockingIdGenerator<uuid::Uuid>,
-    > = Arc::new(UuidV4Generator::new());
+    let generator: Arc<dyn BlockingIdGenerator<uuid::Uuid>> =
+        Arc::new(UuidV4Generator::new());
     let workers = (0..WORKERS)
         .map(|_| {
             let generator = Arc::clone(&generator);

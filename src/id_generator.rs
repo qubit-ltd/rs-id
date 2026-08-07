@@ -25,10 +25,12 @@ use crate::{
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because those capabilities use a shared reference and may be
 /// called concurrently.
-pub trait IdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {}
+pub trait IdGenerator<Output = Id, Error = IdGenerationError>:
+    Send + Sync
+{
+}
 
-impl<Output, Error, G> IdGenerator<Output, Error> for Arc<G>
-where
-    G: IdGenerator<Output, Error> + ?Sized,
+impl<Output, Error, G> IdGenerator<Output, Error> for Arc<G> where
+    G: IdGenerator<Output, Error> + ?Sized
 {
 }

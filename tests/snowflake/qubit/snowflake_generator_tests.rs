@@ -111,9 +111,7 @@ fn test_snowflake_wait_next_slice_retries_without_blocking() {
 fn test_snowflake_supports_nonblocking_trait_object() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
-    let generator: Arc<
-        dyn TryIdGenerator<Id>,
-    > = Arc::new(
+    let generator: Arc<dyn TryIdGenerator<Id>> = Arc::new(
         SnowflakeGenerator::builder(7)
             .precision(TimestampPrecision::Millisecond)
             .epoch(epoch)
@@ -140,9 +138,7 @@ fn test_snowflake_supports_sync_trait_object() {
         epoch + Duration::from_millis(10),
         DEFAULT_MAX_CLOCK_SKEW,
     );
-    let generator: Box<
-        dyn BlockingIdGenerator<Id>,
-    > = Box::new(generator);
+    let generator: Box<dyn BlockingIdGenerator<Id>> = Box::new(generator);
 
     let _ = generator
         .generate()
@@ -541,9 +537,7 @@ mod async_tests {
             epoch + Duration::from_millis(10),
             DEFAULT_MAX_CLOCK_SKEW,
         );
-        let generator: Box<
-            dyn AsyncIdGenerator<Id>,
-        > = Box::new(generator);
+        let generator: Box<dyn AsyncIdGenerator<Id>> = Box::new(generator);
 
         let _ = generator
             .generate_async()

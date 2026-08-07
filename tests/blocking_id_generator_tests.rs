@@ -31,9 +31,8 @@ fn test_blocking_id_generator_supports_custom_error_type() {
 
 #[test]
 fn test_blocking_id_generator_supports_concurrent_shared_access() {
-    let generator: Arc<
-        dyn BlockingIdGenerator<u64>,
-    > = Arc::new(CounterGenerator::default());
+    let generator: Arc<dyn BlockingIdGenerator<u64>> =
+        Arc::new(CounterGenerator::default());
     let first_generator = Arc::clone(&generator);
     let second_generator = Arc::clone(&generator);
     let first = std::thread::spawn(move || {

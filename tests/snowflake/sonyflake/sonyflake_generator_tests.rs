@@ -81,9 +81,7 @@ fn test_sonyflake_generator_compose_at_rejects_time_before_epoch() {
 fn test_sonyflake_generator_supports_sync_trait_object() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(100));
-    let generator: Arc<
-        dyn BlockingIdGenerator<Id>,
-    > = Arc::new(
+    let generator: Arc<dyn BlockingIdGenerator<Id>> = Arc::new(
         SonyflakeGenerator::builder(17)
             .epoch(epoch)
             .restart_policy(RestartPolicy::Immediate)
@@ -114,9 +112,7 @@ fn test_sonyflake_generator_supports_nonblocking_trait_object_and_inherent_api()
         Ok(GenerationAttempt::Generated(_))
     ));
 
-    let generator: Arc<
-        dyn TryIdGenerator<Id>,
-    > = Arc::new(generator);
+    let generator: Arc<dyn TryIdGenerator<Id>> = Arc::new(generator);
     assert!(matches!(
         generator.try_generate(),
         Ok(GenerationAttempt::Generated(_))
@@ -317,9 +313,7 @@ mod async_tests {
     async fn test_async_sonyflake_generator_supports_async_trait_object() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(100));
-        let generator: Arc<
-            dyn AsyncIdGenerator<Id>,
-        > = Arc::new(
+        let generator: Arc<dyn AsyncIdGenerator<Id>> = Arc::new(
             SonyflakeGenerator::builder(17)
                 .epoch(epoch)
                 .restart_policy(RestartPolicy::Immediate)
