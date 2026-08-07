@@ -68,6 +68,8 @@ serde_json = "1"
 ## 快速开始
 
 下面的服务内生成器使用 host `7`，返回类型化的 `Id`：
+`SnowflakeGenerator::new` 默认使用 Sequential 模式和秒精度；需要毫秒级时间戳
+时，应通过 Builder 显式选择 `TimestampPrecision::Millisecond`。
 
 ```rust
 use std::sync::Arc;
@@ -137,7 +139,7 @@ Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作
 `try_generate()`、`generate()` 与 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
 
 三种 Snowflake 生成器还提供 `layout()`、`epoch()`、`expires_at()`、
-`max_clock_skew(...)` 和 `compose_at(time, sequence)`。
+`max_clock_skew()` 和 `compose_at(time, sequence)`。
 
 `expires_at()` 返回排他的到期边界。Builder 会在 epoch 晚于注入的 WallClock 时返回
 `IdGenerationError::EpochAhead`。构建器会在 `now >= expires_at` 时返回 `IdGenerationError::GeneratorExpired`。

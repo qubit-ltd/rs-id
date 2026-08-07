@@ -308,7 +308,7 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
                 "`RestartPolicy::Immediate` 是所有 Snowflake Builder 的默认值。",
                 "`IdGenerationError::EpochAhead`",
                 "`compose_at(time, sequence)`",
-                "`max_clock_skew(...)`",
+                "`max_clock_skew()`",
                 "`IdGenerator`、`TryIdGenerator` 与 `AsyncIdGenerator` 分别提供阻塞、非阻塞和异步分配能力；",
                 "ID 经过 JavaScript 或 JSON 边界时应使用",
             ],
