@@ -51,8 +51,12 @@ impl AsyncIdGenerator<u64> for CounterGenerator {
     ///
     /// An immediately ready future containing the next counter value.
     #[inline(always)]
-    fn generate_async(&self) -> IdGenerationFuture<'_, u64, qubit_id::IdGenerationError> {
-        Box::pin(async move { <Self as BlockingIdGenerator<u64>>::generate(self) })
+    fn generate_async(
+        &self,
+    ) -> IdGenerationFuture<'_, u64, qubit_id::IdGenerationError> {
+        Box::pin(
+            async move { <Self as BlockingIdGenerator<u64>>::generate(self) },
+        )
     }
 }
 
