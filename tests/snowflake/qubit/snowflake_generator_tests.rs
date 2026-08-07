@@ -17,11 +17,11 @@ use std::time::{
 };
 
 use qubit_id::{
-    IdGenerator,
     DEFAULT_MAX_CLOCK_SKEW,
     GenerationAttempt,
     Id,
     IdGenerationError,
+    IdGenerator,
     IdMode,
     RestartPolicy,
     SnowflakeGenerator,

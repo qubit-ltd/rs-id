@@ -18,8 +18,8 @@ use crate::{
 /// UUID uniqueness is probabilistic. This stateless generator is safe to share
 /// across threads and tasks.
 ///
-/// This type intentionally exposes only the blocking [`IdGenerator`] capability.
-/// Applications that generate
+/// This type intentionally exposes only the blocking [`IdGenerator`]
+/// capability. Applications that generate
 /// UUIDs from an async runtime must choose the runtime-specific blocking
 /// boundary explicitly.
 ///

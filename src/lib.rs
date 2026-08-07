@@ -73,11 +73,11 @@
 #![deny(missing_docs)]
 
 mod async_id_generator;
-mod id_generator;
 mod generation_attempt;
 mod id;
 mod id_generation_error;
 mod id_generation_future;
+mod id_generator;
 #[cfg(feature = "serde")]
 mod id_serde;
 #[cfg(any(
