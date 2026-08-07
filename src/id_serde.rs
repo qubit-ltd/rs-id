@@ -19,7 +19,7 @@ impl serde::Serialize for Id {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.serialize_str(&self.to_string())
+            serializer.collect_str(self)
         } else {
             serializer.serialize_u64(self.value())
         }
@@ -35,9 +35,47 @@ impl<'de> serde::Deserialize<'de> for Id {
         D: serde::Deserializer<'de>,
     {
         if deserializer.is_human_readable() {
-            let value =
-                <String as serde::Deserialize>::deserialize(deserializer)?;
-            value.parse().map_err(serde::de::Error::custom)
+            struct IdVisitor;
+
+            impl<'de> serde::de::Visitor<'de> for IdVisitor {
+                type Value = Id;
+
+                fn expecting(
+                    &self,
+                    formatter: &mut std::fmt::Formatter<'_>,
+                ) -> std::fmt::Result {
+                    formatter.write_str("an unsigned decimal identifier string")
+                }
+
+                fn visit_borrowed_str<E>(
+                    self,
+                    value: &'de str,
+                ) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    self.visit_str(value)
+                }
+
+                fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    value.parse().map_err(E::custom)
+                }
+
+                fn visit_string<E>(
+                    self,
+                    value: String,
+                ) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    self.visit_str(&value)
+                }
+            }
+
+            deserializer.deserialize_str(IdVisitor)
         } else {
             let value = <u64 as serde::Deserialize>::deserialize(deserializer)?;
             Ok(Id::from(value))
