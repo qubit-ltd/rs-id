@@ -27,7 +27,7 @@ use crate::{
 /// ```compile_fail
 /// use qubit_id::{AsyncIdGenerator, UuidV4Generator};
 ///
-/// fn require_async<G: AsyncIdGenerator<Output = uuid::Uuid>>(_generator: &G) {}
+/// fn require_async<G: AsyncIdGenerator<uuid::Uuid>>(_generator: &G) {}
 ///
 /// require_async(&UuidV4Generator::new());
 /// ```
@@ -66,12 +66,9 @@ impl UuidV4Generator {
     }
 }
 
-impl IdGenerator for UuidV4Generator {
-    type Output = uuid::Uuid;
-    type Error = IdGenerationError;
-}
+impl IdGenerator<uuid::Uuid> for UuidV4Generator {}
 
-impl BlockingIdGenerator for UuidV4Generator {
+impl BlockingIdGenerator<uuid::Uuid> for UuidV4Generator {
     /// Generates a UUID v4 as a [`uuid::Uuid`].
     ///
     /// # Returns
@@ -83,7 +80,7 @@ impl BlockingIdGenerator for UuidV4Generator {
     /// Returns [`IdGenerationError::RandomSourceFailed`] when the
     /// operating-system random source cannot provide UUID bytes.
     #[inline(always)]
-    fn generate(&self) -> Result<Self::Output, Self::Error> {
+    fn generate(&self) -> Result<uuid::Uuid, IdGenerationError> {
         UuidV4Generator::generate(self)
     }
 }

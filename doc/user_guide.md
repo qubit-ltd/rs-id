@@ -160,6 +160,22 @@ The concrete asynchronous method has an unboxed outer Future. The object-safe
 boundary. Neither path requires Tokio by itself; the injected `Timer` supplies
 the runtime-specific waiting behavior.
 
+The generator traits use generic `Output` and `Error` parameters. They default
+to `Id` and `IdGenerationError`, so the common synchronous injection boundary
+can be written as:
+
+```rust
+use std::sync::Arc;
+use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
+
+fn create_generator() -> Result<Arc<dyn BlockingIdGenerator<Id>>, IdGenerationError> {
+    Ok(Arc::new(SnowflakeGenerator::new(7)?))
+}
+```
+
+Custom generator types can specify both parameters, for example
+`BlockingIdGenerator<String, MyError>`.
+
 ## Advanced usage
 
 ### Changing Sonyflake capacity

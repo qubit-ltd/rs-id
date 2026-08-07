@@ -38,7 +38,8 @@ reversible obfuscation, not encryption.
 
 ## Highlights
 
-- `IdGenerator` supplies only the `Output` and `Error` type contract.
+- `IdGenerator` supplies the `Output` and `Error` generic parameters, defaulting
+  to `Id` and `IdGenerationError`.
   `BlockingIdGenerator`, `TryIdGenerator`, and `AsyncIdGenerator` independently
   provide blocking, non-blocking, and asynchronous allocation capabilities.
 - Each Snowflake type implements all three allocation capabilities and shares
@@ -85,7 +86,7 @@ use std::sync::Arc;
 use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>> =
+    let generator: Arc<dyn BlockingIdGenerator<Id>> =
         Arc::new(SnowflakeGenerator::new(7)?);
     let id = generator.generate()?;
     assert_ne!(id.value(), 0);
@@ -96,8 +97,8 @@ fn main() -> Result<(), IdGenerationError> {
 Every Snowflake generator exposes `try_generate()`, `generate()`, and
 `generate_async()`. The concrete asynchronous method has an unboxed outer Future;
 a retry may still create the timer's internal Future. For synchronous injection,
-use `Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`. Use
-`Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>` when an
+use `Arc<dyn BlockingIdGenerator<Id>>`. Use
+`Arc<dyn AsyncIdGenerator<Id>>` when an
 asynchronous object-safe injection boundary is required.
 
 ## Snowflake generators
@@ -137,16 +138,17 @@ limits are in the [English user guide](doc/user_guide.md) and
 
 ## IoC contracts and runtime behavior
 
-Each generator declares concrete `Output` and `Error` associated types. Built-in
-generators use `IdGenerationError`; third-party generators can provide their own
-error type. Select `BlockingIdGenerator` for caller-transparent waits,
+Each generator uses `Output` and `Error` generic parameters, defaulting to `Id`
+and `IdGenerationError`. Third-party generators can provide their own error
+type by specifying the parameters explicitly. Select `BlockingIdGenerator` for
+caller-transparent waits,
 `TryIdGenerator` when the caller owns retry scheduling, or `AsyncIdGenerator`
 for an object-safe asynchronous boundary.
 
 An object-safe synchronous dependency can use
-`Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`. A UUID
+`Arc<dyn BlockingIdGenerator<Id>>`. A UUID
 dependency can use
-`Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>>`.
+`Arc<dyn BlockingIdGenerator<Uuid>>`.
 
 All builders expose `epoch(...)`, `max_clock_skew(...)`, and
 `restart_policy(...)`. `RestartPolicy::Immediate` is the default for all Snowflake builders.
@@ -211,7 +213,7 @@ use qubit_id::{BlockingIdGenerator, IdGenerationError, UuidV4Generator};
 use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>> =
+    let generator: Arc<dyn BlockingIdGenerator<Uuid>> =
         Arc::new(UuidV4Generator::new());
     let uuid = generator.generate()?;
     assert_eq!(uuid.to_string().len(), 36);

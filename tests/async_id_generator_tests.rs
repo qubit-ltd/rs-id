@@ -29,15 +29,12 @@ use self::id_generator_support::{
 
 struct AsyncOnlyGenerator;
 
-impl IdGenerator for AsyncOnlyGenerator {
-    type Output = u64;
-    type Error = std::convert::Infallible;
-}
+impl IdGenerator<u64, std::convert::Infallible> for AsyncOnlyGenerator {}
 
-impl AsyncIdGenerator for AsyncOnlyGenerator {
+impl AsyncIdGenerator<u64, std::convert::Infallible> for AsyncOnlyGenerator {
     fn generate_async(
         &self,
-    ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
+    ) -> IdGenerationFuture<'_, u64, std::convert::Infallible> {
         Box::pin(async { Ok(42) })
     }
 }
@@ -45,7 +42,7 @@ impl AsyncIdGenerator for AsyncOnlyGenerator {
 #[test]
 fn test_async_id_generator_can_be_used_without_blocking_capability() {
     let generator: Arc<
-        dyn AsyncIdGenerator<Output = u64, Error = std::convert::Infallible>,
+        dyn AsyncIdGenerator<u64, std::convert::Infallible>,
     > = Arc::new(AsyncOnlyGenerator);
     let mut future = generator.generate_async();
     let waker = Waker::noop();
@@ -60,7 +57,7 @@ fn test_async_id_generator_can_be_used_without_blocking_capability() {
 #[test]
 fn test_async_id_generator_is_object_safe_for_one_output_type() {
     let generator: Arc<
-        dyn AsyncIdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+        dyn AsyncIdGenerator<u64>,
     > = Arc::new(CounterGenerator::default());
     let mut future = generator.generate_async();
     let waker = Waker::noop();
@@ -75,7 +72,7 @@ fn test_async_id_generator_is_object_safe_for_one_output_type() {
 #[test]
 fn test_async_id_generator_supports_custom_error_type() {
     let generator: Arc<
-        dyn AsyncIdGenerator<Output = u64, Error = std::io::Error>,
+        dyn AsyncIdGenerator<u64, std::io::Error>,
     > = Arc::new(IoCounterGenerator::default());
     let mut future = generator.generate_async();
     let waker = Waker::noop();
@@ -92,6 +89,6 @@ fn test_async_id_generator_trait_object_is_send_and_sync() {
     fn assert_send_sync<T: Send + Sync + ?Sized>() {}
 
     assert_send_sync::<
-        dyn AsyncIdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+        dyn AsyncIdGenerator<u64>,
     >();
 }

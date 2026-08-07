@@ -49,9 +49,9 @@ is excluded from sustained throughput timing.
 
 Before sustained-throughput sampling, the benchmark also runs 200,000-operation
 fixed workloads through concrete and
-`Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`
+`Arc<dyn BlockingIdGenerator<Id>>`
 synchronous paths, plus concrete and
-`Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>`
+`Arc<dyn AsyncIdGenerator<Id>>`
 asynchronous paths. Both numeric and `Id::to_string()` paths are included.
 These measurements compare dispatch and string-conversion costs; they are not
 capacity measurements because they can cross clock slices.

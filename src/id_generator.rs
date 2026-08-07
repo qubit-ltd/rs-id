@@ -9,7 +9,15 @@
 
 use std::sync::Arc;
 
+use crate::{
+    Id,
+    IdGenerationError,
+};
+
 /// Describes the output and error types shared by ID-generation capabilities.
+///
+/// `Output` defaults to [`Id`] and `Error` defaults to [`IdGenerationError`].
+/// Specify either parameter explicitly when a generator uses different types.
 ///
 /// This trait deliberately provides no generation method. Pair it with
 /// [`crate::BlockingIdGenerator`], [`crate::TryIdGenerator`], or
@@ -17,17 +25,10 @@ use std::sync::Arc;
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because those capabilities use a shared reference and may be
 /// called concurrently.
-pub trait IdGenerator: Send + Sync {
-    /// Value produced by this generator.
-    type Output;
-    /// Error returned by this generator.
-    type Error;
-}
+pub trait IdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {}
 
-impl<G> IdGenerator for Arc<G>
+impl<Output, Error, G> IdGenerator<Output, Error> for Arc<G>
 where
-    G: IdGenerator + ?Sized,
+    G: IdGenerator<Output, Error> + ?Sized,
 {
-    type Output = G::Output;
-    type Error = G::Error;
 }

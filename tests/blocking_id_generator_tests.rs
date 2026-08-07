@@ -23,7 +23,7 @@ fn test_blocking_id_generator_supports_custom_error_type() {
     let generator = Arc::new(IoCounterGenerator::default());
 
     assert_eq!(
-        <Arc<IoCounterGenerator> as BlockingIdGenerator>::generate(&generator)
+        <Arc<IoCounterGenerator> as BlockingIdGenerator<u64, std::io::Error>>::generate(&generator)
             .expect("generation should succeed"),
         1
     );
@@ -32,10 +32,7 @@ fn test_blocking_id_generator_supports_custom_error_type() {
 #[test]
 fn test_blocking_id_generator_supports_concurrent_shared_access() {
     let generator: Arc<
-        dyn BlockingIdGenerator<
-                Output = u64,
-                Error = qubit_id::IdGenerationError,
-            >,
+        dyn BlockingIdGenerator<u64>,
     > = Arc::new(CounterGenerator::default());
     let first_generator = Arc::clone(&generator);
     let second_generator = Arc::clone(&generator);

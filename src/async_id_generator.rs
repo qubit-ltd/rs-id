@@ -10,6 +10,8 @@
 use std::sync::Arc;
 
 use crate::{
+    Id,
+    IdGenerationError,
     IdGenerationFuture,
     IdGenerator,
 };
@@ -18,13 +20,14 @@ use crate::{
 ///
 /// This capability inherits its output and error types from [`IdGenerator`],
 /// so applications can inject a generator through an object-safe boundary such
-/// as `Arc<dyn AsyncIdGenerator<Output = String, Error = MyError>>`.
+/// as `Arc<dyn AsyncIdGenerator<String, MyError>>`.
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because generation uses a shared reference and may be called
 /// concurrently.
-pub trait AsyncIdGenerator: IdGenerator
+pub trait AsyncIdGenerator<Output = Id, Error = IdGenerationError>:
+    IdGenerator<Output, Error>
 where
-    Self::Output: Send + 'static,
+    Output: Send + 'static,
 {
     /// Generates the next identifier asynchronously.
     ///
@@ -37,17 +40,15 @@ where
     ///
     /// # Errors
     ///
-    /// The returned future resolves to [`IdGenerator::Error`] when the
-    /// implementation cannot generate an identifier.
-    fn generate_async(
-        &self,
-    ) -> IdGenerationFuture<'_, Self::Output, Self::Error>;
+    /// The returned future resolves to `Error` when the implementation cannot
+    /// generate an identifier.
+    fn generate_async(&self) -> IdGenerationFuture<'_, Output, Error>;
 }
 
-impl<G> AsyncIdGenerator for Arc<G>
+impl<Output, Error, G> AsyncIdGenerator<Output, Error> for Arc<G>
 where
-    G: AsyncIdGenerator + ?Sized,
-    G::Output: Send + 'static,
+    G: AsyncIdGenerator<Output, Error> + ?Sized,
+    Output: Send + 'static,
 {
     /// Delegates asynchronous identifier generation to the shared generator.
     ///
@@ -61,9 +62,7 @@ where
     /// The returned future resolves to any error produced by the wrapped
     /// generator.
     #[inline(always)]
-    fn generate_async(
-        &self,
-    ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
+    fn generate_async(&self) -> IdGenerationFuture<'_, Output, Error> {
         self.as_ref().generate_async()
     }
 }

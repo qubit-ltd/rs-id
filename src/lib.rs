@@ -9,7 +9,8 @@
 //! # Qubit ID
 //!
 //! IoC-friendly ID generation utilities for Rust services. [`IdGenerator`]
-//! supplies the shared output and error type contract; object-safe
+//! supplies the shared output and error generic contract, with defaults for
+//! the built-in ID types; object-safe
 //! [`TryIdGenerator`], [`BlockingIdGenerator`], and [`AsyncIdGenerator`]
 //! independently provide non-blocking, blocking, and asynchronous allocation
 //! capabilities. The crate also provides
