@@ -29,7 +29,7 @@ The theoretical throughput below is the capacity of the sequence field. It is
 not a benchmark guarantee. A real application also pays for synchronization,
 clock sampling, contention, and retry waits.
 
-## Scenario: choosing an order ID layout
+## Practical scenario: choosing an order ID layout
 
 An order service is deployed on multiple hosts and needs numeric IDs that can
 be stored and transported consistently. Its decision criteria are:
