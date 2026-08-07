@@ -59,6 +59,40 @@ fn test_qubit_snowflake_throughput_startup_uses_immediate_restart_policy() {
     );
 }
 
+/// Verifies that dynamic benchmark paths use the generic generator parameters
+/// introduced by the generator trait refactor.
+#[test]
+fn test_qubit_snowflake_throughput_uses_generic_generator_parameters() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let benchmark_path =
+        manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
+    let source = fs::read_to_string(&benchmark_path).unwrap_or_else(|error| {
+        panic!(
+            "failed to read benchmark source {}: {error}",
+            benchmark_path.display()
+        )
+    });
+
+    assert_eq!(
+        source
+            .matches("dyn BlockingIdGenerator<Id, IdGenerationError>")
+            .count(),
+        2,
+        "blocking benchmark paths must use generic generator parameters"
+    );
+    assert_eq!(
+        source
+            .matches("dyn AsyncIdGenerator<Id, IdGenerationError>")
+            .count(),
+        2,
+        "async benchmark paths must use generic generator parameters"
+    );
+    assert!(
+        !source.contains("Output = Id, Error = IdGenerationError"),
+        "benchmark must not use removed associated type syntax"
+    );
+}
+
 /// Verifies that the UUID comparison benchmark invokes the blocking capability
 /// rather than the UUID generator's inherent convenience method.
 #[test]

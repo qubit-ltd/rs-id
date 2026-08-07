@@ -133,9 +133,7 @@ fn measure_dispatch_paths() {
             .expect("concrete generation must succeed")
     });
 
-    let dynamic: Arc<
-        dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>,
-    > = Arc::new(
+    let dynamic: Arc<dyn BlockingIdGenerator<Id, IdGenerationError>> = Arc::new(
         SnowflakeGenerator::builder(HOST)
             .precision(TimestampPrecision::Second)
             .restart_policy(RestartPolicy::Immediate)
@@ -158,15 +156,14 @@ fn measure_dispatch_paths() {
             .to_string()
     });
 
-    let string_dynamic: Arc<
-        dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>,
-    > = Arc::new(
-        SnowflakeGenerator::builder(HOST)
-            .precision(TimestampPrecision::Second)
-            .restart_policy(RestartPolicy::Immediate)
-            .build()
-            .expect("dynamic string benchmark generator must be valid"),
-    );
+    let string_dynamic: Arc<dyn BlockingIdGenerator<Id, IdGenerationError>> =
+        Arc::new(
+            SnowflakeGenerator::builder(HOST)
+                .precision(TimestampPrecision::Second)
+                .restart_policy(RestartPolicy::Immediate)
+                .build()
+                .expect("dynamic string benchmark generator must be valid"),
+        );
     run_dispatch_case("sync_string_arc_dyn", || {
         string_dynamic
             .generate()
@@ -188,15 +185,14 @@ fn measure_dispatch_paths() {
             .expect("async concrete generation must succeed")
     });
 
-    let async_dynamic: Arc<
-        dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>,
-    > = Arc::new(
-        SnowflakeGenerator::builder(HOST)
-            .precision(TimestampPrecision::Second)
-            .restart_policy(RestartPolicy::Immediate)
-            .build()
-            .expect("async dynamic benchmark generator must be valid"),
-    );
+    let async_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> =
+        Arc::new(
+            SnowflakeGenerator::builder(HOST)
+                .precision(TimestampPrecision::Second)
+                .restart_policy(RestartPolicy::Immediate)
+                .build()
+                .expect("async dynamic benchmark generator must be valid"),
+        );
     run_dispatch_case("async_arc_dyn_boxed_future", || {
         runtime
             .block_on(async_dynamic.generate_async())
@@ -215,15 +211,16 @@ fn measure_dispatch_paths() {
             .to_string()
     });
 
-    let async_string_dynamic: Arc<
-        dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>,
-    > = Arc::new(
-        SnowflakeGenerator::builder(HOST)
-            .precision(TimestampPrecision::Second)
-            .restart_policy(RestartPolicy::Immediate)
-            .build()
-            .expect("async dynamic string benchmark generator must be valid"),
-    );
+    let async_string_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> =
+        Arc::new(
+            SnowflakeGenerator::builder(HOST)
+                .precision(TimestampPrecision::Second)
+                .restart_policy(RestartPolicy::Immediate)
+                .build()
+                .expect(
+                    "async dynamic string benchmark generator must be valid",
+                ),
+        );
     run_dispatch_case("async_string_arc_dyn", || {
         runtime
             .block_on(async_string_dynamic.generate_async())
