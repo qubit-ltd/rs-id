@@ -18,6 +18,8 @@ include = [
     "/README.md",
     "/README.zh_CN.md",
     "/src/**",
+    "/tests/**",
+    "/benches/**",
 ]
 
 [package.metadata.docs.rs]
