@@ -73,9 +73,25 @@ impl<'de> serde::Deserialize<'de> for Id {
                 {
                     self.visit_str(&value)
                 }
+
+                fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    Ok(Id::from(value))
+                }
+
+                fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    u64::try_from(value)
+                        .map(Id::from)
+                        .map_err(E::custom)
+                }
             }
 
-            deserializer.deserialize_str(IdVisitor)
+            deserializer.deserialize_any(IdVisitor)
         } else {
             let value = <u64 as serde::Deserialize>::deserialize(deserializer)?;
             Ok(Id::from(value))

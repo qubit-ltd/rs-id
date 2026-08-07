@@ -13,7 +13,7 @@ use std::str::FromStr;
 
 /// A generated identifier backed by an unsigned 64-bit value.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[must_use]
 pub struct Id(u64);
 
