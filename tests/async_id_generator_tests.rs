@@ -79,6 +79,25 @@ fn test_async_id_generator_supports_custom_error_type() {
 }
 
 #[test]
+fn test_async_id_generator_send_error_can_run_in_spawned_task() {
+    let generator: Arc<dyn AsyncIdGenerator<u64, std::io::Error>> =
+        Arc::new(IoCounterGenerator::default());
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("test runtime should build");
+
+    let value = runtime
+        .block_on(async move {
+            tokio::spawn(async move { generator.generate_async().await }).await
+        })
+        .expect("spawned generation should complete")
+        .expect("generation should succeed");
+
+    assert_eq!(value, 1);
+}
+
+#[test]
 fn test_async_id_generator_trait_object_is_send_and_sync() {
     fn assert_send_sync<T: Send + Sync + ?Sized>() {}
 

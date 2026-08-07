@@ -23,10 +23,41 @@ use crate::{
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because generation uses a shared reference and may be called
 /// concurrently.
+///
+/// A spawned task must return an owned, thread-safe result. Consequently both
+/// `Output` and `Error` are required to be `Send + 'static`.
+///
+/// ```compile_fail
+/// use std::fmt;
+/// use std::marker::PhantomData;
+/// use std::rc::Rc;
+///
+/// use qubit_id::{AsyncIdGenerator, IdGenerationFuture};
+///
+/// #[derive(Debug)]
+/// struct NonSendError(PhantomData<Rc<()>>);
+///
+/// impl fmt::Display for NonSendError {
+///     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+///         formatter.write_str("non-send error")
+///     }
+/// }
+///
+/// impl std::error::Error for NonSendError {}
+///
+/// struct Generator;
+///
+/// impl AsyncIdGenerator<u64, NonSendError> for Generator {
+///     fn generate_async(&self) -> IdGenerationFuture<'_, u64, NonSendError> {
+///         Box::pin(async { Err(NonSendError(PhantomData)) })
+///     }
+/// }
+/// ```
 pub trait AsyncIdGenerator<Output = Id, Error = IdGenerationError>:
     Send + Sync
 where
     Output: Send + 'static,
+    Error: Send + 'static,
 {
     /// Generates the next identifier asynchronously.
     ///
@@ -48,6 +79,7 @@ impl<Output, Error, G> AsyncIdGenerator<Output, Error> for Arc<G>
 where
     G: AsyncIdGenerator<Output, Error> + ?Sized,
     Output: Send + 'static,
+    Error: Send + 'static,
 {
     /// Delegates asynchronous identifier generation to the shared generator.
     ///
