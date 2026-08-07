@@ -444,14 +444,51 @@ fn test_docs_rs_build_enables_all_features() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let manifest = fs::read_to_string(manifest_dir.join("Cargo.toml"))
         .expect("Cargo.toml should be readable");
+    let manifest_value = toml::from_str::<toml::Table>(&manifest)
+        .expect("Cargo.toml should be valid TOML");
+    let package = manifest_value
+        .get("package")
+        .and_then(toml::Value::as_table)
+        .expect("Cargo.toml must define a package table");
+    let docs_rs = package
+        .get("metadata")
+        .and_then(toml::Value::as_table)
+        .and_then(|metadata| metadata.get("docs"))
+        .and_then(toml::Value::as_table)
+        .and_then(|docs| docs.get("rs"))
+        .and_then(toml::Value::as_table)
+        .expect("Cargo.toml must define package.metadata.docs.rs");
 
     assert!(
-        manifest.contains("[package.metadata.docs.rs]\nall-features = true"),
+        docs_rs
+            .get("all-features")
+            .and_then(toml::Value::as_bool)
+            .is_some_and(|all_features| all_features),
         "Cargo.toml must enable all features for docs.rs"
     );
+
+    let rustdoc_args = docs_rs
+        .get("rustdoc-args")
+        .and_then(toml::Value::as_array)
+        .expect("Cargo.toml must define docs.rs rustdoc arguments");
     assert!(
-        manifest.contains("rustdoc-args = [\"--cfg\", \"docsrs\"]"),
+        rustdoc_args
+            .iter()
+            .filter_map(toml::Value::as_str)
+            .eq(["--cfg", "docsrs"]),
         "Cargo.toml must enable docsrs cfg for feature annotations"
+    );
+
+    let includes_docs = package
+        .get("include")
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(toml::Value::as_str)
+        .any(|path| path == "/doc/**");
+    assert!(
+        includes_docs,
+        "Cargo.toml must include the user guide directory in packages"
     );
 
     let crate_root = fs::read_to_string(manifest_dir.join("src/lib.rs"))
