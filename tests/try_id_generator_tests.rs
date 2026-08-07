@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use qubit_id::{
     GenerationAttempt,
-    IdGenerator,
     TryIdGenerator,
 };
 
@@ -24,8 +23,6 @@ impl TryIdGenerator<u64> for Counter {
         Ok(GenerationAttempt::Generated(1))
     }
 }
-
-impl IdGenerator<u64> for Counter {}
 
 #[test]
 fn test_try_id_generator_arc_delegates() {

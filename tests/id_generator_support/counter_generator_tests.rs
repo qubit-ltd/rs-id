@@ -14,7 +14,6 @@ use std::sync::atomic::{
 
 use qubit_id::{
     AsyncIdGenerator,
-    BlockingIdGenerator,
     IdGenerationFuture,
     IdGenerator,
 };
@@ -26,9 +25,7 @@ pub(crate) struct CounterGenerator {
     value: AtomicU64,
 }
 
-impl IdGenerator<u64> for CounterGenerator {}
-
-impl BlockingIdGenerator<u64> for CounterGenerator {
+impl IdGenerator<u64> for CounterGenerator {
     /// Increments and returns the fixture counter.
     ///
     /// # Returns
@@ -55,7 +52,7 @@ impl AsyncIdGenerator<u64> for CounterGenerator {
         &self,
     ) -> IdGenerationFuture<'_, u64, qubit_id::IdGenerationError> {
         Box::pin(
-            async move { <Self as BlockingIdGenerator<u64>>::generate(self) },
+            async move { <Self as IdGenerator<u64>>::generate(self) },
         )
     }
 }
@@ -67,9 +64,7 @@ pub(crate) struct IoCounterGenerator {
     value: AtomicU64,
 }
 
-impl IdGenerator<u64, std::io::Error> for IoCounterGenerator {}
-
-impl BlockingIdGenerator<u64, std::io::Error> for IoCounterGenerator {
+impl IdGenerator<u64, std::io::Error> for IoCounterGenerator {
     /// Increments and returns the fixture counter with a custom error type.
     ///
     /// # Returns
@@ -95,7 +90,7 @@ impl AsyncIdGenerator<u64, std::io::Error> for IoCounterGenerator {
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64, std::io::Error> {
         Box::pin(async move {
-            <Self as BlockingIdGenerator<u64, std::io::Error>>::generate(self)
+            <Self as IdGenerator<u64, std::io::Error>>::generate(self)
         })
     }
 }

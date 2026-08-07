@@ -17,7 +17,7 @@ use std::time::{
 };
 
 use qubit_id::{
-    BlockingIdGenerator,
+    IdGenerator,
     DEFAULT_MAX_CLOCK_SKEW,
     GenerationAttempt,
     Id,
@@ -138,7 +138,7 @@ fn test_snowflake_supports_sync_trait_object() {
         epoch + Duration::from_millis(10),
         DEFAULT_MAX_CLOCK_SKEW,
     );
-    let generator: Box<dyn BlockingIdGenerator<Id>> = Box::new(generator);
+    let generator: Box<dyn IdGenerator<Id>> = Box::new(generator);
 
     let _ = generator
         .generate()

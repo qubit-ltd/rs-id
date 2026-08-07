@@ -49,7 +49,7 @@ is excluded from sustained throughput timing.
 
 Before sustained-throughput sampling, the benchmark also runs 200,000-operation
 fixed workloads through concrete and
-`Arc<dyn BlockingIdGenerator<Id>>`
+`Arc<dyn IdGenerator<Id>>`
 synchronous paths, plus concrete and
 `Arc<dyn AsyncIdGenerator<Id>>`
 asynchronous paths. Both numeric and `Id::to_string()` paths are included.

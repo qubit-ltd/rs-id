@@ -11,7 +11,7 @@ use std::hint::black_box;
 use std::time::Instant;
 
 use qubit_id::{
-    BlockingIdGenerator,
+    IdGenerator,
     UuidV4Generator,
 };
 use uuid::Uuid;
@@ -37,14 +37,14 @@ fn main() {
 
     let numeric = UuidV4Generator::new();
     run_case("qubit_id_uuid_v4_u128", || {
-        BlockingIdGenerator::generate(&numeric)
+        IdGenerator::generate(&numeric)
             .expect("UUID v4 numeric generation must succeed")
             .as_u128()
     });
     run_case("uuid_crate_v4_u128", || Uuid::new_v4().as_u128());
 
     run_case("qubit_id_uuid_v4_display", || {
-        BlockingIdGenerator::generate(&numeric)
+        IdGenerator::generate(&numeric)
             .expect("UUID v4 string generation must succeed")
             .to_string()
     });

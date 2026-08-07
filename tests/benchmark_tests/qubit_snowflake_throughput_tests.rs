@@ -75,7 +75,7 @@ fn test_qubit_snowflake_throughput_uses_generic_generator_parameters() {
 
     assert_eq!(
         source
-            .matches("dyn BlockingIdGenerator<Id, IdGenerationError>")
+            .matches("dyn IdGenerator<Id, IdGenerationError>")
             .count(),
         2,
         "blocking benchmark paths must use generic generator parameters"
@@ -107,7 +107,7 @@ fn test_uuid_comparison_benchmark_uses_blocking_generator_contract() {
     });
 
     assert!(
-        source.contains("BlockingIdGenerator::generate(&numeric)"),
-        "UUID comparison benchmark must invoke BlockingIdGenerator explicitly"
+        source.contains("IdGenerator::generate(&numeric)"),
+        "UUID comparison benchmark must invoke IdGenerator explicitly"
     );
 }

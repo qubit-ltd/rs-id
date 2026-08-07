@@ -31,9 +31,8 @@ ID 生成器。它包含三种 Snowflake 系列布局和 UUID v4 生成器，提
 
 ## 主要特性
 
-- `IdGenerator` 通过泛型参数提供 `Output` 与 `Error`，默认值为 `Id` 和
-  `IdGenerationError`；`BlockingIdGenerator`、
-  `TryIdGenerator` 与 `AsyncIdGenerator` 分别提供阻塞、非阻塞和异步分配能力。
+- `IdGenerator`、`TryIdGenerator` 与 `AsyncIdGenerator` 分别提供阻塞、非阻塞和异步分配能力；
+  三者都通过泛型参数提供 `Output` 与 `Error`，默认值为 `Id` 和 `IdGenerationError`。
 - 每种 Snowflake 类型都实现这三种能力，并在同步与异步调用路径之间共享同一分配状态。
 - Builder 接受来自 [`qubit-clock`](https://crates.io/crates/qubit-clock) 的
   `Arc<dyn WallClock>` 与 `Arc<dyn Timer>`，使时钟回拨、序列耗尽和重试行为可以在测试中确定性复现。
@@ -72,10 +71,10 @@ serde_json = "1"
 
 ```rust
 use std::sync::Arc;
-use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
+use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Id>> =
+    let generator: Arc<dyn IdGenerator<Id>> =
         Arc::new(SnowflakeGenerator::new(7)?);
     let id = generator.generate()?;
     assert_ne!(id.value(), 0);
@@ -125,15 +124,15 @@ Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作
 
 每个生成器通过泛型参数声明 `Output` 与 `Error`，默认值分别为 `Id` 和
 `IdGenerationError`。第三方生成器可以显式指定自己的错误类型。需要调用方透明等待时选择
-`BlockingIdGenerator`；需要调用方自行安排重试时选择 `TryIdGenerator`；需要异步 object-safe
+`IdGenerator`；需要调用方自行安排重试时选择 `TryIdGenerator`；需要异步 object-safe
 边界时选择 `AsyncIdGenerator`。
 
 同步 object-safe 依赖可以使用
-`Arc<dyn BlockingIdGenerator<Id>>`；UUID 依赖可以使用
-`Arc<dyn BlockingIdGenerator<Uuid>>`。
+`Arc<dyn IdGenerator<Id>>`；UUID 依赖可以使用
+`Arc<dyn IdGenerator<Uuid>>`。
 
 所有 Builder 都提供 `epoch(...)`、`max_clock_skew(...)` 与 `restart_policy(...)`。
-`IdGenerator` 只通过泛型参数提供 `Output` 与 `Error`。
+`IdGenerator` 通过阻塞的 `generate()` 提供同步分配能力。
 `RestartPolicy::Immediate` 是所有 Snowflake Builder 的默认值。
 `try_generate()`、`generate()` 与 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
 
@@ -183,11 +182,11 @@ Manual Timer observer 可以先确认 deadline 已注册，再推进逻辑时钟
 
 ```rust
 use std::sync::Arc;
-use qubit_id::{BlockingIdGenerator, IdGenerationError, UuidV4Generator};
+use qubit_id::{IdGenerationError, IdGenerator, UuidV4Generator};
 use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Uuid>> =
+    let generator: Arc<dyn IdGenerator<Uuid>> =
         Arc::new(UuidV4Generator::new());
     let uuid = generator.generate()?;
     assert_eq!(uuid.to_string().len(), 36);

@@ -13,7 +13,6 @@ use crate::{
     GenerationAttempt,
     Id,
     IdGenerationError,
-    IdGenerator,
 };
 
 /// Attempts to allocate an identifier without sleeping or awaiting.
@@ -23,7 +22,7 @@ use crate::{
 /// tells the caller when another attempt can make progress. Implementations
 /// must not block on clocks, timers, or external coordination.
 pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>:
-    IdGenerator<Output, Error>
+    Send + Sync
 {
     /// Attempts one non-blocking allocation.
     ///

@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Common type contract for ID generators.
+//! Blocking generation capability for ID generators.
 
 use std::sync::Arc;
 
@@ -14,23 +14,39 @@ use crate::{
     IdGenerationError,
 };
 
-/// Describes the output and error types shared by ID-generation capabilities.
+/// Generates identifiers synchronously, blocking when necessary.
 ///
-/// `Output` defaults to [`Id`] and `Error` defaults to [`IdGenerationError`].
-/// Specify either parameter explicitly when a generator uses different types.
-///
-/// This trait deliberately provides no generation method. Pair it with
-/// [`crate::BlockingIdGenerator`], [`crate::TryIdGenerator`], or
-/// [`crate::AsyncIdGenerator`] according to the caller's scheduling model.
-/// Implementations that mutate allocation state must synchronize that state
-/// internally because those capabilities use a shared reference and may be
-/// called concurrently.
-pub trait IdGenerator<Output = Id, Error = IdGenerationError>:
-    Send + Sync
-{
+/// Implementations may wait for time to advance or for another retryable
+/// condition to clear. Use [`crate::TryIdGenerator`] when callers must retain
+/// control over retry scheduling.
+pub trait IdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
+    /// Generates the next identifier.
+    ///
+    /// # Returns
+    ///
+    /// The next generated identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error` when the implementation cannot generate an identifier.
+    fn generate(&self) -> Result<Output, Error>;
 }
 
-impl<Output, Error, G> IdGenerator<Output, Error> for Arc<G> where
-    G: IdGenerator<Output, Error> + ?Sized
+impl<Output, Error, G> IdGenerator<Output, Error> for Arc<G>
+where
+    G: IdGenerator<Output, Error> + ?Sized,
 {
+    /// Delegates identifier generation to the shared generator.
+    ///
+    /// # Returns
+    ///
+    /// The next identifier returned by the wrapped generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns any error produced by the wrapped generator.
+    #[inline(always)]
+    fn generate(&self) -> Result<Output, Error> {
+        self.as_ref().generate()
+    }
 }

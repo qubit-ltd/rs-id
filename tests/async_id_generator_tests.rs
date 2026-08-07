@@ -19,7 +19,6 @@ use std::task::{
 use qubit_id::{
     AsyncIdGenerator,
     IdGenerationFuture,
-    IdGenerator,
 };
 
 use self::id_generator_support::{
@@ -28,8 +27,6 @@ use self::id_generator_support::{
 };
 
 struct AsyncOnlyGenerator;
-
-impl IdGenerator<u64, std::convert::Infallible> for AsyncOnlyGenerator {}
 
 impl AsyncIdGenerator<u64, std::convert::Infallible> for AsyncOnlyGenerator {
     fn generate_async(

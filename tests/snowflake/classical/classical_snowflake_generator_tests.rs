@@ -15,7 +15,7 @@ use std::time::{
 };
 
 use qubit_id::{
-    BlockingIdGenerator,
+    IdGenerator,
     ClassicalSnowflakeGenerator,
     ClassicalSnowflakeLayout,
     GenerationAttempt,
@@ -81,7 +81,7 @@ fn test_classical_snowflake_generator_compose_at_rejects_time_before_epoch() {
 fn test_classical_snowflake_generator_supports_sync_trait_object() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
-    let generator: Arc<dyn BlockingIdGenerator<Id>> = Arc::new(
+    let generator: Arc<dyn IdGenerator<Id>> = Arc::new(
         ClassicalSnowflakeGenerator::builder(17)
             .epoch(epoch)
             .restart_policy(RestartPolicy::Immediate)

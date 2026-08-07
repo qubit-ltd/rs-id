@@ -166,15 +166,15 @@ can be written as:
 
 ```rust
 use std::sync::Arc;
-use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
+use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};
 
-fn create_generator() -> Result<Arc<dyn BlockingIdGenerator<Id>>, IdGenerationError> {
+fn create_generator() -> Result<Arc<dyn IdGenerator<Id>>, IdGenerationError> {
     Ok(Arc::new(SnowflakeGenerator::new(7)?))
 }
 ```
 
 Custom generator types can specify both parameters, for example
-`BlockingIdGenerator<String, MyError>`.
+`IdGenerator<String, MyError>`.
 
 ## Advanced usage
 

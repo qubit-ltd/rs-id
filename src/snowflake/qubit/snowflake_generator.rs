@@ -23,7 +23,6 @@ use super::SnowflakeLayout;
 use super::snowflake_generator_builder::SnowflakeGeneratorBuilder;
 use crate::{
     AsyncIdGenerator,
-    BlockingIdGenerator,
     GenerationAttempt,
     Id,
     IdGenerationError,
@@ -40,7 +39,7 @@ use crate::{
 ///
 /// # Uniqueness
 ///
-/// The generator is thread-safe. Successful [`BlockingIdGenerator::generate`]
+/// The generator is thread-safe. Successful [`IdGenerator::generate`]
 /// calls on one shared live instance never return the same ID. A process should
 /// share one instance for each ID namespace.
 /// Every concurrently running instance across processes and servers must have
@@ -65,7 +64,7 @@ use crate::{
 ///
 /// # Blocking and clock behavior
 ///
-/// [`BlockingIdGenerator::generate`] may wait indefinitely when the wall clock
+/// [`IdGenerator::generate`] may wait indefinitely when the wall clock
 /// stalls or the injected timer does not cause wall time to progress. A
 /// backwards clock movement within `max_clock_skew` is retried after waiting; a
 /// larger movement returns [`IdGenerationError::ClockMovedBackwards`].
@@ -197,7 +196,7 @@ impl SnowflakeGenerator {
     /// Generates the next Qubit Snowflake ID.
     ///
     /// This inherent method is convenient for concrete callers. Use
-    /// [`BlockingIdGenerator`] when an object-safe dynamic-dispatch boundary is
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is
     /// needed.
     ///
     /// # Returns
@@ -206,7 +205,7 @@ impl SnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as the [`BlockingIdGenerator::generate`]
+    /// Returns the same errors as the [`IdGenerator::generate`]
     /// implementation.
     #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
@@ -223,7 +222,7 @@ impl SnowflakeGenerator {
     /// # Errors
     ///
     /// Returns the non-retryable allocation errors described by
-    /// [`BlockingIdGenerator::generate`].
+    /// [`IdGenerator::generate`].
     #[inline]
     pub fn try_generate(
         &self,
@@ -244,7 +243,7 @@ impl SnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as [`BlockingIdGenerator::generate`].
+    /// Returns the same errors as [`IdGenerator::generate`].
     pub async fn generate_async(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate_async().await.map(Id::from)
     }
@@ -280,9 +279,7 @@ impl SnowflakeGenerator {
     }
 }
 
-impl IdGenerator for SnowflakeGenerator {}
-
-impl BlockingIdGenerator for SnowflakeGenerator {
+impl IdGenerator for SnowflakeGenerator {
     /// Generates the next Qubit snowflake ID.
     ///
     /// Timestamp and sequence pairs are reserved while holding the generator
