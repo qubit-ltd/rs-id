@@ -18,7 +18,7 @@ use crate::{
 /// Generates identifiers asynchronously.
 ///
 /// This capability uses the same generic output and error parameter conventions
-/// as [`IdGenerator`], so applications can inject a generator through an
+/// as [`crate::IdGenerator`], so applications can inject a generator through an
 /// object-safe boundary such as `Arc<dyn AsyncIdGenerator<String, MyError>>`.
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because generation uses a shared reference and may be called
