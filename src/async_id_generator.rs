@@ -13,19 +13,18 @@ use crate::{
     Id,
     IdGenerationError,
     IdGenerationFuture,
-    IdGenerator,
 };
 
 /// Generates identifiers asynchronously.
 ///
-/// This capability inherits its output and error types from [`IdGenerator`],
-/// so applications can inject a generator through an object-safe boundary such
-/// as `Arc<dyn AsyncIdGenerator<String, MyError>>`.
+/// This capability uses the same generic output and error parameter conventions
+/// as [`IdGenerator`], so applications can inject a generator through an
+/// object-safe boundary such as `Arc<dyn AsyncIdGenerator<String, MyError>>`.
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because generation uses a shared reference and may be called
 /// concurrently.
 pub trait AsyncIdGenerator<Output = Id, Error = IdGenerationError>:
-    IdGenerator<Output, Error>
+    Send + Sync
 where
     Output: Send + 'static,
 {

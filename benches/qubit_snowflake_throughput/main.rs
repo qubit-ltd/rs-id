@@ -29,7 +29,7 @@ use std::time::{
 
 use qubit_id::{
     AsyncIdGenerator,
-    BlockingIdGenerator,
+    IdGenerator,
     Id,
     IdGenerationError,
     IdMode,
@@ -133,7 +133,7 @@ fn measure_dispatch_paths() {
             .expect("concrete generation must succeed")
     });
 
-    let dynamic: Arc<dyn BlockingIdGenerator<Id, IdGenerationError>> = Arc::new(
+    let dynamic: Arc<dyn IdGenerator<Id, IdGenerationError>> = Arc::new(
         SnowflakeGenerator::builder(HOST)
             .precision(TimestampPrecision::Second)
             .restart_policy(RestartPolicy::Immediate)
@@ -156,7 +156,7 @@ fn measure_dispatch_paths() {
             .to_string()
     });
 
-    let string_dynamic: Arc<dyn BlockingIdGenerator<Id, IdGenerationError>> =
+    let string_dynamic: Arc<dyn IdGenerator<Id, IdGenerationError>> =
         Arc::new(
             SnowflakeGenerator::builder(HOST)
                 .precision(TimestampPrecision::Second)

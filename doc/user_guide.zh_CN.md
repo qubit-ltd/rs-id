@@ -144,14 +144,14 @@ Sonyflake 使用自己的默认 epoch。与既有命名空间互操作时，所�
 
 ```rust
 use std::sync::Arc;
-use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
+use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};
 
-fn create_generator() -> Result<Arc<dyn BlockingIdGenerator<Id>>, IdGenerationError> {
+fn create_generator() -> Result<Arc<dyn IdGenerator<Id>>, IdGenerationError> {
     Ok(Arc::new(SnowflakeGenerator::new(7)?))
 }
 ```
 
-自定义生成器可以显式指定两个参数，例如 `BlockingIdGenerator<String, MyError>`。
+自定义生成器可以显式指定两个参数，例如 `IdGenerator<String, MyError>`。
 
 ## 进阶用法
 

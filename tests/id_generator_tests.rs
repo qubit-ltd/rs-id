@@ -24,14 +24,18 @@ struct LocalOutputGenerator;
 impl IdGenerator<LocalOutput, std::convert::Infallible>
     for LocalOutputGenerator
 {
+    fn generate(&self) -> Result<LocalOutput, std::convert::Infallible> {
+        Ok(LocalOutput(Rc::new(())))
+    }
 }
 
 #[test]
 fn test_id_generator_allows_non_send_synchronous_output_type() {
-    fn require_id_generator<G>(_: &G)
+    fn require_id_generator<G>(generator: &G)
     where
         G: IdGenerator<LocalOutput, std::convert::Infallible>,
     {
+        let _ = generator.generate();
     }
 
     let generator = LocalOutputGenerator;

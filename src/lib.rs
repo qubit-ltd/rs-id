@@ -9,11 +9,10 @@
 //! # Qubit ID
 //!
 //! IoC-friendly ID generation utilities for Rust services. [`IdGenerator`]
-//! supplies the shared output and error generic contract, with defaults for
-//! the built-in ID types; object-safe
-//! [`TryIdGenerator`], [`BlockingIdGenerator`], and [`AsyncIdGenerator`]
-//! independently provide non-blocking, blocking, and asynchronous allocation
-//! capabilities. The crate also provides
+//! supplies the blocking allocation capability; object-safe
+//! [`TryIdGenerator`] and [`AsyncIdGenerator`]
+//! independently provide non-blocking and asynchronous allocation capabilities.
+//! The crate also provides
 //! three Snowflake-family
 //! algorithms, domain ID values, and standards-compliant UUID v4.
 //!
@@ -33,8 +32,8 @@
 //! | `uuid` | UUID v4 generator returning `uuid::Uuid` |
 //! | `serde` | Optional `Id` serialization and deserialization |
 //!
-//! UUID generators intentionally implement [`IdGenerator`] plus only the
-//! [`BlockingIdGenerator`] allocation capability, because the operating-system
+//! UUID generators intentionally implement only the blocking [`IdGenerator`]
+//! allocation capability, because the operating-system
 //! random source may block. Async applications should choose their
 //! runtime-specific blocking boundary explicitly.
 //!
@@ -42,7 +41,7 @@
 //!
 //! [`TryIdGenerator::try_generate`] never sleeps or awaits and returns a
 //! [`GenerationAttempt`] when the caller must schedule a retry. A Snowflake
-//! [`BlockingIdGenerator::generate`] may block while waiting for time to
+//! [`IdGenerator::generate`] may block while waiting for time to
 //! advance. Concrete generators expose an inherent `generate_async` method
 //! whose outer future is unboxed. Calling
 //! [`AsyncIdGenerator::generate_async`] through the object-safe trait boxes the
@@ -74,12 +73,11 @@
 #![deny(missing_docs)]
 
 mod async_id_generator;
-mod blocking_id_generator;
+mod id_generator;
 mod generation_attempt;
 mod id;
 mod id_generation_error;
 mod id_generation_future;
-mod id_generator;
 #[cfg(feature = "serde")]
 mod id_serde;
 #[cfg(any(
@@ -102,7 +100,6 @@ mod try_id_generator;
 pub mod uuid;
 
 pub use async_id_generator::AsyncIdGenerator;
-pub use blocking_id_generator::BlockingIdGenerator;
 pub use generation_attempt::GenerationAttempt;
 pub use id::Id;
 pub use id_generation_error::IdGenerationError;

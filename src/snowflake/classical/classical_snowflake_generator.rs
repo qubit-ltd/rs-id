@@ -25,7 +25,6 @@ use super::{
 };
 use crate::{
     AsyncIdGenerator,
-    BlockingIdGenerator,
     GenerationAttempt,
     Id,
     IdGenerationError,
@@ -39,7 +38,7 @@ use crate::{
 ///
 /// The generator is thread-safe. One shared live instance never returns the
 /// same ID twice, provided its node identifier is exclusive within the ID
-/// namespace. [`BlockingIdGenerator::generate`] blocks when sequence capacity
+/// namespace. [`IdGenerator::generate`] blocks when sequence capacity
 /// is exhausted until the injected timer allows wall time to advance. A
 /// backwards clock movement within [`Self::max_clock_skew`] is retried after
 /// waiting; a larger movement returns
@@ -167,7 +166,7 @@ impl ClassicalSnowflakeGenerator {
     /// Generates the next classic Snowflake ID.
     ///
     /// This inherent method is convenient for concrete callers. Use
-    /// [`BlockingIdGenerator`] when an object-safe dynamic-dispatch boundary is
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is
     /// needed.
     ///
     /// # Returns
@@ -176,7 +175,7 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as the [`BlockingIdGenerator::generate`]
+    /// Returns the same errors as the [`IdGenerator::generate`]
     /// implementation.
     #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
@@ -193,7 +192,7 @@ impl ClassicalSnowflakeGenerator {
     /// # Errors
     ///
     /// Returns the non-retryable allocation errors described by
-    /// [`BlockingIdGenerator::generate`].
+    /// [`IdGenerator::generate`].
     #[inline]
     pub fn try_generate(
         &self,
@@ -211,7 +210,7 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as [`BlockingIdGenerator::generate`].
+    /// Returns the same errors as [`IdGenerator::generate`].
     pub async fn generate_async(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate_async().await.map(Id::from)
     }
@@ -246,9 +245,7 @@ impl ClassicalSnowflakeGenerator {
     }
 }
 
-impl IdGenerator for ClassicalSnowflakeGenerator {}
-
-impl BlockingIdGenerator for ClassicalSnowflakeGenerator {
+impl IdGenerator for ClassicalSnowflakeGenerator {
     /// Generates the next classic Snowflake ID.
     ///
     /// # Returns

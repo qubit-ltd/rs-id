@@ -25,7 +25,6 @@ use super::{
 };
 use crate::{
     AsyncIdGenerator,
-    BlockingIdGenerator,
     GenerationAttempt,
     Id,
     IdGenerationError,
@@ -169,7 +168,7 @@ impl SonyflakeGenerator {
     /// Generates the next Sonyflake-style ID.
     ///
     /// This inherent method is convenient for concrete callers. Use
-    /// [`BlockingIdGenerator`] when an object-safe dynamic-dispatch boundary is
+    /// [`IdGenerator`] when an object-safe dynamic-dispatch boundary is
     /// needed.
     ///
     /// # Returns
@@ -178,7 +177,7 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as the [`BlockingIdGenerator::generate`]
+    /// Returns the same errors as the [`IdGenerator::generate`]
     /// implementation.
     #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
@@ -195,7 +194,7 @@ impl SonyflakeGenerator {
     /// # Errors
     ///
     /// Returns the non-retryable allocation errors described by
-    /// [`BlockingIdGenerator::generate`].
+    /// [`IdGenerator::generate`].
     #[inline]
     pub fn try_generate(
         &self,
@@ -213,7 +212,7 @@ impl SonyflakeGenerator {
     ///
     /// # Errors
     ///
-    /// Returns the same errors as [`BlockingIdGenerator::generate`].
+    /// Returns the same errors as [`IdGenerator::generate`].
     pub async fn generate_async(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate_async().await.map(Id::from)
     }
@@ -248,9 +247,7 @@ impl SonyflakeGenerator {
     }
 }
 
-impl IdGenerator for SonyflakeGenerator {}
-
-impl BlockingIdGenerator for SonyflakeGenerator {
+impl IdGenerator for SonyflakeGenerator {
     /// Generates the next Sonyflake-style ID.
     ///
     /// # Returns
