@@ -29,9 +29,9 @@ use std::time::{
 
 use qubit_id::{
     AsyncIdGenerator,
-    IdGenerator,
     Id,
     IdGenerationError,
+    IdGenerator,
     IdMode,
     RestartPolicy,
     SnowflakeGenerator,
@@ -156,14 +156,13 @@ fn measure_dispatch_paths() {
             .to_string()
     });
 
-    let string_dynamic: Arc<dyn IdGenerator<Id, IdGenerationError>> =
-        Arc::new(
-            SnowflakeGenerator::builder(HOST)
-                .precision(TimestampPrecision::Second)
-                .restart_policy(RestartPolicy::Immediate)
-                .build()
-                .expect("dynamic string benchmark generator must be valid"),
-        );
+    let string_dynamic: Arc<dyn IdGenerator<Id, IdGenerationError>> = Arc::new(
+        SnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .restart_policy(RestartPolicy::Immediate)
+            .build()
+            .expect("dynamic string benchmark generator must be valid"),
+    );
     run_dispatch_case("sync_string_arc_dyn", || {
         string_dynamic
             .generate()

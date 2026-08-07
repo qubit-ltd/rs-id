@@ -51,9 +51,7 @@ impl AsyncIdGenerator<u64> for CounterGenerator {
     fn generate_async(
         &self,
     ) -> IdGenerationFuture<'_, u64, qubit_id::IdGenerationError> {
-        Box::pin(
-            async move { <Self as IdGenerator<u64>>::generate(self) },
-        )
+        Box::pin(async move { <Self as IdGenerator<u64>>::generate(self) })
     }
 }
 

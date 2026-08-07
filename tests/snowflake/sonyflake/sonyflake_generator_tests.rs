@@ -15,10 +15,10 @@ use std::time::{
 };
 
 use qubit_id::{
-    IdGenerator,
     GenerationAttempt,
     Id,
     IdGenerationError,
+    IdGenerator,
     RestartPolicy,
     SonyflakeGenerator,
     SonyflakeLayout,

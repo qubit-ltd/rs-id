@@ -15,12 +15,12 @@ use std::time::{
 };
 
 use qubit_id::{
-    IdGenerator,
     ClassicalSnowflakeGenerator,
     ClassicalSnowflakeLayout,
     GenerationAttempt,
     Id,
     IdGenerationError,
+    IdGenerator,
     RestartPolicy,
     TryIdGenerator,
 };
