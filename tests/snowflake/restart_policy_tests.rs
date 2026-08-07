@@ -10,6 +10,6 @@
 use qubit_id::RestartPolicy;
 
 #[test]
-fn test_restart_policy_default_is_wait_next_slice() {
-    assert_eq!(RestartPolicy::WaitNextSlice, RestartPolicy::default());
+fn test_restart_policy_default_is_immediate() {
+    assert_eq!(RestartPolicy::Immediate, RestartPolicy::default());
 }
