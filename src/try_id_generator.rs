@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 use crate::{
     GenerationAttempt,
+    Id,
+    IdGenerationError,
     IdGenerator,
 };
 
@@ -20,7 +22,9 @@ use crate::{
 /// [`GenerationAttempt::RetryAfter`] result leaves the generator usable and
 /// tells the caller when another attempt can make progress. Implementations
 /// must not block on clocks, timers, or external coordination.
-pub trait TryIdGenerator: IdGenerator {
+pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>:
+    IdGenerator<Output, Error>
+{
     /// Attempts one non-blocking allocation.
     ///
     /// # Returns
@@ -29,22 +33,17 @@ pub trait TryIdGenerator: IdGenerator {
     ///
     /// # Errors
     ///
-    /// Returns [`IdGenerator::Error`] when the allocation cannot recover by
-    /// waiting.
-    fn try_generate(
-        &self,
-    ) -> Result<GenerationAttempt<Self::Output>, Self::Error>;
+    /// Returns `Error` when the allocation cannot recover by waiting.
+    fn try_generate(&self) -> Result<GenerationAttempt<Output>, Error>;
 }
 
-impl<G> TryIdGenerator for Arc<G>
+impl<Output, Error, G> TryIdGenerator<Output, Error> for Arc<G>
 where
-    G: TryIdGenerator + ?Sized,
+    G: TryIdGenerator<Output, Error> + ?Sized,
 {
     /// Delegates one non-blocking allocation to the shared generator.
     #[inline(always)]
-    fn try_generate(
-        &self,
-    ) -> Result<GenerationAttempt<Self::Output>, Self::Error> {
+    fn try_generate(&self) -> Result<GenerationAttempt<Output>, Error> {
         self.as_ref().try_generate()
     }
 }

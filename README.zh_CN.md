@@ -31,7 +31,8 @@ ID 生成器。它包含三种 Snowflake 系列布局和 UUID v4 生成器，提
 
 ## 主要特性
 
-- `IdGenerator` 只提供 `Output` 与 `Error` 类型契约；`BlockingIdGenerator`、
+- `IdGenerator` 通过泛型参数提供 `Output` 与 `Error`，默认值为 `Id` 和
+  `IdGenerationError`；`BlockingIdGenerator`、
   `TryIdGenerator` 与 `AsyncIdGenerator` 分别提供阻塞、非阻塞和异步分配能力。
 - 每种 Snowflake 类型都实现这三种能力，并在同步与异步调用路径之间共享同一分配状态。
 - Builder 接受来自 [`qubit-clock`](https://crates.io/crates/qubit-clock) 的
@@ -74,7 +75,7 @@ use std::sync::Arc;
 use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>> =
+    let generator: Arc<dyn BlockingIdGenerator<Id>> =
         Arc::new(SnowflakeGenerator::new(7)?);
     let id = generator.generate()?;
     assert_ne!(id.value(), 0);
@@ -85,7 +86,7 @@ fn main() -> Result<(), IdGenerationError> {
 每种 Snowflake 生成器都提供 `try_generate()`、`generate()` 和
 `generate_async()`。具体异步方法的外层 Future 不装箱；重试时仍可能创建 Timer 的
 内部 Future。需要异步 object-safe 注入边界时使用
-`Arc<dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>>`。
+`Arc<dyn AsyncIdGenerator<Id>>`。
 
 ## Snowflake 生成器
 
@@ -122,17 +123,17 @@ Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作
 
 ## IoC 契约与运行时行为
 
-每个生成器通过关联类型声明具体的 `Output` 与 `Error`。内置生成器使用
-`IdGenerationError`，第三方生成器可以提供自己的错误类型。需要调用方透明等待时选择
+每个生成器通过泛型参数声明 `Output` 与 `Error`，默认值分别为 `Id` 和
+`IdGenerationError`。第三方生成器可以显式指定自己的错误类型。需要调用方透明等待时选择
 `BlockingIdGenerator`；需要调用方自行安排重试时选择 `TryIdGenerator`；需要异步 object-safe
 边界时选择 `AsyncIdGenerator`。
 
 同步 object-safe 依赖可以使用
-`Arc<dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>>`；UUID 依赖可以使用
-`Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>>`。
+`Arc<dyn BlockingIdGenerator<Id>>`；UUID 依赖可以使用
+`Arc<dyn BlockingIdGenerator<Uuid>>`。
 
 所有 Builder 都提供 `epoch(...)`、`max_clock_skew(...)` 与 `restart_policy(...)`。
-`IdGenerator` 只提供 `Output` 与 `Error` 类型契约。
+`IdGenerator` 只通过泛型参数提供 `Output` 与 `Error`。
 `RestartPolicy::Immediate` 是所有 Snowflake Builder 的默认值。
 `try_generate()`、`generate()` 与 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
 
@@ -186,7 +187,7 @@ use qubit_id::{BlockingIdGenerator, IdGenerationError, UuidV4Generator};
 use uuid::Uuid;
 
 fn main() -> Result<(), IdGenerationError> {
-    let generator: Arc<dyn BlockingIdGenerator<Output = Uuid, Error = IdGenerationError>> =
+    let generator: Arc<dyn BlockingIdGenerator<Uuid>> =
         Arc::new(UuidV4Generator::new());
     let uuid = generator.generate()?;
     assert_eq!(uuid.to_string().len(), 36);

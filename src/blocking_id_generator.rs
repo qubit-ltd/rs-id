@@ -9,14 +9,20 @@
 
 use std::sync::Arc;
 
-use crate::IdGenerator;
+use crate::{
+    Id,
+    IdGenerationError,
+    IdGenerator,
+};
 
 /// Generates identifiers synchronously, blocking when necessary.
 ///
 /// Implementations may wait for time to advance or for another retryable
 /// condition to clear. Use [`crate::TryIdGenerator`] when callers must retain
 /// control over retry scheduling.
-pub trait BlockingIdGenerator: IdGenerator {
+pub trait BlockingIdGenerator<Output = Id, Error = IdGenerationError>:
+    IdGenerator<Output, Error>
+{
     /// Generates the next identifier.
     ///
     /// # Returns
@@ -25,14 +31,13 @@ pub trait BlockingIdGenerator: IdGenerator {
     ///
     /// # Errors
     ///
-    /// Returns [`IdGenerator::Error`] when the implementation cannot generate
-    /// an identifier.
-    fn generate(&self) -> Result<Self::Output, Self::Error>;
+    /// Returns `Error` when the implementation cannot generate an identifier.
+    fn generate(&self) -> Result<Output, Error>;
 }
 
-impl<G> BlockingIdGenerator for Arc<G>
+impl<Output, Error, G> BlockingIdGenerator<Output, Error> for Arc<G>
 where
-    G: BlockingIdGenerator + ?Sized,
+    G: BlockingIdGenerator<Output, Error> + ?Sized,
 {
     /// Delegates identifier generation to the shared generator.
     ///
@@ -44,7 +49,7 @@ where
     ///
     /// Returns any error produced by the wrapped generator.
     #[inline(always)]
-    fn generate(&self) -> Result<Self::Output, Self::Error> {
+    fn generate(&self) -> Result<Output, Error> {
         self.as_ref().generate()
     }
 }

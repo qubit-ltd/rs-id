@@ -112,7 +112,7 @@ fn test_snowflake_supports_nonblocking_trait_object() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(10));
     let generator: Arc<
-        dyn TryIdGenerator<Output = Id, Error = IdGenerationError>,
+        dyn TryIdGenerator<Id>,
     > = Arc::new(
         SnowflakeGenerator::builder(7)
             .precision(TimestampPrecision::Millisecond)
@@ -141,7 +141,7 @@ fn test_snowflake_supports_sync_trait_object() {
         DEFAULT_MAX_CLOCK_SKEW,
     );
     let generator: Box<
-        dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>,
+        dyn BlockingIdGenerator<Id>,
     > = Box::new(generator);
 
     let _ = generator
@@ -542,7 +542,7 @@ mod async_tests {
             DEFAULT_MAX_CLOCK_SKEW,
         );
         let generator: Box<
-            dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>,
+            dyn AsyncIdGenerator<Id>,
         > = Box::new(generator);
 
         let _ = generator

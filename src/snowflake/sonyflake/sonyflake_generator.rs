@@ -248,10 +248,7 @@ impl SonyflakeGenerator {
     }
 }
 
-impl IdGenerator for SonyflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-}
+impl IdGenerator for SonyflakeGenerator {}
 
 impl BlockingIdGenerator for SonyflakeGenerator {
     /// Generates the next Sonyflake-style ID.
@@ -269,7 +266,7 @@ impl BlockingIdGenerator for SonyflakeGenerator {
     /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
     /// registered or completed.
     #[inline(always)]
-    fn generate(&self) -> Result<Self::Output, Self::Error> {
+    fn generate(&self) -> Result<Id, IdGenerationError> {
         SonyflakeGenerator::generate(self)
     }
 }
@@ -277,9 +274,7 @@ impl BlockingIdGenerator for SonyflakeGenerator {
 impl TryIdGenerator for SonyflakeGenerator {
     /// Attempts one non-blocking Sonyflake allocation.
     #[inline]
-    fn try_generate(
-        &self,
-    ) -> Result<GenerationAttempt<Self::Output>, Self::Error> {
+    fn try_generate(&self) -> Result<GenerationAttempt<Id>, IdGenerationError> {
         SonyflakeGenerator::try_generate(self)
     }
 }
@@ -287,9 +282,7 @@ impl TryIdGenerator for SonyflakeGenerator {
 impl AsyncIdGenerator for SonyflakeGenerator {
     /// Generates a Sonyflake ID asynchronously.
     #[inline]
-    fn generate_async(
-        &self,
-    ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
+    fn generate_async(&self) -> IdGenerationFuture<'_, Id, IdGenerationError> {
         Box::pin(SonyflakeGenerator::generate_async(self))
     }
 }

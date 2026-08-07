@@ -82,7 +82,7 @@ fn test_sonyflake_generator_supports_sync_trait_object() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(100));
     let generator: Arc<
-        dyn BlockingIdGenerator<Output = Id, Error = IdGenerationError>,
+        dyn BlockingIdGenerator<Id>,
     > = Arc::new(
         SonyflakeGenerator::builder(17)
             .epoch(epoch)
@@ -115,7 +115,7 @@ fn test_sonyflake_generator_supports_nonblocking_trait_object_and_inherent_api()
     ));
 
     let generator: Arc<
-        dyn TryIdGenerator<Output = Id, Error = IdGenerationError>,
+        dyn TryIdGenerator<Id>,
     > = Arc::new(generator);
     assert!(matches!(
         generator.try_generate(),
@@ -318,7 +318,7 @@ mod async_tests {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(100));
         let generator: Arc<
-            dyn AsyncIdGenerator<Output = Id, Error = IdGenerationError>,
+            dyn AsyncIdGenerator<Id>,
         > = Arc::new(
             SonyflakeGenerator::builder(17)
                 .epoch(epoch)

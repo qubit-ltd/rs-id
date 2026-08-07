@@ -139,6 +139,20 @@ Sonyflake 使用自己的默认 epoch。与既有命名空间互操作时，所�
 具体异步方法的外层 Future 不装箱；object-safe 的 `AsyncIdGenerator` trait 为了跨越动态
 注入边界会返回装箱 Future。两种路径本身都不要求 Tokio，具体等待行为由注入的 Timer 提供。
 
+生成器 trait 使用 `Output` 与 `Error` 泛型参数，默认值分别为 `Id` 和
+`IdGenerationError`。因此，常见的同步注入边界可以简写为：
+
+```rust
+use std::sync::Arc;
+use qubit_id::{BlockingIdGenerator, Id, IdGenerationError, SnowflakeGenerator};
+
+fn create_generator() -> Result<Arc<dyn BlockingIdGenerator<Id>>, IdGenerationError> {
+    Ok(Arc::new(SnowflakeGenerator::new(7)?))
+}
+```
+
+自定义生成器可以显式指定两个参数，例如 `BlockingIdGenerator<String, MyError>`。
+
 ## 进阶用法
 
 ### 调整 Sonyflake 容量

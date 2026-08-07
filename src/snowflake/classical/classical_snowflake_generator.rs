@@ -246,10 +246,7 @@ impl ClassicalSnowflakeGenerator {
     }
 }
 
-impl IdGenerator for ClassicalSnowflakeGenerator {
-    type Output = Id;
-    type Error = IdGenerationError;
-}
+impl IdGenerator for ClassicalSnowflakeGenerator {}
 
 impl BlockingIdGenerator for ClassicalSnowflakeGenerator {
     /// Generates the next classic Snowflake ID.
@@ -267,7 +264,7 @@ impl BlockingIdGenerator for ClassicalSnowflakeGenerator {
     /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
     /// registered or completed.
     #[inline(always)]
-    fn generate(&self) -> Result<Self::Output, Self::Error> {
+    fn generate(&self) -> Result<Id, IdGenerationError> {
         ClassicalSnowflakeGenerator::generate(self)
     }
 }
@@ -275,9 +272,7 @@ impl BlockingIdGenerator for ClassicalSnowflakeGenerator {
 impl TryIdGenerator for ClassicalSnowflakeGenerator {
     /// Attempts one non-blocking classic Snowflake allocation.
     #[inline]
-    fn try_generate(
-        &self,
-    ) -> Result<GenerationAttempt<Self::Output>, Self::Error> {
+    fn try_generate(&self) -> Result<GenerationAttempt<Id>, IdGenerationError> {
         ClassicalSnowflakeGenerator::try_generate(self)
     }
 }
@@ -285,9 +280,7 @@ impl TryIdGenerator for ClassicalSnowflakeGenerator {
 impl AsyncIdGenerator for ClassicalSnowflakeGenerator {
     /// Generates a classic Snowflake ID asynchronously.
     #[inline]
-    fn generate_async(
-        &self,
-    ) -> IdGenerationFuture<'_, Self::Output, Self::Error> {
+    fn generate_async(&self) -> IdGenerationFuture<'_, Id, IdGenerationError> {
         Box::pin(ClassicalSnowflakeGenerator::generate_async(self))
     }
 }

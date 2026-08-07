@@ -21,16 +21,13 @@ struct LocalOutput(Rc<()>);
 
 struct LocalOutputGenerator;
 
-impl IdGenerator for LocalOutputGenerator {
-    type Output = LocalOutput;
-    type Error = std::convert::Infallible;
-}
+impl IdGenerator<LocalOutput, std::convert::Infallible> for LocalOutputGenerator {}
 
 #[test]
 fn test_id_generator_allows_non_send_synchronous_output_type() {
     fn require_id_generator<G>(_: &G)
     where
-        G: IdGenerator<Output = LocalOutput, Error = std::convert::Infallible>,
+        G: IdGenerator<LocalOutput, std::convert::Infallible>,
     {
     }
 
@@ -41,11 +38,11 @@ fn test_id_generator_allows_non_send_synchronous_output_type() {
 #[test]
 fn test_id_generator_is_object_safe_for_one_output_type() {
     let generator: Arc<
-        dyn IdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+        dyn IdGenerator<u64>,
     > = Arc::new(CounterGenerator::default());
 
     fn require_id_generator(
-        _: &dyn IdGenerator<Output = u64, Error = qubit_id::IdGenerationError>,
+        _: &dyn IdGenerator<u64>,
     ) {
     }
 
