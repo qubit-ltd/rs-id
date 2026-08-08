@@ -11,10 +11,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::thread;
 
-use qubit_id::{
-    IdGenerator,
-    UuidV4Generator,
-};
+use qubit_id::IdGenerator;
+use qubit_id::UuidV4Generator;
+use uuid::Uuid;
 use uuid::Variant;
 
 #[test]
@@ -29,6 +28,7 @@ fn test_uuid_v4_generator_returns_standard_uuid_bits() {
 
 mod inherent_api_tests {
     use qubit_id::UuidV4Generator;
+    use uuid::Uuid;
 
     #[test]
     fn test_uuid_v4_generator_supports_inherent_generate() {
@@ -37,13 +37,13 @@ mod inherent_api_tests {
             .generate()
             .expect("inherent generation should succeed");
 
-        assert_ne!(value, uuid::Uuid::nil());
+        assert_ne!(value, Uuid::nil());
     }
 }
 
 #[test]
 fn test_uuid_v4_generator_supports_sync_trait_object() {
-    let generator: Arc<dyn IdGenerator<uuid::Uuid>> =
+    let generator: Arc<dyn IdGenerator<Uuid>> =
         Arc::new(UuidV4Generator::new());
 
     assert!(generator.generate().is_ok());
@@ -54,7 +54,7 @@ fn test_uuid_v4_generator_is_unique_across_concurrent_sample() {
     const WORKERS: usize = 8;
     const IDS_PER_WORKER: usize = 1_000;
 
-    let generator: Arc<dyn IdGenerator<uuid::Uuid>> =
+    let generator: Arc<dyn IdGenerator<Uuid>> =
         Arc::new(UuidV4Generator::new());
     let workers = (0..WORKERS)
         .map(|_| {

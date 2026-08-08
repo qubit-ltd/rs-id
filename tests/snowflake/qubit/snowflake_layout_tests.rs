@@ -7,20 +7,16 @@
 // =============================================================================
 //! Tests for the Qubit snowflake layout.
 
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use qubit_id::{
-    HOST_MAX,
-    HOST_MIN,
-    IdGenerationError,
-    IdMode,
-    SnowflakeLayout,
-    TimestampPrecision,
-};
+use qubit_id::HOST_MAX;
+use qubit_id::HOST_MIN;
+use qubit_id::IdGenerationError;
+use qubit_id::IdMode;
+use qubit_id::SnowflakeLayout;
+use qubit_id::TimestampPrecision;
 
 const PROPERTY_CASES: usize = 10_000;
 const BOUNDARY_IDS: [u64; 8] = [

@@ -7,16 +7,12 @@
 // =============================================================================
 //! Tests for the Sonyflake bit layout.
 
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use qubit_id::{
-    IdGenerationError,
-    SonyflakeLayout,
-};
+use qubit_id::IdGenerationError;
+use qubit_id::SonyflakeLayout;
 
 /// Finds the latest whole-second time representable by [`SystemTime`].
 ///

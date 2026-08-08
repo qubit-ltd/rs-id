@@ -7,20 +7,14 @@
 // =============================================================================
 //! Stateless configurable Sonyflake bit layout.
 
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
-use super::super::internal::{
-    SnowflakeLayoutSpec,
-    expiration_time,
-};
+use super::super::internal::SnowflakeLayoutSpec;
+use super::super::internal::expiration_time;
 use super::sonyflake_parts::SonyflakeParts;
-use crate::{
-    Id,
-    IdGenerationError,
-};
+use crate::Id;
+use crate::IdGenerationError;
 
 /// Default number of bits used for the sequence field.
 pub(super) const DEFAULT_BITS_SEQUENCE: u8 = 8;

@@ -9,10 +9,8 @@
 
 use std::sync::Arc;
 
-use crate::{
-    Id,
-    IdGenerationError,
-};
+use crate::Id;
+use crate::IdGenerationError;
 
 /// Generates identifiers synchronously, blocking when necessary.
 ///

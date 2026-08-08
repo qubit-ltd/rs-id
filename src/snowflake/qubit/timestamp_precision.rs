@@ -7,12 +7,10 @@
 // =============================================================================
 //! Timestamp precision for Qubit snowflake IDs.
 
-use super::constants::{
-    SEQUENCE_BITS_IN_MILLISECOND,
-    SEQUENCE_BITS_IN_SECOND,
-    TIMESTAMP_BITS_IN_MILLISECOND,
-    TIMESTAMP_BITS_IN_SECOND,
-};
+use super::constants::SEQUENCE_BITS_IN_MILLISECOND;
+use super::constants::SEQUENCE_BITS_IN_SECOND;
+use super::constants::TIMESTAMP_BITS_IN_MILLISECOND;
+use super::constants::TIMESTAMP_BITS_IN_SECOND;
 
 /// Timestamp precision encoded in a Qubit snowflake ID.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]

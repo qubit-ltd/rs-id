@@ -7,30 +7,20 @@
 // =============================================================================
 //! Qubit snowflake ID bit layout.
 
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
-use super::super::internal::{
-    SnowflakeLayoutSpec,
-    expiration_time,
-};
-use super::constants::{
-    HOST_BITS,
-    HOST_MAX,
-    MODE_BITS,
-    PRECISION_BITS,
-};
-use super::{
-    IdMode,
-    SnowflakeParts,
-    TimestampPrecision,
-};
-use crate::{
-    Id,
-    IdGenerationError,
-};
+use super::super::internal::SnowflakeLayoutSpec;
+use super::super::internal::expiration_time;
+use super::IdMode;
+use super::SnowflakeParts;
+use super::TimestampPrecision;
+use super::constants::HOST_BITS;
+use super::constants::HOST_MAX;
+use super::constants::MODE_BITS;
+use super::constants::PRECISION_BITS;
+use crate::Id;
+use crate::IdGenerationError;
 
 /// Immutable Qubit snowflake bit layout used to compose IDs.
 ///

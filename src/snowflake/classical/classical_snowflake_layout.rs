@@ -7,20 +7,14 @@
 // =============================================================================
 //! Stateless classic Snowflake bit layout.
 
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
-use super::super::internal::{
-    SnowflakeLayoutSpec,
-    expiration_time,
-};
+use super::super::internal::SnowflakeLayoutSpec;
+use super::super::internal::expiration_time;
 use super::classical_snowflake_parts::ClassicalSnowflakeParts;
-use crate::{
-    Id,
-    IdGenerationError,
-};
+use crate::Id;
+use crate::IdGenerationError;
 
 /// Number of bits used for the timestamp field.
 const TIMESTAMP_BITS: u8 = 41;

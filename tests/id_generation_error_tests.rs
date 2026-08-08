@@ -8,11 +8,17 @@
 //! Tests for `IdGenerationError` formatting and error sources.
 
 use std::error::Error;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::UNIX_EPOCH;
 
+#[cfg(feature = "uuid")]
+use getrandom::Error as RandomSourceError;
+#[cfg(any(
+    feature = "qubit-snowflake",
+    feature = "classic-snowflake",
+    feature = "sonyflake",
+))]
+use qubit_clock::TimeError;
 use qubit_id::IdGenerationError;
 
 /// Formats an error through the standard error trait.
@@ -133,7 +139,7 @@ fn test_id_generation_error_display_formats_all_variants() {
         let mut cases = cases;
         cases.push((
             IdGenerationError::WaitFailed {
-                source: qubit_clock::TimeError::InstantOverflow,
+                source: TimeError::InstantOverflow,
             },
             "failed to wait before retrying ID generation".to_owned(),
         ));
@@ -166,7 +172,7 @@ fn test_id_generation_error_preserves_sources() {
     ))]
     {
         let wait = IdGenerationError::WaitFailed {
-            source: qubit_clock::TimeError::InstantOverflow,
+            source: TimeError::InstantOverflow,
         };
         assert!(Error::source(&wait).is_some());
     }
@@ -176,7 +182,7 @@ fn test_id_generation_error_preserves_sources() {
 #[test]
 fn test_id_generation_error_random_source_failed_preserves_source() {
     let error = IdGenerationError::RandomSourceFailed {
-        source: getrandom::Error::UNSUPPORTED,
+        source: RandomSourceError::UNSUPPORTED,
     };
 
     assert_eq!(

@@ -10,21 +10,15 @@
 mod id_generator_support;
 
 use std::sync::Arc;
-use std::task::{
-    Context,
-    Poll,
-    Waker,
-};
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
 
-use qubit_id::{
-    AsyncIdGenerator,
-    IdGenerationFuture,
-};
+use qubit_id::AsyncIdGenerator;
+use qubit_id::IdGenerationFuture;
 
-use self::id_generator_support::{
-    CounterGenerator,
-    IoCounterGenerator,
-};
+use self::id_generator_support::counter_generator_tests::CounterGenerator;
+use self::id_generator_support::counter_generator_tests::IoCounterGenerator;
 
 struct AsyncOnlyGenerator;
 

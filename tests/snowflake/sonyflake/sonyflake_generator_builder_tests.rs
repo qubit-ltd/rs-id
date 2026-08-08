@@ -8,23 +8,18 @@
 //! Tests for the Sonyflake-style generator builder.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::UNIX_EPOCH;
 
 use qubit_clock::FixedWallClock;
-use qubit_id::{
-    IdGenerationError,
-    RestartPolicy,
-    SonyflakeGenerator,
-    SonyflakeLayout,
-};
+use qubit_id::GenerationAttempt;
+use qubit_id::IdGenerationError;
+use qubit_id::RestartPolicy;
+use qubit_id::SonyflakeGenerator;
+use qubit_id::SonyflakeLayout;
 
-use crate::support::{
-    ManualTime,
-    latest_representable_whole_second,
-};
+use crate::support::ManualTime;
+use crate::support::latest_representable_whole_second;
 
 /// Tests that every configurable Sonyflake option is applied.
 #[test]
@@ -76,7 +71,7 @@ fn test_sonyflake_generator_builder_defaults_to_immediate_allocation() {
 
     assert!(matches!(
         generator.try_generate(),
-        Ok(qubit_id::GenerationAttempt::Generated(_))
+        Ok(GenerationAttempt::Generated(_))
     ));
 }
 

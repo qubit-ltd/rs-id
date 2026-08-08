@@ -10,12 +10,10 @@
 
 use std::sync::Arc;
 
-use qubit_clock::{
-    StdTimer,
-    StdWallClock,
-    Timer,
-    WallClock,
-};
+use qubit_clock::StdTimer;
+use qubit_clock::StdWallClock;
+use qubit_clock::Timer;
+use qubit_clock::WallClock;
 
 /// Creates the standard system wall clock.
 ///

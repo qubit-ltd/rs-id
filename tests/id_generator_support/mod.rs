@@ -7,10 +7,4 @@
 // =============================================================================
 //! Shared fixtures for the synchronous and asynchronous generator contracts.
 
-mod counter_generator_tests;
-
-#[allow(unused_imports)]
-pub(crate) use counter_generator_tests::{
-    CounterGenerator,
-    IoCounterGenerator,
-};
+pub(crate) mod counter_generator_tests;

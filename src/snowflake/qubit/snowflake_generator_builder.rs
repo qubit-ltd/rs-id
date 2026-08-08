@@ -8,33 +8,25 @@
 //! Builder for the Qubit snowflake generator.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use qubit_clock::{
-    Timer,
-    WallClock,
-};
+use qubit_clock::Timer;
+use qubit_clock::WallClock;
 
 use super::super::RestartPolicy;
-use super::super::internal::{
-    DEFAULT_SNOWFLAKE_EPOCH_MILLIS,
-    SnowflakeCore,
-    default_timer,
-    default_wall_clock,
-    validate_generator_epoch,
-    validate_generator_lifetime,
-};
+use super::super::internal::DEFAULT_SNOWFLAKE_EPOCH_MILLIS;
+use super::super::internal::SnowflakeCore;
+use super::super::internal::default_timer;
+use super::super::internal::default_wall_clock;
+use super::super::internal::validate_generator_epoch;
+use super::super::internal::validate_generator_lifetime;
+use super::IdMode;
+use super::SnowflakeLayout;
+use super::TimestampPrecision;
 use super::constants::DEFAULT_MAX_CLOCK_SKEW;
 use super::snowflake_generator::SnowflakeGenerator;
-use super::{
-    IdMode,
-    SnowflakeLayout,
-    TimestampPrecision,
-};
 use crate::IdGenerationError;
 
 /// Configures and constructs a [`SnowflakeGenerator`].

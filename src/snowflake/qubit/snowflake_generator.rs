@@ -8,28 +8,22 @@
 //! Qubit snowflake generator.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
 use qubit_clock::Timer;
 
-use super::super::internal::{
-    BlockingSnowflake,
-    SnowflakeCore,
-};
+use super::super::internal::BlockingSnowflake;
+use super::super::internal::SnowflakeCore;
 use super::SnowflakeLayout;
 use super::snowflake_generator_builder::SnowflakeGeneratorBuilder;
-use crate::{
-    AsyncIdGenerator,
-    GenerationAttempt,
-    Id,
-    IdGenerationError,
-    IdGenerationFuture,
-    IdGenerator,
-    TryIdGenerator,
-};
+use crate::AsyncIdGenerator;
+use crate::GenerationAttempt;
+use crate::Id;
+use crate::IdGenerationError;
+use crate::IdGenerationFuture;
+use crate::IdGenerator;
+use crate::TryIdGenerator;
 
 /// Qubit Snowflake generator.
 ///
