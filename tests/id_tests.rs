@@ -41,13 +41,11 @@ fn test_id_rejects_invalid_text() {
 #[cfg(feature = "serde")]
 mod serde_tests {
     use qubit_id::Id;
-    use serde_test::{
-        Compact,
-        Configure,
-        Token,
-        assert_de_tokens_error,
-        assert_tokens,
-    };
+    use serde_test::Compact;
+    use serde_test::Configure;
+    use serde_test::Token;
+    use serde_test::assert_de_tokens_error;
+    use serde_test::assert_tokens;
 
     #[test]
     fn test_id_json_uses_decimal_string() {
@@ -67,8 +65,21 @@ mod serde_tests {
     }
 
     #[test]
-    fn test_id_json_rejects_non_string_values() {
-        for input in ["42", "-1", "1.5", "true", "null", "[42]"] {
+    fn test_id_json_accepts_unsigned_integer_values() {
+        assert_eq!(
+            serde_json::from_str::<Id>("42").expect("deserialize numeric ID"),
+            Id::from(42)
+        );
+        assert_eq!(
+            serde_json::from_str::<Id>("18446744073709551615")
+                .expect("deserialize numeric max ID"),
+            Id::from(u64::MAX)
+        );
+    }
+
+    #[test]
+    fn test_id_json_rejects_invalid_values() {
+        for input in ["-1", "1.5", "true", "null", "[42]"] {
             assert!(
                 serde_json::from_str::<Id>(input).is_err(),
                 "accepted {input}"

@@ -27,8 +27,8 @@ impl serde::Serialize for Id {
 }
 
 impl<'de> serde::Deserialize<'de> for Id {
-    /// Deserializes decimal text for human-readable formats and an unsigned
-    /// 64-bit value for compact formats.
+    /// Deserializes decimal text or an unsigned integer for human-readable
+    /// formats and an unsigned 64-bit value for compact formats.
     #[inline(always)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -44,7 +44,9 @@ impl<'de> serde::Deserialize<'de> for Id {
                     &self,
                     formatter: &mut std::fmt::Formatter<'_>,
                 ) -> std::fmt::Result {
-                    formatter.write_str("an unsigned decimal identifier string")
+                    formatter.write_str(
+                        "an unsigned decimal identifier string or integer",
+                    )
                 }
 
                 fn visit_borrowed_str<E>(
@@ -85,9 +87,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                 where
                     E: serde::de::Error,
                 {
-                    u64::try_from(value)
-                        .map(Id::from)
-                        .map_err(E::custom)
+                    u64::try_from(value).map(Id::from).map_err(E::custom)
                 }
             }
 
