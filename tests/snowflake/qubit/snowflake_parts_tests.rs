@@ -7,11 +7,9 @@
 // =============================================================================
 //! Tests for decoded Qubit snowflake parts.
 
-use qubit_id::{
-    IdMode,
-    SnowflakeLayout,
-    TimestampPrecision,
-};
+use qubit_id::IdMode;
+use qubit_id::SnowflakeLayout;
+use qubit_id::TimestampPrecision;
 
 /// Tests all decoded field accessors and value semantics.
 #[test]

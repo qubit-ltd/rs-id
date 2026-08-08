@@ -7,20 +7,16 @@
 // =============================================================================
 //! Defines a timer whose first future fails after successful registration.
 
-use std::sync::atomic::{
-    AtomicUsize,
-    Ordering,
-};
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
-use qubit_clock::{
-    MonotonicClock,
-    MonotonicInstant,
-    StdMonotonicClock,
-    TimeError,
-    Timer,
-    TimerFuture,
-    TimerUnavailableError,
-};
+use qubit_clock::MonotonicClock;
+use qubit_clock::MonotonicInstant;
+use qubit_clock::StdMonotonicClock;
+use qubit_clock::TimeError;
+use qubit_clock::Timer;
+use qubit_clock::TimerFuture;
+use qubit_clock::TimerUnavailableError;
 
 /// Timer used to verify completion-error propagation after registration.
 pub(crate) struct CompletionFailingTimer {

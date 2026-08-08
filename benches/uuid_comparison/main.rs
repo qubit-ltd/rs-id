@@ -10,10 +10,8 @@
 use std::hint::black_box;
 use std::time::Instant;
 
-use qubit_id::{
-    IdGenerator,
-    UuidV4Generator,
-};
+use qubit_id::IdGenerator;
+use qubit_id::UuidV4Generator;
 use uuid::Uuid;
 
 /// Number of untimed operations performed before each case.

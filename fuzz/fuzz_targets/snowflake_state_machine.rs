@@ -11,25 +11,19 @@
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::UNIX_EPOCH;
 
 use libfuzzer_sys::fuzz_target;
-use qubit_clock::{
-    ManualMonotonicClock,
-    MonotonicClock,
-    Timer,
-    WallClock,
-};
-use qubit_id::{
-    GenerationAttempt,
-    Id,
-    IdGenerationError,
-    SnowflakeGenerator,
-    TimestampPrecision,
-};
+use qubit_clock::ManualMonotonicClock;
+use qubit_clock::MonotonicClock;
+use qubit_clock::Timer;
+use qubit_clock::WallClock;
+use qubit_id::GenerationAttempt;
+use qubit_id::Id;
+use qubit_id::IdGenerationError;
+use qubit_id::SnowflakeGenerator;
+use qubit_id::TimestampPrecision;
 
 /// Maximum number of state-machine operations interpreted from one input.
 const MAX_OPERATIONS: usize = 256;

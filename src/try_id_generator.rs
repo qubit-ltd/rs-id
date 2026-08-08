@@ -9,11 +9,9 @@
 
 use std::sync::Arc;
 
-use crate::{
-    GenerationAttempt,
-    Id,
-    IdGenerationError,
-};
+use crate::GenerationAttempt;
+use crate::Id;
+use crate::IdGenerationError;
 
 /// Attempts to allocate an identifier without sleeping or awaiting.
 ///

@@ -12,32 +12,24 @@ mod throughput_sample;
 mod throughput_summary;
 
 use std::hint::black_box;
-use std::sync::atomic::{
-    AtomicU64,
-    Ordering,
-};
-use std::sync::{
-    Arc,
-    Barrier,
-};
+use std::sync::Arc;
+use std::sync::Barrier;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::thread;
-use std::time::{
-    Duration,
-    Instant,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::Instant;
+use std::time::SystemTime;
 
-use qubit_id::{
-    AsyncIdGenerator,
-    Id,
-    IdGenerationError,
-    IdGenerator,
-    IdMode,
-    RestartPolicy,
-    SnowflakeGenerator,
-    SnowflakeLayout,
-    TimestampPrecision,
-};
+use qubit_id::AsyncIdGenerator;
+use qubit_id::Id;
+use qubit_id::IdGenerationError;
+use qubit_id::IdGenerator;
+use qubit_id::IdMode;
+use qubit_id::RestartPolicy;
+use qubit_id::SnowflakeGenerator;
+use qubit_id::SnowflakeLayout;
+use qubit_id::TimestampPrecision;
 
 use self::startup_latency_summary::StartupLatencySummary;
 use self::throughput_sample::ThroughputSample;

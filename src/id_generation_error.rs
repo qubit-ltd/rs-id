@@ -7,11 +7,17 @@
 // =============================================================================
 //! Error type returned by ID generators.
 
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
+#[cfg(feature = "uuid")]
+use getrandom::Error as RandomSourceError;
+#[cfg(any(
+    feature = "qubit-snowflake",
+    feature = "classic-snowflake",
+    feature = "sonyflake",
+))]
+use qubit_clock::TimeError;
 use thiserror::Error;
 
 /// Error returned when an ID generator cannot create or compose an ID.
@@ -137,7 +143,7 @@ pub enum IdGenerationError {
     RandomSourceFailed {
         /// Error returned by the operating-system random source.
         #[source]
-        source: getrandom::Error,
+        source: RandomSourceError,
     },
     /// The injected timer could not register or complete a retry wait.
     #[cfg(any(
@@ -149,6 +155,6 @@ pub enum IdGenerationError {
     WaitFailed {
         /// Error returned by the injected timer or its blocking adapter.
         #[source]
-        source: qubit_clock::TimeError,
+        source: TimeError,
     },
 }

@@ -8,10 +8,8 @@
 // qubit-style: allow source-test-pair
 //! Shared standards-compliant UUID v4 generation.
 
-use ::uuid::{
-    Builder,
-    Uuid,
-};
+use ::uuid::Builder;
+use ::uuid::Uuid;
 
 use crate::IdGenerationError;
 

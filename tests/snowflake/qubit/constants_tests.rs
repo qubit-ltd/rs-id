@@ -7,13 +7,11 @@
 // =============================================================================
 use std::time::Duration;
 
-use qubit_id::{
-    DEFAULT_MAX_CLOCK_SKEW,
-    HOST_BITS,
-    HOST_MAX,
-    HOST_MIN,
-    PRECISION_BITS,
-};
+use qubit_id::DEFAULT_MAX_CLOCK_SKEW;
+use qubit_id::HOST_BITS;
+use qubit_id::HOST_MAX;
+use qubit_id::HOST_MIN;
+use qubit_id::PRECISION_BITS;
 
 /// Test public Qubit snowflake layout constants.
 #[test]

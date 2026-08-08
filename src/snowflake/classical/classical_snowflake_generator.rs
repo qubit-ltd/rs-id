@@ -8,30 +8,22 @@
 //! Synchronous classic 41/10/12 Snowflake generator.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
 use qubit_clock::Timer;
 
-use super::super::internal::{
-    BlockingSnowflake,
-    SnowflakeCore,
-};
-use super::{
-    ClassicalSnowflakeGeneratorBuilder,
-    ClassicalSnowflakeLayout,
-};
-use crate::{
-    AsyncIdGenerator,
-    GenerationAttempt,
-    Id,
-    IdGenerationError,
-    IdGenerationFuture,
-    IdGenerator,
-    TryIdGenerator,
-};
+use super::super::internal::BlockingSnowflake;
+use super::super::internal::SnowflakeCore;
+use super::ClassicalSnowflakeGeneratorBuilder;
+use super::ClassicalSnowflakeLayout;
+use crate::AsyncIdGenerator;
+use crate::GenerationAttempt;
+use crate::Id;
+use crate::IdGenerationError;
+use crate::IdGenerationFuture;
+use crate::IdGenerator;
+use crate::TryIdGenerator;
 
 /// Generates classic Snowflake IDs with 41 timestamp, 10 node, and 12
 /// sequence bits.

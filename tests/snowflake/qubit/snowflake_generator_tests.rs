@@ -10,33 +10,24 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::thread;
-use std::time::{
-    Duration,
-    SystemTime,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use qubit_id::{
-    DEFAULT_MAX_CLOCK_SKEW,
-    GenerationAttempt,
-    Id,
-    IdGenerationError,
-    IdGenerator,
-    IdMode,
-    RestartPolicy,
-    SnowflakeGenerator,
-    SnowflakeLayout,
-    TimestampPrecision,
-    TryIdGenerator,
-};
-
-use qubit_clock::{
-    TimeError,
-    test_util::{
-        FaultInjectingTimer,
-        TimerFailurePoint,
-    },
-};
+use qubit_clock::TimeError;
+use qubit_clock::test_util::FaultInjectingTimer;
+use qubit_clock::test_util::TimerFailurePoint;
+use qubit_id::DEFAULT_MAX_CLOCK_SKEW;
+use qubit_id::GenerationAttempt;
+use qubit_id::Id;
+use qubit_id::IdGenerationError;
+use qubit_id::IdGenerator;
+use qubit_id::IdMode;
+use qubit_id::RestartPolicy;
+use qubit_id::SnowflakeGenerator;
+use qubit_id::SnowflakeLayout;
+use qubit_id::TimestampPrecision;
+use qubit_id::TryIdGenerator;
 
 use crate::support::ManualTime;
 
@@ -146,12 +137,11 @@ fn test_snowflake_supports_sync_trait_object() {
 }
 
 mod inherent_api_tests {
+    use std::time::Duration;
+    use std::time::UNIX_EPOCH;
+
     use super::TimestampPrecision;
     use super::build_generator;
-    use std::time::{
-        Duration,
-        UNIX_EPOCH,
-    };
 
     #[test]
     fn test_snowflake_generator_supports_inherent_generate() {
@@ -442,36 +432,27 @@ mod async_tests {
     //! Integration tests for the asynchronous Qubit Snowflake generator.
 
     use std::sync::Arc;
-    use std::time::{
-        Duration,
-        SystemTime,
-        UNIX_EPOCH,
-    };
+    use std::time::Duration;
+    use std::time::SystemTime;
+    use std::time::UNIX_EPOCH;
 
-    use qubit_clock::{
-        TimeError,
-        TimerUnavailableError,
-        test_util::{
-            FaultInjectingTimer,
-            TimerFailurePoint,
-        },
-    };
-    use qubit_id::{
-        AsyncIdGenerator,
-        DEFAULT_MAX_CLOCK_SKEW,
-        GenerationAttempt,
-        Id,
-        IdGenerationError,
-        RestartPolicy,
-        SnowflakeGenerator,
-        SnowflakeLayout,
-        TimestampPrecision,
-    };
+    use qubit_clock::TimeError;
+    use qubit_clock::TimerUnavailableError;
+    use qubit_clock::test_util::FaultInjectingTimer;
+    use qubit_clock::test_util::TimerFailurePoint;
+    use qubit_id::AsyncIdGenerator;
+    use qubit_id::DEFAULT_MAX_CLOCK_SKEW;
+    use qubit_id::GenerationAttempt;
+    use qubit_id::Id;
+    use qubit_id::IdGenerationError;
+    use qubit_id::IdMode;
+    use qubit_id::RestartPolicy;
+    use qubit_id::SnowflakeGenerator;
+    use qubit_id::SnowflakeLayout;
+    use qubit_id::TimestampPrecision;
 
-    use crate::support::{
-        CompletionFailingTimer,
-        ManualTime,
-    };
+    use crate::support::CompletionFailingTimer;
+    use crate::support::ManualTime;
 
     /// Builds an asynchronous Qubit generator on one manual timeline.
     ///
@@ -830,7 +811,7 @@ mod async_tests {
     async fn test_async_snowflake_generator_reports_runtime_expiration() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let layout = SnowflakeLayout::new(
-            qubit_id::IdMode::Sequential,
+            IdMode::Sequential,
             TimestampPrecision::Second,
             7,
         )

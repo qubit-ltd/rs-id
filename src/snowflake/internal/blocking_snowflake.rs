@@ -10,16 +10,12 @@
 
 use std::sync::Arc;
 
-use qubit_clock::{
-    BlockingSleeper,
-    Timer,
-};
+use qubit_clock::BlockingSleeper;
+use qubit_clock::Timer;
 
-use super::{
-    GenerationAttempt,
-    SnowflakeCore,
-    SnowflakeLayoutSpec,
-};
+use super::GenerationAttempt;
+use super::SnowflakeCore;
+use super::SnowflakeLayoutSpec;
 use crate::IdGenerationError;
 
 /// Adapts a non-waiting Snowflake core to synchronous generation.

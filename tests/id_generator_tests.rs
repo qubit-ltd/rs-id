@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use qubit_id::IdGenerator;
 
-use self::id_generator_support::CounterGenerator;
+use self::id_generator_support::counter_generator_tests::CounterGenerator;
 
 #[allow(dead_code)]
 struct LocalOutput(Rc<()>);

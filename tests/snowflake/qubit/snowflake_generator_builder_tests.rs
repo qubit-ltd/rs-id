@@ -8,25 +8,20 @@
 //! Tests for the Qubit snowflake generator builder.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::UNIX_EPOCH;
 
 use qubit_clock::FixedWallClock;
-use qubit_id::{
-    IdGenerationError,
-    IdMode,
-    RestartPolicy,
-    SnowflakeGenerator,
-    SnowflakeLayout,
-    TimestampPrecision,
-};
+use qubit_id::GenerationAttempt;
+use qubit_id::IdGenerationError;
+use qubit_id::IdMode;
+use qubit_id::RestartPolicy;
+use qubit_id::SnowflakeGenerator;
+use qubit_id::SnowflakeLayout;
+use qubit_id::TimestampPrecision;
 
-use crate::support::{
-    ManualTime,
-    latest_representable_whole_second,
-};
+use crate::support::ManualTime;
+use crate::support::latest_representable_whole_second;
 
 /// Tests that every configurable Qubit generator option is applied.
 #[test]
@@ -75,7 +70,7 @@ fn test_snowflake_generator_builder_defaults_to_immediate_allocation() {
 
     assert!(matches!(
         generator.try_generate(),
-        Ok(qubit_id::GenerationAttempt::Generated(_))
+        Ok(GenerationAttempt::Generated(_))
     ));
 }
 

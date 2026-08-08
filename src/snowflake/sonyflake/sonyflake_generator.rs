@@ -8,30 +8,22 @@
 //! Synchronous Sonyflake-style 63-bit ID generator.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
 use qubit_clock::Timer;
 
-use super::super::internal::{
-    BlockingSnowflake,
-    SnowflakeCore,
-};
-use super::{
-    SonyflakeGeneratorBuilder,
-    SonyflakeLayout,
-};
-use crate::{
-    AsyncIdGenerator,
-    GenerationAttempt,
-    Id,
-    IdGenerationError,
-    IdGenerationFuture,
-    IdGenerator,
-    TryIdGenerator,
-};
+use super::super::internal::BlockingSnowflake;
+use super::super::internal::SnowflakeCore;
+use super::SonyflakeGeneratorBuilder;
+use super::SonyflakeLayout;
+use crate::AsyncIdGenerator;
+use crate::GenerationAttempt;
+use crate::Id;
+use crate::IdGenerationError;
+use crate::IdGenerationFuture;
+use crate::IdGenerator;
+use crate::TryIdGenerator;
 
 /// Default Sonyflake epoch as Unix epoch milliseconds.
 pub(super) const DEFAULT_EPOCH_MILLIS: u64 = 1_735_689_600_000;

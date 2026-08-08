@@ -9,24 +9,18 @@
 //! Shared, non-waiting Snowflake allocation core.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
 use parking_lot::Mutex;
 use qubit_clock::WallClock;
 
-use super::{
-    ClockObservation,
-    GenerationAttempt,
-    GenerationState,
-    SnowflakeLayoutSpec,
-};
-use crate::{
-    IdGenerationError,
-    RestartPolicy,
-};
+use super::ClockObservation;
+use super::GenerationAttempt;
+use super::GenerationState;
+use super::SnowflakeLayoutSpec;
+use crate::IdGenerationError;
+use crate::RestartPolicy;
 
 /// Owns the shared Snowflake layout, clock, and synchronized allocation state.
 pub(crate) struct SnowflakeCore<L> {

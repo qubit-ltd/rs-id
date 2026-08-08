@@ -8,19 +8,15 @@
 //! Defines deterministic wall time and timer waits for tests.
 
 use std::sync::Arc;
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
-use qubit_clock::{
-    ManualMonotonicClock,
-    ManualWallClock,
-    MonotonicClock,
-    MonotonicInstant,
-    Timer,
-    WallClock,
-};
+use qubit_clock::ManualMonotonicClock;
+use qubit_clock::ManualWallClock;
+use qubit_clock::MonotonicClock;
+use qubit_clock::MonotonicInstant;
+use qubit_clock::Timer;
+use qubit_clock::WallClock;
 
 /// Couples manual wall time and blocking waits to one monotonic timeline.
 pub(crate) struct ManualTime {

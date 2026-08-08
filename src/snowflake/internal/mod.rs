@@ -19,22 +19,19 @@ mod snowflake_core;
 mod snowflake_layout_spec;
 mod time_slice;
 
-pub(crate) use crate::GenerationAttempt;
 pub(crate) use blocking_snowflake::BlockingSnowflake;
-pub(crate) use clock_defaults::{
-    default_timer,
-    default_wall_clock,
-};
+pub(crate) use clock_defaults::default_timer;
+pub(crate) use clock_defaults::default_wall_clock;
 pub(crate) use clock_observation::ClockObservation;
 #[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake"))]
 pub(crate) use default_epoch::DEFAULT_SNOWFLAKE_EPOCH_MILLIS;
-pub(crate) use expiration_time::{
-    expiration_time,
-    validate_generator_epoch,
-    validate_generator_lifetime,
-};
+pub(crate) use expiration_time::expiration_time;
+pub(crate) use expiration_time::validate_generator_epoch;
+pub(crate) use expiration_time::validate_generator_lifetime;
 pub(crate) use generation_state::GenerationState;
 pub(crate) use restart_fence::RestartFence;
 pub(crate) use snowflake_core::SnowflakeCore;
 pub(crate) use snowflake_layout_spec::SnowflakeLayoutSpec;
 pub(crate) use time_slice::TimeSlice;
+
+pub(crate) use crate::GenerationAttempt;

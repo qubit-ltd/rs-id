@@ -13,10 +13,8 @@ use std::sync::Arc;
 
 use qubit_id::IdGenerator;
 
-use self::id_generator_support::{
-    CounterGenerator,
-    IoCounterGenerator,
-};
+use self::id_generator_support::counter_generator_tests::CounterGenerator;
+use self::id_generator_support::counter_generator_tests::IoCounterGenerator;
 
 #[test]
 fn test_blocking_id_generator_supports_custom_error_type() {

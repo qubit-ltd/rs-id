@@ -105,6 +105,36 @@ pub use id::Id;
 pub use id_generation_error::IdGenerationError;
 pub use id_generation_future::IdGenerationFuture;
 pub use id_generator::IdGenerator;
+#[cfg(feature = "classic-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
+pub use snowflake::ClassicalSnowflakeGenerator;
+#[cfg(feature = "classic-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
+pub use snowflake::ClassicalSnowflakeGeneratorBuilder;
+#[cfg(feature = "classic-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
+pub use snowflake::ClassicalSnowflakeLayout;
+#[cfg(feature = "classic-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
+pub use snowflake::ClassicalSnowflakeParts;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::DEFAULT_MAX_CLOCK_SKEW;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::HOST_BITS;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::HOST_MAX;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::HOST_MIN;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::IdMode;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::PRECISION_BITS;
 #[cfg(any(
     feature = "qubit-snowflake",
     feature = "classic-snowflake",
@@ -119,37 +149,33 @@ pub use id_generator::IdGenerator;
     )))
 )]
 pub use snowflake::RestartPolicy;
-#[cfg(feature = "classic-snowflake")]
-#[cfg_attr(docsrs, doc(cfg(feature = "classic-snowflake")))]
-pub use snowflake::{
-    ClassicalSnowflakeGenerator,
-    ClassicalSnowflakeGeneratorBuilder,
-    ClassicalSnowflakeLayout,
-    ClassicalSnowflakeParts,
-};
 #[cfg(feature = "qubit-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
-pub use snowflake::{
-    DEFAULT_MAX_CLOCK_SKEW,
-    HOST_BITS,
-    HOST_MAX,
-    HOST_MIN,
-    IdMode,
-    PRECISION_BITS,
-    SnowflakeGenerator,
-    SnowflakeGeneratorBuilder,
-    SnowflakeLayout,
-    SnowflakeParts,
-    TimestampPrecision,
-};
+pub use snowflake::SnowflakeGenerator;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::SnowflakeGeneratorBuilder;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::SnowflakeLayout;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::SnowflakeParts;
 #[cfg(feature = "sonyflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
-pub use snowflake::{
-    SonyflakeGenerator,
-    SonyflakeGeneratorBuilder,
-    SonyflakeLayout,
-    SonyflakeParts,
-};
+pub use snowflake::SonyflakeGenerator;
+#[cfg(feature = "sonyflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
+pub use snowflake::SonyflakeGeneratorBuilder;
+#[cfg(feature = "sonyflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
+pub use snowflake::SonyflakeLayout;
+#[cfg(feature = "sonyflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sonyflake")))]
+pub use snowflake::SonyflakeParts;
+#[cfg(feature = "qubit-snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
+pub use snowflake::TimestampPrecision;
 pub use try_id_generator::TryIdGenerator;
 #[cfg(feature = "uuid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "uuid")))]

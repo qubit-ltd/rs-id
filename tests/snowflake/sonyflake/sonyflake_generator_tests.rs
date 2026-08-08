@@ -9,21 +9,17 @@
 
 use std::sync::Arc;
 use std::thread;
-use std::time::{
-    Duration,
-    UNIX_EPOCH,
-};
+use std::time::Duration;
+use std::time::UNIX_EPOCH;
 
-use qubit_id::{
-    GenerationAttempt,
-    Id,
-    IdGenerationError,
-    IdGenerator,
-    RestartPolicy,
-    SonyflakeGenerator,
-    SonyflakeLayout,
-    TryIdGenerator,
-};
+use qubit_id::GenerationAttempt;
+use qubit_id::Id;
+use qubit_id::IdGenerationError;
+use qubit_id::IdGenerator;
+use qubit_id::RestartPolicy;
+use qubit_id::SonyflakeGenerator;
+use qubit_id::SonyflakeLayout;
+use qubit_id::TryIdGenerator;
 
 use crate::support::ManualTime;
 
@@ -120,15 +116,13 @@ fn test_sonyflake_generator_supports_nonblocking_trait_object_and_inherent_api()
 }
 
 mod inherent_api_tests {
+    use std::time::Duration;
+    use std::time::UNIX_EPOCH;
+
+    use qubit_id::RestartPolicy;
+    use qubit_id::SonyflakeGenerator;
+
     use super::ManualTime;
-    use qubit_id::{
-        RestartPolicy,
-        SonyflakeGenerator,
-    };
-    use std::time::{
-        Duration,
-        UNIX_EPOCH,
-    };
 
     #[test]
     fn test_sonyflake_generator_supports_inherent_generate() {
@@ -278,19 +272,15 @@ mod async_tests {
     //! Integration tests for the asynchronous Sonyflake generator.
 
     use std::sync::Arc;
-    use std::time::{
-        Duration,
-        UNIX_EPOCH,
-    };
+    use std::time::Duration;
+    use std::time::UNIX_EPOCH;
 
-    use qubit_id::{
-        AsyncIdGenerator,
-        Id,
-        IdGenerationError,
-        RestartPolicy,
-        SonyflakeGenerator,
-        SonyflakeLayout,
-    };
+    use qubit_id::AsyncIdGenerator;
+    use qubit_id::Id;
+    use qubit_id::IdGenerationError;
+    use qubit_id::RestartPolicy;
+    use qubit_id::SonyflakeGenerator;
+    use qubit_id::SonyflakeLayout;
 
     use crate::support::ManualTime;
 

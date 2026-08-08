@@ -8,10 +8,8 @@
 // qubit-style: allow source-test-pair
 //! Checked exclusive-expiration calculations for Snowflake layouts.
 
-use std::time::{
-    Duration,
-    SystemTime,
-};
+use std::time::Duration;
+use std::time::SystemTime;
 
 use crate::IdGenerationError;
 
