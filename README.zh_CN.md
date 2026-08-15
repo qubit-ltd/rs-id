@@ -45,16 +45,16 @@ ID 生成器。它包含三种 Snowflake 系列布局和 UUID v4 生成器，提
 
 ```toml
 [dependencies]
-qubit-id = "0.3"
+qubit-id = "0.4"
 ```
 
 可以独立选择其他算法：
 
 ```toml
-qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
-qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
-qubit-id = { version = "0.3", default-features = false, features = ["serde"] }
+qubit-id = { version = "0.4", default-features = false, features = ["classic-snowflake"] }
+qubit-id = { version = "0.4", default-features = false, features = ["sonyflake"] }
+qubit-id = { version = "0.4", default-features = false, features = ["uuid"] }
+qubit-id = { version = "0.4", default-features = false, features = ["serde"] }
 
 # 使用 UUID 的应用应直接依赖上游类型。
 uuid = { version = "1", features = ["v4"] }
