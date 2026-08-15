@@ -56,16 +56,16 @@ The default dependency enables Qubit Snowflake only:
 
 ```toml
 [dependencies]
-qubit-id = "0.3"
+qubit-id = "0.4"
 ```
 
 Select another algorithm independently:
 
 ```toml
-qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
-qubit-id = { version = "0.3", default-features = false, features = ["uuid"] }
-qubit-id = { version = "0.3", default-features = false, features = ["serde"] }
+qubit-id = { version = "0.4", default-features = false, features = ["classic-snowflake"] }
+qubit-id = { version = "0.4", default-features = false, features = ["sonyflake"] }
+qubit-id = { version = "0.4", default-features = false, features = ["uuid"] }
+qubit-id = { version = "0.4", default-features = false, features = ["serde"] }
 
 # UUID applications should depend on the upstream type directly.
 uuid = { version = "1", features = ["v4"] }
