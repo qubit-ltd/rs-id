@@ -42,10 +42,7 @@ fn latest_representable_whole_second() -> SystemTime {
     while low < high {
         let difference = high - low;
         let middle = low + difference / 2 + difference % 2;
-        if UNIX_EPOCH
-            .checked_add(Duration::from_secs(middle))
-            .is_some()
-        {
+        if UNIX_EPOCH.checked_add(Duration::from_secs(middle)).is_some() {
             low = middle;
         } else {
             high = middle - 1;
@@ -86,8 +83,7 @@ fn next_property_value(state: &mut u64) -> u64 {
 fn assert_id_round_trip(id: u64) {
     let parts = SnowflakeLayout::decode_raw(id);
     let layout =
-        SnowflakeLayout::new(parts.mode(), parts.precision(), parts.host())
-            .expect("a decoded host must fit its field");
+        SnowflakeLayout::new(parts.mode(), parts.precision(), parts.host()).expect("a decoded host must fit its field");
 
     assert_eq!(
         layout
@@ -106,11 +102,8 @@ fn test_compose_all_fixed_header_layouts() {
     let host = 317_u64;
 
     for mode in [IdMode::Sequential, IdMode::Spread] {
-        for precision in
-            [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-        {
-            let layout = SnowflakeLayout::new(mode, precision, host)
-                .expect("host should be accepted");
+        for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
+            let layout = SnowflakeLayout::new(mode, precision, host).expect("host should be accepted");
             let sequence = if precision == TimestampPrecision::Millisecond {
                 2_117
             } else {
@@ -130,9 +123,7 @@ fn test_compose_all_fixed_header_layouts() {
                 | sequence;
 
             assert_eq!(
-                layout
-                    .compose_raw(timestamp, sequence)
-                    .expect("fixed parts should fit"),
+                layout.compose_raw(timestamp, sequence).expect("fixed parts should fit"),
                 expected
             );
         }
@@ -142,28 +133,14 @@ fn test_compose_all_fixed_header_layouts() {
 /// Tests that every spread-mode layout sets the high bit of composed IDs.
 #[test]
 fn test_compose_spread_ids_always_set_bit_63() {
-    for precision in
-        [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-    {
-        let layout = SnowflakeLayout::new(IdMode::Spread, precision, 317)
-            .expect("host should be accepted");
-        for (timestamp, sequence) in
-            [(0, 0), (layout.max_timestamp(), layout.max_sequence())]
-        {
-            let id = layout
-                .compose(timestamp, sequence)
-                .expect("boundary parts should fit");
+    for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
+        let layout = SnowflakeLayout::new(IdMode::Spread, precision, 317).expect("host should be accepted");
+        for (timestamp, sequence) in [(0, 0), (layout.max_timestamp(), layout.max_sequence())] {
+            let id = layout.compose(timestamp, sequence).expect("boundary parts should fit");
             let value = id.value();
 
-            assert_eq!(
-                value >> 63,
-                1,
-                "spread ID {value:#018x} must set bit 63"
-            );
-            assert!(
-                value > i64::MAX as u64,
-                "spread ID {value:#018x} must exceed i64::MAX"
-            );
+            assert_eq!(value >> 63, 1, "spread ID {value:#018x} must set bit 63");
+            assert!(value > i64::MAX as u64, "spread ID {value:#018x} must exceed i64::MAX");
         }
     }
 }
@@ -222,14 +199,10 @@ fn test_snowflake_layout_calculates_exclusive_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
 
     for (precision, lifetime) in [
-        (
-            TimestampPrecision::Millisecond,
-            Duration::from_millis(1_u64 << 41),
-        ),
+        (TimestampPrecision::Millisecond, Duration::from_millis(1_u64 << 41)),
         (TimestampPrecision::Second, Duration::from_secs(1_u64 << 31)),
     ] {
-        let layout = SnowflakeLayout::new(IdMode::Sequential, precision, 17)
-            .expect("Qubit layout must be valid");
+        let layout = SnowflakeLayout::new(IdMode::Sequential, precision, 17).expect("Qubit layout must be valid");
 
         assert_eq!(
             layout
@@ -263,16 +236,11 @@ fn test_snowflake_layout_reports_expiration_time_overflow() {
 #[test]
 fn test_decode_is_configuration_independent() {
     for mode in [IdMode::Sequential, IdMode::Spread] {
-        for precision in
-            [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-        {
-            let layout = SnowflakeLayout::new(mode, precision, 511)
-                .expect("host should be valid");
+        for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
+            let layout = SnowflakeLayout::new(mode, precision, 511).expect("host should be valid");
             let timestamp = layout.max_timestamp();
             let sequence = layout.max_sequence();
-            let id = layout
-                .compose(timestamp, sequence)
-                .expect("maximum parts should fit");
+            let id = layout.compose(timestamp, sequence).expect("maximum parts should fit");
 
             let parts = SnowflakeLayout::decode(id);
 
@@ -306,17 +274,12 @@ fn test_legal_parts_compose_decode_round_trip() {
     let mut state = 0xE703_7ED1_A0B4_28DB;
 
     for mode in [IdMode::Sequential, IdMode::Spread] {
-        for precision in
-            [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-        {
+        for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
             for _ in 0..PROPERTY_CASES {
                 let host = next_property_value(&mut state) & HOST_MAX;
-                let layout = SnowflakeLayout::new(mode, precision, host)
-                    .expect("a masked host must be valid");
-                let timestamp =
-                    next_property_value(&mut state) & layout.max_timestamp();
-                let sequence =
-                    next_property_value(&mut state) & layout.max_sequence();
+                let layout = SnowflakeLayout::new(mode, precision, host).expect("a masked host must be valid");
+                let timestamp = next_property_value(&mut state) & layout.max_timestamp();
+                let sequence = next_property_value(&mut state) & layout.max_sequence();
                 let id = layout
                     .compose(timestamp, sequence)
                     .expect("masked parts must fit their fields");

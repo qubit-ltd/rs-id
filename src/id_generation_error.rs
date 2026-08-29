@@ -12,11 +12,7 @@ use std::time::SystemTime;
 
 #[cfg(feature = "uuid")]
 use getrandom::Error as RandomSourceError;
-#[cfg(any(
-    feature = "qubit-snowflake",
-    feature = "classic-snowflake",
-    feature = "sonyflake",
-))]
+#[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
 use qubit_clock::TimeError;
 use thiserror::Error;
 
@@ -146,11 +142,7 @@ pub enum IdGenerationError {
         source: RandomSourceError,
     },
     /// The injected timer could not register or complete a retry wait.
-    #[cfg(any(
-        feature = "qubit-snowflake",
-        feature = "classic-snowflake",
-        feature = "sonyflake",
-    ))]
+    #[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
     #[error("failed to wait before retrying ID generation")]
     WaitFailed {
         /// Error returned by the injected timer or its blocking adapter.

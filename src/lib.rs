@@ -80,18 +80,10 @@ mod id_generation_future;
 mod id_generator;
 #[cfg(feature = "serde")]
 mod id_serde;
-#[cfg(any(
-    feature = "qubit-snowflake",
-    feature = "classic-snowflake",
-    feature = "sonyflake",
-))]
+#[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
 #[cfg_attr(
     docsrs,
-    doc(cfg(any(
-        feature = "qubit-snowflake",
-        feature = "classic-snowflake",
-        feature = "sonyflake",
-    )))
+    doc(cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",)))
 )]
 pub mod snowflake;
 mod try_id_generator;
@@ -135,18 +127,10 @@ pub use snowflake::IdMode;
 #[cfg(feature = "qubit-snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "qubit-snowflake")))]
 pub use snowflake::PRECISION_BITS;
-#[cfg(any(
-    feature = "qubit-snowflake",
-    feature = "classic-snowflake",
-    feature = "sonyflake",
-))]
+#[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
 #[cfg_attr(
     docsrs,
-    doc(cfg(any(
-        feature = "qubit-snowflake",
-        feature = "classic-snowflake",
-        feature = "sonyflake",
-    )))
+    doc(cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",)))
 )]
 pub use snowflake::RestartPolicy;
 #[cfg(feature = "qubit-snowflake")]

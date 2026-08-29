@@ -62,9 +62,7 @@ fn main() {
 
     measure_dispatch_paths();
 
-    for precision in
-        [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-    {
+    for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
         for worker_count in WORKER_COUNTS {
             let summary = summarize_case(precision, worker_count);
             println!(
@@ -87,9 +85,7 @@ fn main() {
         }
     }
 
-    for precision in
-        [TimestampPrecision::Millisecond, TimestampPrecision::Second]
-    {
+    for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
         let summary = measure_startup_latency(precision);
         println!(
             "startup precision={} samples={} latency_min_ns={} \
@@ -120,9 +116,7 @@ fn measure_dispatch_paths() {
         .build()
         .expect("concrete benchmark generator must be valid");
     run_dispatch_case("sync_concrete", || {
-        concrete
-            .generate()
-            .expect("concrete generation must succeed")
+        concrete.generate().expect("concrete generation must succeed")
     });
 
     let dynamic: Arc<dyn IdGenerator<Id, IdGenerationError>> = Arc::new(
@@ -176,14 +170,13 @@ fn measure_dispatch_paths() {
             .expect("async concrete generation must succeed")
     });
 
-    let async_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> =
-        Arc::new(
-            SnowflakeGenerator::builder(HOST)
-                .precision(TimestampPrecision::Second)
-                .restart_policy(RestartPolicy::Immediate)
-                .build()
-                .expect("async dynamic benchmark generator must be valid"),
-        );
+    let async_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> = Arc::new(
+        SnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .restart_policy(RestartPolicy::Immediate)
+            .build()
+            .expect("async dynamic benchmark generator must be valid"),
+    );
     run_dispatch_case("async_arc_dyn_boxed_future", || {
         runtime
             .block_on(async_dynamic.generate_async())
@@ -202,16 +195,13 @@ fn measure_dispatch_paths() {
             .to_string()
     });
 
-    let async_string_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> =
-        Arc::new(
-            SnowflakeGenerator::builder(HOST)
-                .precision(TimestampPrecision::Second)
-                .restart_policy(RestartPolicy::Immediate)
-                .build()
-                .expect(
-                    "async dynamic string benchmark generator must be valid",
-                ),
-        );
+    let async_string_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> = Arc::new(
+        SnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .restart_policy(RestartPolicy::Immediate)
+            .build()
+            .expect("async dynamic string benchmark generator must be valid"),
+    );
     run_dispatch_case("async_string_arc_dyn", || {
         runtime
             .block_on(async_string_dynamic.generate_async())
@@ -260,17 +250,12 @@ where
 /// # Panics
 ///
 /// Panics under the same conditions as [`measure_throughput`].
-fn summarize_case(
-    precision: TimestampPrecision,
-    worker_count: usize,
-) -> ThroughputSummary {
+fn summarize_case(precision: TimestampPrecision, worker_count: usize) -> ThroughputSummary {
     let mut samples = Vec::with_capacity(SAMPLE_COUNT);
     for _ in 0..SAMPLE_COUNT {
         samples.push(measure_throughput(precision, worker_count));
     }
-    samples.sort_by(|left, right| {
-        left.throughput().total_cmp(&right.throughput())
-    });
+    samples.sort_by(|left, right| left.throughput().total_cmp(&right.throughput()));
 
     ThroughputSummary {
         min: samples[0],
@@ -299,10 +284,7 @@ fn summarize_case(
 ///
 /// Panics when generator construction or generation fails, a worker panics,
 /// no ID is measured, or the observed count exceeds theoretical capacity.
-fn measure_throughput(
-    precision: TimestampPrecision,
-    worker_count: usize,
-) -> ThroughputSample {
+fn measure_throughput(precision: TimestampPrecision, worker_count: usize) -> ThroughputSample {
     let generator = Arc::new(
         SnowflakeGenerator::builder(HOST)
             .mode(IdMode::Sequential)
@@ -324,13 +306,7 @@ fn measure_throughput(
         workers.push(thread::spawn(move || {
             barrier.wait();
             let start_timestamp = start_timestamp.load(Ordering::Acquire);
-            generate_until_target(
-                &generator,
-                epoch,
-                precision,
-                start_timestamp,
-                measured_slices,
-            )
+            generate_until_target(&generator, epoch, precision, start_timestamp, measured_slices)
         }));
     }
 
@@ -349,10 +325,7 @@ fn measure_throughput(
         generated <= capacity,
         "generated count {generated} exceeds capacity {capacity}"
     );
-    assert!(
-        generated > 0,
-        "benchmark sample must generate at least one ID"
-    );
+    assert!(generated > 0, "benchmark sample must generate at least one ID");
 
     ThroughputSample {
         generated,
@@ -372,11 +345,7 @@ fn measure_throughput(
 /// Panics when warm-up ID generation fails.
 fn warm_up(generator: &SnowflakeGenerator) {
     for _ in 0..WARM_UP_IDS {
-        let _ = black_box(
-            generator
-                .generate()
-                .expect("warm-up ID generation must succeed"),
-        );
+        let _ = black_box(generator.generate().expect("warm-up ID generation must succeed"));
     }
 }
 
@@ -393,9 +362,7 @@ fn warm_up(generator: &SnowflakeGenerator) {
 /// # Panics
 ///
 /// Panics when generator construction or first-ID generation fails.
-fn measure_startup_latency(
-    precision: TimestampPrecision,
-) -> StartupLatencySummary {
+fn measure_startup_latency(precision: TimestampPrecision) -> StartupLatencySummary {
     let mut samples = Vec::with_capacity(STARTUP_SAMPLE_COUNT);
     for _ in 0..STARTUP_SAMPLE_COUNT {
         let started = Instant::now();
@@ -405,11 +372,7 @@ fn measure_startup_latency(
             .restart_policy(RestartPolicy::Immediate)
             .build()
             .expect("benchmark generator configuration must be valid");
-        let _ = black_box(
-            generator
-                .generate()
-                .expect("first ID generation must succeed"),
-        );
+        let _ = black_box(generator.generate().expect("first ID generation must succeed"));
         samples.push(started.elapsed().as_nanos());
     }
     samples.sort_unstable();
@@ -494,10 +457,7 @@ fn generate_until_target(
 ///
 /// Panics when the epoch is ahead of the system clock or the timestamp does
 /// not fit in `u64`.
-fn wait_for_fresh_slice(
-    epoch: SystemTime,
-    precision: TimestampPrecision,
-) -> u64 {
+fn wait_for_fresh_slice(epoch: SystemTime, precision: TimestampPrecision) -> u64 {
     let initial = current_timestamp(epoch, precision);
     let sleep_duration = match precision {
         TimestampPrecision::Millisecond => Duration::from_micros(50),
@@ -531,8 +491,7 @@ fn current_timestamp(epoch: SystemTime, precision: TimestampPrecision) -> u64 {
     let elapsed = SystemTime::now()
         .duration_since(epoch)
         .expect("benchmark epoch must be in the past");
-    let timestamp =
-        elapsed.as_millis() / u128::from(precision.divisor_millis());
+    let timestamp = elapsed.as_millis() / u128::from(precision.divisor_millis());
     u64::try_from(timestamp).expect("benchmark timestamp must fit in u64")
 }
 

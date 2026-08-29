@@ -70,25 +70,21 @@ where
             match self.try_generate()? {
                 GenerationAttempt::Generated(id) => return Ok(id),
                 GenerationAttempt::RetryAfter { delay } => {
-                    self.sleeper.sleep_for(delay).map_err(|source| {
-                        IdGenerationError::WaitFailed { source }
-                    })?;
+                    self.sleeper
+                        .sleep_for(delay)
+                        .map_err(|source| IdGenerationError::WaitFailed { source })?;
                 }
             }
         }
     }
 
     /// Performs one non-blocking allocation attempt.
-    pub(crate) fn try_generate(
-        &self,
-    ) -> Result<GenerationAttempt<u64>, IdGenerationError> {
+    pub(crate) fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdGenerationError> {
         self.core.try_generate()
     }
 
     /// Generates an ID asynchronously, yielding across retryable outcomes.
-    pub(crate) async fn generate_async(
-        &self,
-    ) -> Result<u64, IdGenerationError> {
+    pub(crate) async fn generate_async(&self) -> Result<u64, IdGenerationError> {
         loop {
             match self.try_generate()? {
                 GenerationAttempt::Generated(id) => return Ok(id),
@@ -96,13 +92,9 @@ where
                     self.sleeper
                         .timer()
                         .after(delay)
-                        .map_err(|source| IdGenerationError::WaitFailed {
-                            source,
-                        })?
+                        .map_err(|source| IdGenerationError::WaitFailed { source })?
                         .await
-                        .map_err(|source| IdGenerationError::WaitFailed {
-                            source,
-                        })?;
+                        .map_err(|source| IdGenerationError::WaitFailed { source })?;
                 }
             }
         }

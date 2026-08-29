@@ -23,31 +23,24 @@ use self::id_generator_support::counter_generator_tests::IoCounterGenerator;
 struct AsyncOnlyGenerator;
 
 impl AsyncIdGenerator<u64, std::convert::Infallible> for AsyncOnlyGenerator {
-    fn generate_async(
-        &self,
-    ) -> IdGenerationFuture<'_, u64, std::convert::Infallible> {
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64, std::convert::Infallible> {
         Box::pin(async { Ok(42) })
     }
 }
 
 #[test]
 fn test_async_id_generator_can_be_used_without_blocking_capability() {
-    let generator: Arc<dyn AsyncIdGenerator<u64, std::convert::Infallible>> =
-        Arc::new(AsyncOnlyGenerator);
+    let generator: Arc<dyn AsyncIdGenerator<u64, std::convert::Infallible>> = Arc::new(AsyncOnlyGenerator);
     let mut future = generator.generate_async();
     let waker = Waker::noop();
     let mut context = Context::from_waker(waker);
 
-    assert!(matches!(
-        future.as_mut().poll(&mut context),
-        Poll::Ready(Ok(42))
-    ));
+    assert!(matches!(future.as_mut().poll(&mut context), Poll::Ready(Ok(42))));
 }
 
 #[test]
 fn test_async_id_generator_is_object_safe_for_one_output_type() {
-    let generator: Arc<dyn AsyncIdGenerator<u64>> =
-        Arc::new(CounterGenerator::default());
+    let generator: Arc<dyn AsyncIdGenerator<u64>> = Arc::new(CounterGenerator::default());
     let mut future = generator.generate_async();
     let waker = Waker::noop();
     let mut context = Context::from_waker(waker);
@@ -60,8 +53,7 @@ fn test_async_id_generator_is_object_safe_for_one_output_type() {
 
 #[test]
 fn test_async_id_generator_supports_custom_error_type() {
-    let generator: Arc<dyn AsyncIdGenerator<u64, std::io::Error>> =
-        Arc::new(IoCounterGenerator::default());
+    let generator: Arc<dyn AsyncIdGenerator<u64, std::io::Error>> = Arc::new(IoCounterGenerator::default());
     let mut future = generator.generate_async();
     let waker = Waker::noop();
     let mut context = Context::from_waker(waker);
@@ -74,17 +66,14 @@ fn test_async_id_generator_supports_custom_error_type() {
 
 #[test]
 fn test_async_id_generator_send_error_can_run_in_spawned_task() {
-    let generator: Arc<dyn AsyncIdGenerator<u64, std::io::Error>> =
-        Arc::new(IoCounterGenerator::default());
+    let generator: Arc<dyn AsyncIdGenerator<u64, std::io::Error>> = Arc::new(IoCounterGenerator::default());
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("test runtime should build");
 
     let value = runtime
-        .block_on(async move {
-            tokio::spawn(async move { generator.generate_async().await }).await
-        })
+        .block_on(async move { tokio::spawn(async move { generator.generate_async().await }).await })
         .expect("spawned generation should complete")
         .expect("generation should succeed");
 

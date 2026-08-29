@@ -114,10 +114,7 @@ impl ClassicalSnowflakeLayout {
     /// Returns [`IdGenerationError::ExpirationTimeOverflow`] when the boundary
     /// cannot be represented by [`SystemTime`].
     #[inline(always)]
-    pub fn expires_at(
-        &self,
-        epoch: SystemTime,
-    ) -> Result<SystemTime, IdGenerationError> {
+    pub fn expires_at(&self, epoch: SystemTime) -> Result<SystemTime, IdGenerationError> {
         expiration_time(epoch, Duration::from_millis(1), self.max_timestamp())
     }
 
@@ -139,11 +136,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a part exceeds its field.
-    pub fn compose_raw(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    pub fn compose_raw(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         if timestamp > self.max_timestamp() {
             return Err(IdGenerationError::TimestampOverflow {
                 timestamp,
@@ -156,9 +149,7 @@ impl ClassicalSnowflakeLayout {
                 max: self.max_sequence(),
             });
         }
-        Ok((timestamp << (NODE_BITS + SEQUENCE_BITS))
-            | (self.node_id << SEQUENCE_BITS)
-            | sequence)
+        Ok((timestamp << (NODE_BITS + SEQUENCE_BITS)) | (self.node_id << SEQUENCE_BITS) | sequence)
     }
 
     /// Decodes a classic Snowflake ID.
@@ -201,11 +192,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Returns the same overflow errors as [`Self::compose_raw`].
     #[inline(always)]
-    pub fn compose(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<Id, IdGenerationError> {
+    pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(timestamp, sequence).map(Id::from)
     }
 }
@@ -257,11 +244,7 @@ impl SnowflakeLayoutSpec for ClassicalSnowflakeLayout {
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a value exceeds its field.
     #[inline(always)]
-    fn compose(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         ClassicalSnowflakeLayout::compose_raw(self, timestamp, sequence)
     }
 }

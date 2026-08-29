@@ -21,9 +21,7 @@ struct LocalOutput(Rc<()>);
 
 struct LocalOutputGenerator;
 
-impl IdGenerator<LocalOutput, std::convert::Infallible>
-    for LocalOutputGenerator
-{
+impl IdGenerator<LocalOutput, std::convert::Infallible> for LocalOutputGenerator {
     fn generate(&self) -> Result<LocalOutput, std::convert::Infallible> {
         Ok(LocalOutput(Rc::new(())))
     }
@@ -44,8 +42,7 @@ fn test_id_generator_allows_non_send_synchronous_output_type() {
 
 #[test]
 fn test_id_generator_is_object_safe_for_one_output_type() {
-    let generator: Arc<dyn IdGenerator<u64>> =
-        Arc::new(CounterGenerator::default());
+    let generator: Arc<dyn IdGenerator<u64>> = Arc::new(CounterGenerator::default());
 
     fn require_id_generator(_: &dyn IdGenerator<u64>) {}
 

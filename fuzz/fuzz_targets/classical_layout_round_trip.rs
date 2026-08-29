@@ -33,17 +33,14 @@ fuzz_target!(|input: &[u8]| {
     let parts = ClassicalSnowflakeLayout::decode_raw(raw);
     let layout = match ClassicalSnowflakeLayout::new(parts.node_id()) {
         Ok(layout) => layout,
-        Err(error) => panic!(
-            "decoded node identifier must create a classic layout: {error}"
-        ),
+        Err(error) => panic!("decoded node identifier must create a classic layout: {error}"),
     };
-    let recomposed =
-        match layout.compose_raw(parts.timestamp(), parts.sequence()) {
-            Ok(raw) => raw,
-            Err(error) => {
-                panic!("decoded classic Snowflake parts must compose: {error}")
-            }
-        };
+    let recomposed = match layout.compose_raw(parts.timestamp(), parts.sequence()) {
+        Ok(raw) => raw,
+        Err(error) => {
+            panic!("decoded classic Snowflake parts must compose: {error}")
+        }
+    };
 
     assert_eq!(recomposed, raw);
 });

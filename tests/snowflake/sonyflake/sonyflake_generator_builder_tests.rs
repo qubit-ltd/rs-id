@@ -47,9 +47,7 @@ fn test_sonyflake_generator_builder_builds_configuration() {
     assert_eq!(generator.layout().bits_machine(), 5);
     assert_eq!(generator.max_clock_skew(), Duration::from_millis(37));
 
-    let id = generator
-        .generate()
-        .expect("the injected clock should generate an ID");
+    let id = generator.generate().expect("the injected clock should generate an ID");
     let parts = generator.layout().decode(id);
     assert_eq!(parts.elapsed_time(), 20);
     assert_eq!(parts.sequence(), 0);
@@ -69,10 +67,7 @@ fn test_sonyflake_generator_builder_defaults_to_immediate_allocation() {
 
     assert_eq!(generator.max_clock_skew(), Duration::ZERO);
 
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 /// Tests the exclusive expiration getter and construction boundary.
@@ -80,8 +75,7 @@ fn test_sonyflake_generator_builder_defaults_to_immediate_allocation() {
 fn test_sonyflake_generator_builder_enforces_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time_unit = Duration::from_millis(10);
-    let layout = SonyflakeLayout::new(17, 8, 16, time_unit)
-        .expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(17, 8, 16, time_unit).expect("Sonyflake layout must be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("Sonyflake expiration must be representable");
@@ -146,8 +140,7 @@ async fn test_sonyflake_generator_builder_async_propagates_expiration_error() {
 }
 
 #[test]
-fn test_sonyflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow()
- {
+fn test_sonyflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow() {
     let epoch = latest_representable_whole_second();
     let current_time = epoch - Duration::from_nanos(1);
 

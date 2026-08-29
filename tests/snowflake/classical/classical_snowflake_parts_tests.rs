@@ -11,11 +11,8 @@ use qubit_id::ClassicalSnowflakeLayout;
 
 #[test]
 fn test_snowflake_parts_accessors_return_decoded_fields() {
-    let layout = ClassicalSnowflakeLayout::new(9)
-        .expect("node id must fit the classic layout");
-    let id = layout
-        .compose(42, 7)
-        .expect("parts must fit the classic layout");
+    let layout = ClassicalSnowflakeLayout::new(9).expect("node id must fit the classic layout");
+    let id = layout.compose(42, 7).expect("parts must fit the classic layout");
     let parts = ClassicalSnowflakeLayout::decode(id);
 
     assert_eq!(parts.timestamp(), 42);

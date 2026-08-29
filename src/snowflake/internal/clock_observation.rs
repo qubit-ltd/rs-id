@@ -62,10 +62,7 @@ impl ClockObservation {
         const NANOS_PER_SECOND: u128 = 1_000_000_000;
         let retry_seconds = retry_nanos / NANOS_PER_SECOND;
         debug_assert!(retry_seconds <= u128::from(u64::MAX));
-        let retry_after = Duration::new(
-            retry_seconds as u64,
-            (retry_nanos % NANOS_PER_SECOND) as u32,
-        );
+        let retry_after = Duration::new(retry_seconds as u64, (retry_nanos % NANOS_PER_SECOND) as u32);
         Ok(Self {
             elapsed,
             timestamp: timestamp as u64,

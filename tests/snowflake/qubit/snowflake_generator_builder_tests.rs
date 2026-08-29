@@ -40,17 +40,12 @@ fn test_snowflake_generator_builder_builds_configuration() {
         .expect("configuration should be valid");
 
     assert_eq!(generator.layout().mode(), IdMode::Spread);
-    assert_eq!(
-        generator.layout().precision(),
-        TimestampPrecision::Millisecond
-    );
+    assert_eq!(generator.layout().precision(), TimestampPrecision::Millisecond);
     assert_eq!(generator.layout().host(), 17);
     assert_eq!(generator.epoch(), epoch);
     assert_eq!(generator.max_clock_skew(), Duration::from_millis(37));
 
-    let id = generator
-        .generate()
-        .expect("the injected clock should generate an ID");
+    let id = generator.generate().expect("the injected clock should generate an ID");
     let parts = SnowflakeLayout::decode(id);
     assert_eq!(parts.timestamp(), 100);
     assert_eq!(parts.sequence(), 0);
@@ -68,10 +63,7 @@ fn test_snowflake_generator_builder_defaults_to_immediate_allocation() {
         .build()
         .expect("default configuration should be valid");
 
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 /// Tests that builder validation rejects an out-of-range host.
@@ -79,10 +71,7 @@ fn test_snowflake_generator_builder_defaults_to_immediate_allocation() {
 fn test_snowflake_generator_builder_rejects_invalid_host() {
     assert!(matches!(
         SnowflakeGenerator::builder(512).build(),
-        Err(IdGenerationError::HostOutOfRange {
-            host: 512,
-            max: 511,
-        })
+        Err(IdGenerationError::HostOutOfRange { host: 512, max: 511 })
     ));
 }
 
@@ -90,10 +79,7 @@ fn test_snowflake_generator_builder_rejects_invalid_host() {
 async fn test_snowflake_generator_builder_async_propagates_layout_error() {
     assert!(matches!(
         SnowflakeGenerator::builder(512).build(),
-        Err(IdGenerationError::HostOutOfRange {
-            host: 512,
-            max: 511,
-        })
+        Err(IdGenerationError::HostOutOfRange { host: 512, max: 511 })
     ));
 }
 
@@ -112,8 +98,7 @@ async fn test_snowflake_generator_builder_async_propagates_expiration_error() {
 }
 
 #[test]
-fn test_snowflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow()
- {
+fn test_snowflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow() {
     let epoch = latest_representable_whole_second();
     let current_time = epoch - Duration::from_nanos(1);
 
@@ -151,12 +136,8 @@ fn test_snowflake_generator_builder_rejects_future_epoch() {
 #[test]
 fn test_snowflake_generator_builder_enforces_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = SnowflakeLayout::new(
-        IdMode::Sequential,
-        TimestampPrecision::Second,
-        17,
-    )
-    .expect("Qubit layout must be valid");
+    let layout =
+        SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 17).expect("Qubit layout must be valid");
     let expires_at = layout
         .expires_at(epoch)
         .expect("Qubit expiration must be representable");

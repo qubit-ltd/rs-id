@@ -58,13 +58,13 @@ pub(crate) fn expiration_time(
     };
     let subsec_nanos = (total_nanos % NANOS_PER_SECOND) as u32;
     let lifetime = Duration::new(seconds, subsec_nanos);
-    origin.checked_add(lifetime).ok_or(
-        IdGenerationError::ExpirationTimeOverflow {
+    origin
+        .checked_add(lifetime)
+        .ok_or(IdGenerationError::ExpirationTimeOverflow {
             origin,
             time_unit,
             max_timestamp,
-        },
-    )
+        })
 }
 
 /// Validates the configured Snowflake lifetime against an observed wall time.
@@ -114,15 +114,9 @@ pub(crate) fn validate_generator_lifetime(
 ///
 /// Returns [`IdGenerationError::EpochAhead`] when `epoch` is later than
 /// `current_time`.
-pub(crate) fn validate_generator_epoch(
-    epoch: SystemTime,
-    current_time: SystemTime,
-) -> Result<(), IdGenerationError> {
+pub(crate) fn validate_generator_epoch(epoch: SystemTime, current_time: SystemTime) -> Result<(), IdGenerationError> {
     if epoch > current_time {
-        return Err(IdGenerationError::EpochAhead {
-            epoch,
-            current_time,
-        });
+        return Err(IdGenerationError::EpochAhead { epoch, current_time });
     }
     Ok(())
 }
