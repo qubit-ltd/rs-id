@@ -14,5 +14,4 @@ use std::pin::Pin;
 ///
 /// The future may borrow its generator for `'a` and is safe to move between
 /// executor threads.
-pub type IdGenerationFuture<'a, T, E> =
-    Pin<Box<dyn Future<Output = Result<T, E>> + Send + 'a>>;
+pub type IdGenerationFuture<'a, T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send + 'a>>;

@@ -14,15 +14,9 @@ use qubit_id::TimestampPrecision;
 /// Tests all decoded field accessors and value semantics.
 #[test]
 fn test_accessors_return_decoded_fields() {
-    let layout = SnowflakeLayout::new(
-        IdMode::Spread,
-        TimestampPrecision::Millisecond,
-        37,
-    )
-    .expect("host should be valid");
-    let id = layout
-        .compose(12_345, 67)
-        .expect("timestamp and sequence should fit");
+    let layout =
+        SnowflakeLayout::new(IdMode::Spread, TimestampPrecision::Millisecond, 37).expect("host should be valid");
+    let id = layout.compose(12_345, 67).expect("timestamp and sequence should fit");
 
     let parts = SnowflakeLayout::decode(id);
     let copied = parts;

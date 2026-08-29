@@ -26,7 +26,6 @@ use crate::IdGenerationError;
 #[inline(always)]
 pub(crate) fn generate_uuid_v4() -> Result<Uuid, IdGenerationError> {
     let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes)
-        .map_err(|source| IdGenerationError::RandomSourceFailed { source })?;
+    getrandom::fill(&mut bytes).map_err(|source| IdGenerationError::RandomSourceFailed { source })?;
     Ok(Builder::from_random_bytes(bytes).into_uuid())
 }

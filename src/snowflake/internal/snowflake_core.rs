@@ -91,25 +91,17 @@ where
     /// the epoch, [`IdGenerationError::GeneratorExpired`] at the lifetime
     /// boundary, or [`IdGenerationError::ClockMovedBackwards`] when
     /// rollback exceeds the configured tolerance.
-    pub(crate) fn try_generate(
-        &self,
-    ) -> Result<GenerationAttempt<u64>, IdGenerationError> {
+    pub(crate) fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdGenerationError> {
         let mut state = self.state.lock();
         let observed_at = self.wall_clock.now();
         self.ensure_active(observed_at)?;
         let observation = self.observation_for(observed_at)?;
-        match state.reserve(
-            observation,
-            self.layout.max_sequence(),
-            self.max_clock_skew,
-        )? {
+        match state.reserve(observation, self.layout.max_sequence(), self.max_clock_skew)? {
             GenerationAttempt::Generated(time_slice) => self
                 .layout
                 .compose(time_slice.timestamp, time_slice.sequence)
                 .map(GenerationAttempt::Generated),
-            GenerationAttempt::RetryAfter { delay } => {
-                Ok(GenerationAttempt::RetryAfter { delay })
-            }
+            GenerationAttempt::RetryAfter { delay } => Ok(GenerationAttempt::RetryAfter { delay }),
         }
     }
 
@@ -134,11 +126,7 @@ where
     /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
     /// the layout.
     #[inline(always)]
-    pub(crate) fn compose_at(
-        &self,
-        time: SystemTime,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    pub(crate) fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<u64, IdGenerationError> {
         self.ensure_active(time)?;
         let observation = self.observation_for(time)?;
         self.layout.compose(observation.timestamp, sequence)
@@ -199,16 +187,8 @@ where
     ///
     /// Returns [`IdGenerationError::TimeBeforeEpoch`] when `time` precedes the
     /// configured epoch.
-    fn observation_for(
-        &self,
-        time: SystemTime,
-    ) -> Result<ClockObservation, IdGenerationError> {
-        ClockObservation::from_time(
-            time,
-            self.epoch,
-            self.layout.time_unit(),
-            self.layout.max_timestamp(),
-        )
+    fn observation_for(&self, time: SystemTime) -> Result<ClockObservation, IdGenerationError> {
+        ClockObservation::from_time(time, self.epoch, self.layout.time_unit(), self.layout.max_timestamp())
     }
 
     /// Rejects wall times at or beyond the exclusive expiration boundary.
@@ -225,10 +205,7 @@ where
     ///
     /// Returns [`IdGenerationError::GeneratorExpired`] when `observed_at` is
     /// equal to or later than the exclusive expiration boundary.
-    fn ensure_active(
-        &self,
-        observed_at: SystemTime,
-    ) -> Result<(), IdGenerationError> {
+    fn ensure_active(&self, observed_at: SystemTime) -> Result<(), IdGenerationError> {
         if observed_at >= self.expires_at {
             return Err(IdGenerationError::GeneratorExpired {
                 observed_at,

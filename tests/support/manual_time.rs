@@ -118,19 +118,11 @@ impl ManualTime {
     ///
     /// Panics when the expected waiters do not register within the test
     /// timeout or advancing to their next deadline fails.
-    pub(crate) fn advance_to_next_deadline_after_waiters(
-        &self,
-        expected: usize,
-    ) {
+    pub(crate) fn advance_to_next_deadline_after_waiters(&self, expected: usize) {
         let _ = self
             .monotonic_clock
-            .advance_to_next_deadline_after_waiters(
-                expected,
-                Duration::from_secs(1),
-            )
-            .unwrap_or_else(|| {
-                panic!("generators should register {expected} future deadlines")
-            });
+            .advance_to_next_deadline_after_waiters(expected, Duration::from_secs(1))
+            .unwrap_or_else(|| panic!("generators should register {expected} future deadlines"));
     }
 
     /// Asynchronously waits until a future timer deadline is registered.
@@ -140,9 +132,7 @@ impl ManualTime {
     /// The earliest future deadline registered on the manual timeline.
     #[inline(always)]
     #[cfg(feature = "qubit-snowflake")]
-    pub(crate) async fn wait_for_next_deadline_async(
-        &self,
-    ) -> MonotonicInstant {
+    pub(crate) async fn wait_for_next_deadline_async(&self) -> MonotonicInstant {
         self.monotonic_clock.wait_for_next_deadline_async().await
     }
 
@@ -152,9 +142,7 @@ impl ManualTime {
     ///
     /// The same-domain instant reached on the manual timeline.
     #[inline(always)]
-    pub(crate) async fn advance_to_next_deadline_async(
-        &self,
-    ) -> MonotonicInstant {
+    pub(crate) async fn advance_to_next_deadline_async(&self) -> MonotonicInstant {
         self.monotonic_clock.advance_to_next_deadline_async().await
     }
 

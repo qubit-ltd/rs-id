@@ -66,8 +66,7 @@ fn build_generator(
 
 #[test]
 fn test_snowflake_generator_new_uses_defaults() {
-    let generator = SnowflakeGenerator::new(17)
-        .expect("default configuration should be valid");
+    let generator = SnowflakeGenerator::new(17).expect("default configuration should be valid");
 
     assert_eq!(generator.layout().host(), 17);
     assert_eq!(generator.max_clock_skew(), DEFAULT_MAX_CLOCK_SKEW);
@@ -92,10 +91,7 @@ fn test_snowflake_wait_next_slice_retries_without_blocking() {
             if delay == Duration::from_millis(1)
     ));
     time.advance(Duration::from_millis(1));
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 #[test]
@@ -113,10 +109,7 @@ fn test_snowflake_supports_nonblocking_trait_object() {
             .expect("configuration should be valid"),
     );
 
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 #[test]
@@ -131,9 +124,7 @@ fn test_snowflake_supports_sync_trait_object() {
     );
     let generator: Box<dyn IdGenerator<Id>> = Box::new(generator);
 
-    let _ = generator
-        .generate()
-        .expect("trait-object generation should succeed");
+    let _ = generator.generate().expect("trait-object generation should succeed");
 }
 
 mod inherent_api_tests {
@@ -154,9 +145,7 @@ mod inherent_api_tests {
             Duration::from_millis(5),
         );
 
-        let _id = generator
-            .generate()
-            .expect("inherent generation should succeed");
+        let _id = generator.generate().expect("inherent generation should succeed");
     }
 }
 
@@ -216,12 +205,8 @@ fn test_snowflake_generator_accessors_return_configuration() {
         .timer(time.timer())
         .build()
         .expect("configuration should be valid");
-    let expected_layout = SnowflakeLayout::new(
-        IdMode::Spread,
-        TimestampPrecision::Millisecond,
-        17,
-    )
-    .expect("layout should be valid");
+    let expected_layout =
+        SnowflakeLayout::new(IdMode::Spread, TimestampPrecision::Millisecond, 17).expect("layout should be valid");
 
     assert_eq!(generator.layout(), &expected_layout);
     assert_eq!(generator.epoch(), epoch);
@@ -319,11 +304,8 @@ fn test_snowflake_generator_reports_large_clock_rollback() {
 fn test_snowflake_generator_reports_runtime_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let layout =
-        SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
-            .expect("layout should be valid");
-    let expires_at = layout
-        .expires_at(epoch)
-        .expect("expiration should be representable");
+        SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7).expect("layout should be valid");
+    let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
     let (generator, time) = build_generator(
         TimestampPrecision::Second,
         7,
@@ -347,11 +329,8 @@ fn test_snowflake_generator_reports_runtime_expiration() {
 fn test_snowflake_generator_rejects_expired_explicit_time() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let layout =
-        SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
-            .expect("layout should be valid");
-    let expires_at = layout
-        .expires_at(epoch)
-        .expect("expiration should be representable");
+        SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7).expect("layout should be valid");
+    let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
     let (generator, _time) = build_generator(
         TimestampPrecision::Second,
         7,
@@ -487,8 +466,7 @@ mod async_tests {
 
     #[test]
     fn test_async_snowflake_generator_convenience_api() {
-        let generator = SnowflakeGenerator::new(17)
-            .expect("default configuration should be valid");
+        let generator = SnowflakeGenerator::new(17).expect("default configuration should be valid");
 
         assert_eq!(generator.layout().host(), 17);
         assert_eq!(generator.max_clock_skew(), DEFAULT_MAX_CLOCK_SKEW);
@@ -536,14 +514,8 @@ mod async_tests {
             DEFAULT_MAX_CLOCK_SKEW,
         );
 
-        let first = generator
-            .generate_async()
-            .await
-            .expect("first ID should generate");
-        let second = generator
-            .generate_async()
-            .await
-            .expect("second ID should generate");
+        let first = generator.generate_async().await.expect("first ID should generate");
+        let second = generator.generate_async().await.expect("second ID should generate");
 
         assert_eq!(SnowflakeLayout::decode(first).sequence(), 0);
         assert_eq!(SnowflakeLayout::decode(second).sequence(), 1);
@@ -562,9 +534,7 @@ mod async_tests {
             .build()
             .expect("configuration should be valid");
 
-        let first = generator
-            .try_generate()
-            .expect("try allocation should succeed");
+        let first = generator.try_generate().expect("try allocation should succeed");
         let first = match first {
             GenerationAttempt::Generated(id) => id,
             GenerationAttempt::RetryAfter { .. } => {
@@ -597,10 +567,7 @@ mod async_tests {
                 .expect("sequence should remain available");
         }
         let worker_generator = Arc::clone(&generator);
-        let worker =
-            tokio::spawn(
-                async move { worker_generator.generate_async().await },
-            );
+        let worker = tokio::spawn(async move { worker_generator.generate_async().await });
         let deadline = time.advance_to_next_deadline_async().await;
 
         assert_eq!(deadline.elapsed_since_origin(), Duration::from_millis(1));
@@ -631,17 +598,12 @@ mod async_tests {
         }
         let waiter_observer = time.wait_for_waiters_async(1);
         let worker_generator = Arc::clone(&generator);
-        let worker =
-            tokio::spawn(
-                async move { worker_generator.generate_async().await },
-            );
+        let worker = tokio::spawn(async move { worker_generator.generate_async().await });
         waiter_observer.await;
         assert_eq!(time.pending_waiters(), 1);
 
         worker.abort();
-        let join_error = worker
-            .await
-            .expect_err("aborted generation should be cancelled");
+        let join_error = worker.await.expect_err("aborted generation should be cancelled");
         assert!(join_error.is_cancelled());
         assert_eq!(time.pending_waiters(), 0);
 
@@ -663,21 +625,13 @@ mod async_tests {
             Duration::from_millis(1),
         );
         let generator = Arc::new(generator);
-        let _ = generator
-            .generate_async()
-            .await
-            .expect("first ID should generate");
+        let _ = generator.generate_async().await.expect("first ID should generate");
         time.reanchor(epoch + Duration::from_millis(9));
         let worker_generator = Arc::clone(&generator);
-        let worker =
-            tokio::spawn(
-                async move { worker_generator.generate_async().await },
-            );
+        let worker = tokio::spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
-            time.advance_to_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_millis(1)
         );
         let id = worker
@@ -702,31 +656,22 @@ mod async_tests {
                 .expect("configuration should be valid"),
         );
         let worker_generator = Arc::clone(&generator);
-        let worker =
-            tokio::spawn(
-                async move { worker_generator.generate_async().await },
-            );
+        let worker = tokio::spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
-            time.wait_for_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.wait_for_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_micros(750)
         );
         time.reanchor(epoch + Duration::from_millis(9));
         time.advance_to_next_deadline();
 
         assert_eq!(
-            time.advance_to_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_micros(1_250)
         );
 
         assert_eq!(
-            time.advance_to_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_millis(2)
         );
 
@@ -746,10 +691,7 @@ mod async_tests {
             epoch + Duration::from_millis(10),
             Duration::ZERO,
         );
-        let _ = generator
-            .generate_async()
-            .await
-            .expect("first ID should generate");
+        let _ = generator.generate_async().await.expect("first ID should generate");
         time.reanchor(epoch + Duration::from_millis(9));
 
         assert!(matches!(
@@ -784,8 +726,7 @@ mod async_tests {
     }
 
     #[tokio::test]
-    async fn test_async_snowflake_generator_preserves_completion_failure_source()
-     {
+    async fn test_async_snowflake_generator_preserves_completion_failure_source() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(10_250));
         let generator = SnowflakeGenerator::builder(7)
@@ -810,15 +751,9 @@ mod async_tests {
     #[tokio::test]
     async fn test_async_snowflake_generator_reports_runtime_expiration() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-        let layout = SnowflakeLayout::new(
-            IdMode::Sequential,
-            TimestampPrecision::Second,
-            7,
-        )
-        .expect("layout should be valid");
-        let expires_at = layout
-            .expires_at(epoch)
-            .expect("expiration should be representable");
+        let layout =
+            SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7).expect("layout should be valid");
+        let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
         let (generator, time) = build_generator(
             TimestampPrecision::Second,
             epoch,

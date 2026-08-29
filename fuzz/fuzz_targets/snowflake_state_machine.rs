@@ -46,10 +46,7 @@ const INITIAL_ELAPSED: Duration = Duration::from_millis(100);
 /// # Panics
 ///
 /// Panics if the fixed fuzz configuration becomes invalid.
-fn build_generator(
-    clock: &Arc<ManualMonotonicClock>,
-    wall_clock: Arc<dyn WallClock>,
-) -> SnowflakeGenerator {
+fn build_generator(clock: &Arc<ManualMonotonicClock>, wall_clock: Arc<dyn WallClock>) -> SnowflakeGenerator {
     let timer: Arc<dyn Timer> = clock.new_timer();
     let epoch = UNIX_EPOCH;
     SnowflakeGenerator::builder(7)
@@ -88,9 +85,7 @@ fn record_generated(id: Id, generated_ids: &mut BTreeSet<Id>) {
 /// # Panics
 ///
 /// Panics when the attempt generates an ID or reports a zero retry delay.
-fn require_positive_retry(
-    attempt: Result<GenerationAttempt<Id>, IdGenerationError>,
-) {
+fn require_positive_retry(attempt: Result<GenerationAttempt<Id>, IdGenerationError>) {
     match attempt {
         Ok(GenerationAttempt::RetryAfter { delay }) => {
             assert!(
@@ -99,9 +94,7 @@ fn require_positive_retry(
             );
         }
         Ok(GenerationAttempt::Generated(id)) => {
-            panic!(
-                "expected deferred generation after rollback, generated {id}"
-            );
+            panic!("expected deferred generation after rollback, generated {id}");
         }
         Err(error) => {
             panic!("expected deferred generation after rollback: {error}")
@@ -118,13 +111,9 @@ fn require_positive_retry(
 /// # Panics
 ///
 /// Panics when the excessive rollback does not return `ClockMovedBackwards`.
-fn require_large_rollback_error(
-    attempt: Result<GenerationAttempt<Id>, IdGenerationError>,
-) {
+fn require_large_rollback_error(attempt: Result<GenerationAttempt<Id>, IdGenerationError>) {
     match attempt {
-        Err(IdGenerationError::ClockMovedBackwards {
-            skew, max_skew, ..
-        }) => {
+        Err(IdGenerationError::ClockMovedBackwards { skew, max_skew, .. }) => {
             assert!(
                 skew > max_skew,
                 "clock rollback error must exceed its configured tolerance",
@@ -134,9 +123,7 @@ fn require_large_rollback_error(
             panic!("excessive rollback generated {id} instead of failing");
         }
         Ok(GenerationAttempt::RetryAfter { delay }) => {
-            panic!(
-                "excessive rollback retried after {delay:?} instead of failing"
-            );
+            panic!("excessive rollback retried after {delay:?} instead of failing");
         }
         Err(error) => panic!("unexpected excessive rollback error: {error}"),
     }
@@ -156,9 +143,7 @@ fuzz_target!(|input: &[u8]| {
     let first_id = match generator.try_generate() {
         Ok(GenerationAttempt::Generated(id)) => id,
         Ok(GenerationAttempt::RetryAfter { delay }) => {
-            panic!(
-                "the default Immediate policy must not defer first generation: {delay:?}"
-            );
+            panic!("the default Immediate policy must not defer first generation: {delay:?}");
         }
         Err(error) => panic!("initial generation must succeed: {error}"),
     };
@@ -168,9 +153,7 @@ fuzz_target!(|input: &[u8]| {
     for operation in operations {
         match operation >> 6 {
             0 => match generator.try_generate() {
-                Ok(GenerationAttempt::Generated(id)) => {
-                    record_generated(id, &mut generated_ids)
-                }
+                Ok(GenerationAttempt::Generated(id)) => record_generated(id, &mut generated_ids),
                 Ok(GenerationAttempt::RetryAfter { delay }) => {
                     assert!(
                         !delay.is_zero(),
@@ -182,8 +165,7 @@ fuzz_target!(|input: &[u8]| {
                 }
             },
             1 => {
-                let advance =
-                    Duration::from_millis(u64::from(operation & 0x07) + 1);
+                let advance = Duration::from_millis(u64::from(operation & 0x07) + 1);
                 clock
                     .advance(advance)
                     .expect("bounded manual clock advance must succeed");
@@ -192,23 +174,19 @@ fuzz_target!(|input: &[u8]| {
                     .expect("bounded fuzz time advance must be representable");
             }
             2 => {
-                let rollback =
-                    Duration::from_millis(u64::from(operation & 0x3f) % 5 + 1);
-                let rollback_time =
-                    last_observed_time.checked_sub(rollback).expect(
-                        "initial fuzz offset must contain bounded rollback",
-                    );
+                let rollback = Duration::from_millis(u64::from(operation & 0x3f) % 5 + 1);
+                let rollback_time = last_observed_time
+                    .checked_sub(rollback)
+                    .expect("initial fuzz offset must contain bounded rollback");
                 wall_clock.reanchor(rollback_time);
                 require_positive_retry(generator.try_generate());
                 wall_clock.reanchor(current_time);
             }
             _ => {
-                let rollback =
-                    Duration::from_millis(u64::from(operation & 0x3f) % 8 + 6);
-                let rollback_time =
-                    last_observed_time.checked_sub(rollback).expect(
-                        "initial fuzz offset must contain bounded rollback",
-                    );
+                let rollback = Duration::from_millis(u64::from(operation & 0x3f) % 8 + 6);
+                let rollback_time = last_observed_time
+                    .checked_sub(rollback)
+                    .expect("initial fuzz offset must contain bounded rollback");
                 wall_clock.reanchor(rollback_time);
                 require_large_rollback_error(generator.try_generate());
                 wall_clock.reanchor(current_time);

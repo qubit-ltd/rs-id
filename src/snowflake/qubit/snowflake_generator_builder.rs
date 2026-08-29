@@ -73,8 +73,7 @@ impl SnowflakeGeneratorBuilder {
             mode: IdMode::Sequential,
             precision: TimestampPrecision::Second,
             host,
-            epoch: UNIX_EPOCH
-                + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
+            epoch: UNIX_EPOCH + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             max_clock_skew: DEFAULT_MAX_CLOCK_SKEW,
             restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
@@ -232,14 +231,8 @@ impl SnowflakeGeneratorBuilder {
     /// than the wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
     /// is equal to or later than that boundary.
-    fn into_core(
-        self,
-    ) -> Result<
-        (SnowflakeCore<SnowflakeLayout>, Arc<dyn Timer>),
-        IdGenerationError,
-    > {
-        let layout =
-            SnowflakeLayout::new(self.mode, self.precision, self.host)?;
+    fn into_core(self) -> Result<(SnowflakeCore<SnowflakeLayout>, Arc<dyn Timer>), IdGenerationError> {
+        let layout = SnowflakeLayout::new(self.mode, self.precision, self.host)?;
         let current_time = self.wall_clock.now();
         validate_generator_epoch(self.epoch, current_time)?;
         let expires_at = layout.expires_at(self.epoch)?;

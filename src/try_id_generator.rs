@@ -19,9 +19,7 @@ use crate::IdGenerationError;
 /// [`GenerationAttempt::RetryAfter`] result leaves the generator usable and
 /// tells the caller when another attempt can make progress. Implementations
 /// must not block on clocks, timers, or external coordination.
-pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>:
-    Send + Sync
-{
+pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
     /// Attempts one non-blocking allocation.
     ///
     /// # Returns

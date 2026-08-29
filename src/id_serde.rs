@@ -40,19 +40,11 @@ impl<'de> serde::Deserialize<'de> for Id {
             impl<'de> serde::de::Visitor<'de> for IdVisitor {
                 type Value = Id;
 
-                fn expecting(
-                    &self,
-                    formatter: &mut std::fmt::Formatter<'_>,
-                ) -> std::fmt::Result {
-                    formatter.write_str(
-                        "an unsigned decimal identifier string or integer",
-                    )
+                fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    formatter.write_str("an unsigned decimal identifier string or integer")
                 }
 
-                fn visit_borrowed_str<E>(
-                    self,
-                    value: &'de str,
-                ) -> Result<Self::Value, E>
+                fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
                 where
                     E: serde::de::Error,
                 {
@@ -66,10 +58,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                     value.parse().map_err(E::custom)
                 }
 
-                fn visit_string<E>(
-                    self,
-                    value: String,
-                ) -> Result<Self::Value, E>
+                fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
                 where
                     E: serde::de::Error,
                 {

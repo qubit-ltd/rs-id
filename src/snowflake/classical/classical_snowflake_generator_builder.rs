@@ -58,8 +58,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     pub(crate) fn new(node_id: u64) -> Self {
         Self {
             node_id,
-            epoch: UNIX_EPOCH
-                + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
+            epoch: UNIX_EPOCH + Duration::from_millis(DEFAULT_SNOWFLAKE_EPOCH_MILLIS),
             max_clock_skew: Duration::ZERO,
             restart_policy: RestartPolicy::Immediate,
             wall_clock: default_wall_clock(),
@@ -164,9 +163,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
     /// has reached the expiration boundary.
     #[inline]
-    pub fn build(
-        self,
-    ) -> Result<ClassicalSnowflakeGenerator, IdGenerationError> {
+    pub fn build(self) -> Result<ClassicalSnowflakeGenerator, IdGenerationError> {
         let (core, timer) = self.into_core()?;
         Ok(ClassicalSnowflakeGenerator::from_core(core, timer))
     }
@@ -185,12 +182,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// epoch is later than the wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
     /// has reached the expiration boundary.
-    fn into_core(
-        self,
-    ) -> Result<
-        (SnowflakeCore<ClassicalSnowflakeLayout>, Arc<dyn Timer>),
-        IdGenerationError,
-    > {
+    fn into_core(self) -> Result<(SnowflakeCore<ClassicalSnowflakeLayout>, Arc<dyn Timer>), IdGenerationError> {
         let layout = ClassicalSnowflakeLayout::new(self.node_id)?;
         let current_time = self.wall_clock.now();
         validate_generator_epoch(self.epoch, current_time)?;

@@ -243,18 +243,8 @@ impl SonyflakeGeneratorBuilder {
     /// the epoch is later than the configured wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when that clock has reached
     /// the boundary.
-    fn into_core(
-        self,
-    ) -> Result<
-        (SnowflakeCore<SonyflakeLayout>, Arc<dyn Timer>),
-        IdGenerationError,
-    > {
-        let layout = SonyflakeLayout::new(
-            self.machine_id,
-            self.bits_sequence,
-            self.bits_machine,
-            self.time_unit,
-        )?;
+    fn into_core(self) -> Result<(SnowflakeCore<SonyflakeLayout>, Arc<dyn Timer>), IdGenerationError> {
+        let layout = SonyflakeLayout::new(self.machine_id, self.bits_sequence, self.bits_machine, self.time_unit)?;
         let current_time = self.wall_clock.now();
         validate_generator_epoch(self.epoch, current_time)?;
         let expires_at = layout.expires_at(self.epoch)?;

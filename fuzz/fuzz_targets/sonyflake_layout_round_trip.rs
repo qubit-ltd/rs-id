@@ -31,26 +31,15 @@ fn read_u64(data: &[u8], offset: usize) -> u64 {
 
 fuzz_target!(|input: &[u8]| {
     let data = &input[..input.len().min(MAX_INPUT_LEN)];
-    let bits_sequence = data.first().copied().unwrap_or_default()
-        % MAX_CONFIGURED_FIELD_BITS
-        + 1;
-    let bits_machine = data.get(1).copied().unwrap_or_default()
-        % MAX_CONFIGURED_FIELD_BITS
-        + 1;
+    let bits_sequence = data.first().copied().unwrap_or_default() % MAX_CONFIGURED_FIELD_BITS + 1;
+    let bits_machine = data.get(1).copied().unwrap_or_default() % MAX_CONFIGURED_FIELD_BITS + 1;
     if bits_sequence + bits_machine > 31 {
         return;
     }
     let machine_mask = (1_u64 << bits_machine) - 1;
     let machine_id = read_u64(data, 2) & machine_mask;
-    let time_unit = Duration::from_millis(
-        u64::from(data.get(10).copied().unwrap_or_default()) + 1,
-    );
-    let layout = match SonyflakeLayout::new(
-        machine_id,
-        bits_sequence,
-        bits_machine,
-        time_unit,
-    ) {
+    let time_unit = Duration::from_millis(u64::from(data.get(10).copied().unwrap_or_default()) + 1);
+    let layout = match SonyflakeLayout::new(machine_id, bits_sequence, bits_machine, time_unit) {
         Ok(layout) => layout,
         Err(error) => {
             panic!("bounded Sonyflake configuration must be valid: {error}")

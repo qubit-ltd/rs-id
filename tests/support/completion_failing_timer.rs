@@ -69,10 +69,7 @@ impl Timer for CompletionFailingTimer {
     ///
     /// Returns [`TimeError::InstantOverflow`] on every later registration.
     #[inline]
-    fn at(
-        &self,
-        _deadline: MonotonicInstant,
-    ) -> Result<TimerFuture, TimeError> {
+    fn at(&self, _deadline: MonotonicInstant) -> Result<TimerFuture, TimeError> {
         if self.registrations.fetch_add(1, Ordering::Relaxed) == 0 {
             return Ok(Box::pin(async {
                 Err(TimeError::TimerUnavailable {

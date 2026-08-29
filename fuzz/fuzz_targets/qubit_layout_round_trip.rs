@@ -29,21 +29,16 @@ fuzz_target!(|input: &[u8]| {
     let data = &input[..input.len().min(MAX_INPUT_LEN)];
     let raw = read_u64(data, 0);
     let parts = SnowflakeLayout::decode_raw(raw);
-    let layout = match SnowflakeLayout::new(
-        parts.mode(),
-        parts.precision(),
-        parts.host(),
-    ) {
+    let layout = match SnowflakeLayout::new(parts.mode(), parts.precision(), parts.host()) {
         Ok(layout) => layout,
         Err(error) => {
             panic!("decoded Qubit fields must create a layout: {error}")
         }
     };
-    let recomposed =
-        match layout.compose_raw(parts.timestamp(), parts.sequence()) {
-            Ok(raw) => raw,
-            Err(error) => panic!("decoded Qubit parts must compose: {error}"),
-        };
+    let recomposed = match layout.compose_raw(parts.timestamp(), parts.sequence()) {
+        Ok(raw) => raw,
+        Err(error) => panic!("decoded Qubit parts must compose: {error}"),
+    };
 
     assert_eq!(recomposed, raw);
 });

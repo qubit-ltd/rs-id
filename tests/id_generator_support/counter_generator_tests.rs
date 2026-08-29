@@ -82,8 +82,6 @@ impl AsyncIdGenerator<u64, std::io::Error> for IoCounterGenerator {
     /// An immediately ready future containing the next counter value.
     #[inline(always)]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64, std::io::Error> {
-        Box::pin(async move {
-            <Self as IdGenerator<u64, std::io::Error>>::generate(self)
-        })
+        Box::pin(async move { <Self as IdGenerator<u64, std::io::Error>>::generate(self) })
     }
 }

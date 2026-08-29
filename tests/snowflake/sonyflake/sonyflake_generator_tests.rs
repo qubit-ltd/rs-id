@@ -25,8 +25,7 @@ use crate::support::ManualTime;
 
 #[test]
 fn test_sonyflake_generator_new_uses_defaults() {
-    let generator = SonyflakeGenerator::new(17)
-        .expect("default configuration should be valid");
+    let generator = SonyflakeGenerator::new(17).expect("default configuration should be valid");
 
     assert_eq!(generator.layout().machine_id(), 17);
 }
@@ -91,8 +90,7 @@ fn test_sonyflake_generator_supports_sync_trait_object() {
 }
 
 #[test]
-fn test_sonyflake_generator_supports_nonblocking_trait_object_and_inherent_api()
-{
+fn test_sonyflake_generator_supports_nonblocking_trait_object_and_inherent_api() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time = ManualTime::new(epoch + Duration::from_millis(100));
     let generator = SonyflakeGenerator::builder(17)
@@ -103,16 +101,10 @@ fn test_sonyflake_generator_supports_nonblocking_trait_object_and_inherent_api()
         .build()
         .expect("configuration should be valid");
 
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 
     let generator: Arc<dyn TryIdGenerator<Id>> = Arc::new(generator);
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 mod inherent_api_tests {
@@ -136,9 +128,7 @@ mod inherent_api_tests {
             .build()
             .expect("configuration should be valid");
 
-        let _id = generator
-            .generate()
-            .expect("inherent generation should succeed");
+        let _id = generator.generate().expect("inherent generation should succeed");
     }
 }
 
@@ -228,20 +218,14 @@ fn test_sonyflake_generator_retries_configured_clock_rollback() {
     ));
 
     time.reanchor(epoch + Duration::from_millis(20));
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 #[test]
 fn test_sonyflake_generator_reports_runtime_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10))
-        .expect("layout should be valid");
-    let expires_at = layout
-        .expires_at(epoch)
-        .expect("expiration should be representable");
+    let layout = SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10)).expect("layout should be valid");
+    let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
     let time = ManualTime::new(expires_at - Duration::from_nanos(1));
     let generator = SonyflakeGenerator::builder(17)
         .epoch(epoch)
@@ -286,8 +270,7 @@ mod async_tests {
 
     #[test]
     fn test_async_sonyflake_generator_convenience_api() {
-        let generator = SonyflakeGenerator::new(17)
-            .expect("default configuration should be valid");
+        let generator = SonyflakeGenerator::new(17).expect("default configuration should be valid");
 
         assert_eq!(generator.layout().machine_id(), 17);
         assert_eq!(
@@ -328,14 +311,8 @@ mod async_tests {
             .build()
             .expect("configuration should be valid");
 
-        let first = generator
-            .generate_async()
-            .await
-            .expect("first ID should generate");
-        let second = generator
-            .generate_async()
-            .await
-            .expect("second ID should generate");
+        let first = generator.generate_async().await.expect("first ID should generate");
+        let second = generator.generate_async().await.expect("second ID should generate");
 
         assert_eq!(generator.layout().decode(first).sequence(), 0);
         assert_eq!(generator.layout().decode(second).sequence(), 1);
@@ -355,15 +332,10 @@ mod async_tests {
                 .expect("configuration should be valid"),
         );
         let worker_generator = Arc::clone(&generator);
-        let worker =
-            tokio::spawn(
-                async move { worker_generator.generate_async().await },
-            );
+        let worker = tokio::spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
-            time.advance_to_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_millis(5)
         );
         let id = worker
@@ -376,11 +348,8 @@ mod async_tests {
     #[tokio::test]
     async fn test_async_sonyflake_generator_reports_runtime_expiration() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-        let layout = SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10))
-            .expect("layout should be valid");
-        let expires_at = layout
-            .expires_at(epoch)
-            .expect("expiration should be representable");
+        let layout = SonyflakeLayout::new(17, 8, 16, Duration::from_millis(10)).expect("layout should be valid");
+        let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
         let time = ManualTime::new(expires_at - Duration::from_nanos(1));
         let generator = SonyflakeGenerator::builder(17)
             .epoch(epoch)

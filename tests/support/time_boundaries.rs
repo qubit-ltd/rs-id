@@ -23,10 +23,7 @@ pub(crate) fn latest_representable_whole_second() -> SystemTime {
     while low < high {
         let difference = high - low;
         let middle = low + difference / 2 + difference % 2;
-        if UNIX_EPOCH
-            .checked_add(Duration::from_secs(middle))
-            .is_some()
-        {
+        if UNIX_EPOCH.checked_add(Duration::from_secs(middle)).is_some() {
             low = middle;
         } else {
             high = middle - 1;

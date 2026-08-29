@@ -89,16 +89,9 @@ impl SnowflakeLayout {
     /// Returns [`IdGenerationError::HostOutOfRange`] when `host` does not fit
     /// in the 9-bit host field.
     #[inline]
-    pub fn new(
-        mode: IdMode,
-        precision: TimestampPrecision,
-        host: u64,
-    ) -> Result<Self, IdGenerationError> {
+    pub fn new(mode: IdMode, precision: TimestampPrecision, host: u64) -> Result<Self, IdGenerationError> {
         if host > HOST_MAX {
-            return Err(IdGenerationError::HostOutOfRange {
-                host,
-                max: HOST_MAX,
-            });
+            return Err(IdGenerationError::HostOutOfRange { host, max: HOST_MAX });
         }
         Ok(Self::new_unchecked(mode, precision, host))
     }
@@ -114,11 +107,7 @@ impl SnowflakeLayout {
     /// # Returns
     ///
     /// A configured layout.
-    fn new_unchecked(
-        mode: IdMode,
-        precision: TimestampPrecision,
-        host: u64,
-    ) -> Self {
+    fn new_unchecked(mode: IdMode, precision: TimestampPrecision, host: u64) -> Self {
         let timestamp_bits = precision.timestamp_bits();
         let sequence_bits = precision.sequence_bits();
         let max_timestamp = (1_u64 << timestamp_bits) - 1;
@@ -127,9 +116,8 @@ impl SnowflakeLayout {
         let precision_shift = mode_shift - PRECISION_BITS;
         let timestamp_shift = HOST_BITS + sequence_bits;
         let host_shift = sequence_bits;
-        let fixed_data = (mode.ordinal() << mode_shift)
-            | (precision.ordinal() << precision_shift)
-            | (host << host_shift);
+        let fixed_data =
+            (mode.ordinal() << mode_shift) | (precision.ordinal() << precision_shift) | (host << host_shift);
 
         Self {
             mode,
@@ -215,10 +203,7 @@ impl SnowflakeLayout {
     /// Returns [`IdGenerationError::ExpirationTimeOverflow`] when the boundary
     /// cannot be represented by [`SystemTime`].
     #[inline(always)]
-    pub fn expires_at(
-        &self,
-        epoch: SystemTime,
-    ) -> Result<SystemTime, IdGenerationError> {
+    pub fn expires_at(&self, epoch: SystemTime) -> Result<SystemTime, IdGenerationError> {
         expiration_time(
             epoch,
             Duration::from_millis(self.precision.divisor_millis()),
@@ -244,11 +229,7 @@ impl SnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a part does not fit.
-    pub fn compose_raw(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    pub fn compose_raw(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         if timestamp > self.max_timestamp {
             return Err(IdGenerationError::TimestampOverflow {
                 timestamp,
@@ -261,14 +242,8 @@ impl SnowflakeLayout {
                 max: self.max_sequence,
             });
         }
-        let stored_timestamp = Self::transform_timestamp(
-            self.mode,
-            self.timestamp_bits,
-            timestamp,
-        );
-        Ok((stored_timestamp << self.timestamp_shift)
-            | self.fixed_data
-            | sequence)
+        let stored_timestamp = Self::transform_timestamp(self.mode, self.timestamp_bits, timestamp);
+        Ok((stored_timestamp << self.timestamp_shift) | self.fixed_data | sequence)
     }
 
     /// Decodes a Qubit snowflake ID without a preconfigured layout.
@@ -303,16 +278,10 @@ impl SnowflakeLayout {
         let mode_shift = u64::BITS as u8 - MODE_BITS;
         let precision_shift = mode_shift - PRECISION_BITS;
         let mode = IdMode::from_bit((id >> mode_shift) & 1);
-        let precision =
-            TimestampPrecision::from_bit((id >> precision_shift) & 1);
+        let precision = TimestampPrecision::from_bit((id >> precision_shift) & 1);
         let layout = Self::new_unchecked(mode, precision, 0);
-        let stored_timestamp =
-            (id >> layout.timestamp_shift) & layout.max_timestamp;
-        let timestamp = Self::transform_timestamp(
-            mode,
-            layout.timestamp_bits,
-            stored_timestamp,
-        );
+        let stored_timestamp = (id >> layout.timestamp_shift) & layout.max_timestamp;
+        let timestamp = Self::transform_timestamp(mode, layout.timestamp_bits, stored_timestamp);
         let host = (id >> layout.host_shift) & ((1_u64 << HOST_BITS) - 1);
         let sequence = id & layout.max_sequence;
         SnowflakeParts::new(mode, precision, timestamp, host, sequence)
@@ -324,11 +293,7 @@ impl SnowflakeLayout {
     ///
     /// Returns the same overflow errors as [`Self::compose_raw`].
     #[inline(always)]
-    pub fn compose(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<Id, IdGenerationError> {
+    pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(timestamp, sequence).map(Id::from)
     }
 
@@ -345,16 +310,10 @@ impl SnowflakeLayout {
     /// Transformed timestamp restricted to `timestamp_bits` significant bits.
     #[must_use]
     #[inline]
-    fn transform_timestamp(
-        mode: IdMode,
-        timestamp_bits: u8,
-        timestamp: u64,
-    ) -> u64 {
+    fn transform_timestamp(mode: IdMode, timestamp_bits: u8, timestamp: u64) -> u64 {
         match mode {
             IdMode::Sequential => timestamp,
-            IdMode::Spread => {
-                timestamp.reverse_bits() >> (u64::BITS as u8 - timestamp_bits)
-            }
+            IdMode::Spread => timestamp.reverse_bits() >> (u64::BITS as u8 - timestamp_bits),
         }
     }
 }
@@ -418,11 +377,7 @@ impl SnowflakeLayoutSpec for SnowflakeLayout {
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a value exceeds its field.
     #[inline(always)]
-    fn compose(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         SnowflakeLayout::compose_raw(self, timestamp, sequence)
     }
 }

@@ -75,16 +75,8 @@ impl SonyflakeLayout {
         bits_machine: u8,
         time_unit: Duration,
     ) -> Result<Self, IdGenerationError> {
-        let bits_sequence = Self::normalize_bits(
-            "sequence",
-            bits_sequence,
-            DEFAULT_BITS_SEQUENCE,
-        )?;
-        let bits_machine = Self::normalize_bits(
-            "machine",
-            bits_machine,
-            DEFAULT_BITS_MACHINE,
-        )?;
+        let bits_sequence = Self::normalize_bits("sequence", bits_sequence, DEFAULT_BITS_SEQUENCE)?;
+        let bits_machine = Self::normalize_bits("machine", bits_machine, DEFAULT_BITS_MACHINE)?;
         let bits_time = 63_u8 - bits_sequence - bits_machine;
         if bits_time < 32 {
             return Err(IdGenerationError::InvalidBitLength {
@@ -225,10 +217,7 @@ impl SonyflakeLayout {
     /// Returns [`IdGenerationError::ExpirationTimeOverflow`] when the boundary
     /// cannot be represented by [`SystemTime`].
     #[inline(always)]
-    pub fn expires_at(
-        &self,
-        epoch: SystemTime,
-    ) -> Result<SystemTime, IdGenerationError> {
+    pub fn expires_at(&self, epoch: SystemTime) -> Result<SystemTime, IdGenerationError> {
         expiration_time(epoch, self.time_unit, self.max_elapsed_time())
     }
 
@@ -250,11 +239,7 @@ impl SonyflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a part exceeds its field.
-    pub fn compose_raw(
-        &self,
-        elapsed_time: u64,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    pub fn compose_raw(&self, elapsed_time: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         if elapsed_time > self.max_elapsed_time() {
             return Err(IdGenerationError::TimestampOverflow {
                 timestamp: elapsed_time,
@@ -301,8 +286,7 @@ impl SonyflakeLayout {
     #[inline]
     pub const fn decode_raw(&self, id: u64) -> SonyflakeParts {
         let elapsed_time = id >> (self.bits_sequence + self.bits_machine);
-        let sequence_mask =
-            ((1_u64 << self.bits_sequence) - 1) << self.bits_machine;
+        let sequence_mask = ((1_u64 << self.bits_sequence) - 1) << self.bits_machine;
         let sequence = (id & sequence_mask) >> self.bits_machine;
         let machine_id = id & ((1_u64 << self.bits_machine) - 1);
         SonyflakeParts::new(elapsed_time, sequence, machine_id)
@@ -314,11 +298,7 @@ impl SonyflakeLayout {
     ///
     /// Returns the same overflow errors as [`Self::compose_raw`].
     #[inline(always)]
-    pub fn compose(
-        &self,
-        elapsed_time: u64,
-        sequence: u64,
-    ) -> Result<Id, IdGenerationError> {
+    pub fn compose(&self, elapsed_time: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(elapsed_time, sequence).map(Id::from)
     }
 
@@ -339,11 +319,7 @@ impl SonyflakeLayout {
     /// Returns [`IdGenerationError::InvalidBitLength`] when the normalized
     /// width is 31 or greater.
     #[inline]
-    fn normalize_bits(
-        name: &'static str,
-        bits: u8,
-        default_bits: u8,
-    ) -> Result<u8, IdGenerationError> {
+    fn normalize_bits(name: &'static str, bits: u8, default_bits: u8) -> Result<u8, IdGenerationError> {
         let normalized = if bits == 0 { default_bits } else { bits };
         if normalized >= 31 {
             return Err(IdGenerationError::InvalidBitLength {
@@ -403,11 +379,7 @@ impl SnowflakeLayoutSpec for SonyflakeLayout {
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a value exceeds its field.
     #[inline(always)]
-    fn compose(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         SonyflakeLayout::compose_raw(self, timestamp, sequence)
     }
 }

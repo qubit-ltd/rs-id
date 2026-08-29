@@ -54,11 +54,7 @@ impl IdMode {
     /// value after masking by callers.
     #[inline]
     pub const fn from_bit(bit: u64) -> Self {
-        if bit == 0 {
-            Self::Sequential
-        } else {
-            Self::Spread
-        }
+        if bit == 0 { Self::Sequential } else { Self::Spread }
     }
 
     /// Returns the one-bit ordinal used by the Qubit layout.

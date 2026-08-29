@@ -14,14 +14,9 @@ use std::path::PathBuf;
 #[test]
 fn test_qubit_snowflake_throughput_benchmarks_id_string_paths() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let benchmark_path =
-        manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
-    let source = fs::read_to_string(&benchmark_path).unwrap_or_else(|error| {
-        panic!(
-            "failed to read benchmark source {}: {error}",
-            benchmark_path.display()
-        )
-    });
+    let benchmark_path = manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
+    let source = fs::read_to_string(&benchmark_path)
+        .unwrap_or_else(|error| panic!("failed to read benchmark source {}: {error}", benchmark_path.display()));
 
     for fragment in [
         "sync_string_concrete",
@@ -40,14 +35,9 @@ fn test_qubit_snowflake_throughput_benchmarks_id_string_paths() {
 #[test]
 fn test_qubit_snowflake_throughput_startup_uses_immediate_restart_policy() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let benchmark_path =
-        manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
-    let source = fs::read_to_string(&benchmark_path).unwrap_or_else(|error| {
-        panic!(
-            "failed to read benchmark source {}: {error}",
-            benchmark_path.display()
-        )
-    });
+    let benchmark_path = manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
+    let source = fs::read_to_string(&benchmark_path)
+        .unwrap_or_else(|error| panic!("failed to read benchmark source {}: {error}", benchmark_path.display()));
 
     assert!(
         source.contains("RestartPolicy::Immediate"),
@@ -64,26 +54,17 @@ fn test_qubit_snowflake_throughput_startup_uses_immediate_restart_policy() {
 #[test]
 fn test_qubit_snowflake_throughput_uses_generic_generator_parameters() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let benchmark_path =
-        manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
-    let source = fs::read_to_string(&benchmark_path).unwrap_or_else(|error| {
-        panic!(
-            "failed to read benchmark source {}: {error}",
-            benchmark_path.display()
-        )
-    });
+    let benchmark_path = manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
+    let source = fs::read_to_string(&benchmark_path)
+        .unwrap_or_else(|error| panic!("failed to read benchmark source {}: {error}", benchmark_path.display()));
 
     assert_eq!(
-        source
-            .matches("dyn IdGenerator<Id, IdGenerationError>")
-            .count(),
+        source.matches("dyn IdGenerator<Id, IdGenerationError>").count(),
         2,
         "blocking benchmark paths must use generic generator parameters"
     );
     assert_eq!(
-        source
-            .matches("dyn AsyncIdGenerator<Id, IdGenerationError>")
-            .count(),
+        source.matches("dyn AsyncIdGenerator<Id, IdGenerationError>").count(),
         2,
         "async benchmark paths must use generic generator parameters"
     );
@@ -99,12 +80,8 @@ fn test_qubit_snowflake_throughput_uses_generic_generator_parameters() {
 fn test_uuid_comparison_benchmark_uses_blocking_generator_contract() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let benchmark_path = manifest_dir.join("benches/uuid_comparison/main.rs");
-    let source = fs::read_to_string(&benchmark_path).unwrap_or_else(|error| {
-        panic!(
-            "failed to read benchmark source {}: {error}",
-            benchmark_path.display()
-        )
-    });
+    let source = fs::read_to_string(&benchmark_path)
+        .unwrap_or_else(|error| panic!("failed to read benchmark source {}: {error}", benchmark_path.display()));
 
     assert!(
         source.contains("IdGenerator::generate(&numeric)"),

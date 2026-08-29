@@ -13,11 +13,7 @@ use std::time::UNIX_EPOCH;
 
 #[cfg(feature = "uuid")]
 use getrandom::Error as RandomSourceError;
-#[cfg(any(
-    feature = "qubit-snowflake",
-    feature = "classic-snowflake",
-    feature = "sonyflake",
-))]
+#[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
 use qubit_clock::TimeError;
 use qubit_id::IdGenerationError;
 
@@ -41,10 +37,7 @@ fn test_id_generation_error_display_formats_all_variants() {
     let time = UNIX_EPOCH + Duration::from_secs(9);
     let cases = vec![
         (
-            IdGenerationError::HostOutOfRange {
-                host: 512,
-                max: 511,
-            },
+            IdGenerationError::HostOutOfRange { host: 512, max: 511 },
             "host id 512 is out of range 0..=511".to_owned(),
         ),
         (
@@ -62,17 +55,11 @@ fn test_id_generation_error_display_formats_all_variants() {
             "machine id 65536 is out of range 0..=65535".to_owned(),
         ),
         (
-            IdGenerationError::TimestampOverflow {
-                timestamp: 8,
-                max: 7,
-            },
+            IdGenerationError::TimestampOverflow { timestamp: 8, max: 7 },
             "timestamp 8 exceeds maximum 7".to_owned(),
         ),
         (
-            IdGenerationError::SequenceOverflow {
-                sequence: 4,
-                max: 3,
-            },
+            IdGenerationError::SequenceOverflow { sequence: 4, max: 3 },
             "sequence 4 exceeds maximum 3".to_owned(),
         ),
         (
@@ -130,11 +117,7 @@ fn test_id_generation_error_display_formats_all_variants() {
         ),
     ];
 
-    #[cfg(any(
-        feature = "qubit-snowflake",
-        feature = "classic-snowflake",
-        feature = "sonyflake",
-    ))]
+    #[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
     let cases = {
         let mut cases = cases;
         cases.push((
@@ -165,11 +148,7 @@ fn test_id_generation_error_clock_moved_backwards_preserves_raw_durations() {
 
 #[test]
 fn test_id_generation_error_preserves_sources() {
-    #[cfg(any(
-        feature = "qubit-snowflake",
-        feature = "classic-snowflake",
-        feature = "sonyflake",
-    ))]
+    #[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
     {
         let wait = IdGenerationError::WaitFailed {
             source: TimeError::InstantOverflow,
@@ -185,9 +164,6 @@ fn test_id_generation_error_random_source_failed_preserves_source() {
         source: RandomSourceError::UNSUPPORTED,
     };
 
-    assert_eq!(
-        error.to_string(),
-        "failed to obtain random bytes for UUID v4"
-    );
+    assert_eq!(error.to_string(), "failed to obtain random bytes for UUID v4");
     assert!(Error::source(&error).is_some());
 }

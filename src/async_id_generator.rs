@@ -51,8 +51,7 @@ use crate::IdGenerationFuture;
 ///     }
 /// }
 /// ```
-pub trait AsyncIdGenerator<Output = Id, Error = IdGenerationError>:
-    Send + Sync
+pub trait AsyncIdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync
 where
     Output: Send + 'static,
     Error: Send + 'static,

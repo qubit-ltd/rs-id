@@ -17,9 +17,7 @@ use crate::IdGenerationError;
 /// Implementations may wait for time to advance or for another retryable
 /// condition to clear. Use [`crate::TryIdGenerator`] when callers must retain
 /// control over retry scheduling.
-pub trait IdGenerator<Output = Id, Error = IdGenerationError>:
-    Send + Sync
-{
+pub trait IdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
     /// Generates the next identifier.
     ///
     /// # Returns

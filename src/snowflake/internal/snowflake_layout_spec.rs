@@ -52,9 +52,5 @@ pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
     /// exceeds the layout capacity or
     /// [`IdGenerationError::SequenceOverflow`] when `sequence` exceeds
     /// its field capacity.
-    fn compose(
-        &self,
-        timestamp: u64,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError>;
+    fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError>;
 }
