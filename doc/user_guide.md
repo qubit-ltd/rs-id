@@ -8,7 +8,7 @@ This guide is for service developers choosing an ID generator for a Rust
 application. It focuses on the three Snowflake-family generators in `qubit-id`:
 `ClassicalSnowflakeGenerator`, `SnowflakeGenerator`, and `SonyflakeGenerator`.
 It explains how the layouts affect capacity, ordering, storage compatibility,
-and deployment identity. The examples target `qubit-id` 0.3 and Rust 1.94 or
+and deployment identity. The examples target `qubit-id` 0.5 and Rust 1.94 or
 later.
 
 ## Conceptual model
@@ -110,14 +110,14 @@ Enable the default Qubit generator:
 
 ```toml
 [dependencies]
-qubit-id = "0.3"
+qubit-id = "0.5"
 ```
 
 Select a different Snowflake implementation with features:
 
 ```toml
-qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
+qubit-id = { version = "0.5", default-features = false, features = ["classic-snowflake"] }
+qubit-id = { version = "0.5", default-features = false, features = ["sonyflake"] }
 ```
 
 The required constructor identity is called `host`, `node_id`, or `machine_id`
