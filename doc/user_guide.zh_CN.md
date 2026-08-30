@@ -8,7 +8,7 @@
 `qubit-id` 中的三种 Snowflake 系列生成器：`ClassicalSnowflakeGenerator`、
 `SnowflakeGenerator` 和 `SonyflakeGenerator`。手册解释布局如何影响容量、排序、
 存储兼容性和部署身份，并给出选型、配置、错误处理和部署边界。示例面向
-`qubit-id` 0.3 和 Rust 1.94 及以上版本。
+`qubit-id` 0.5 和 Rust 1.94 及以上版本。
 
 ## 概念模型
 
@@ -95,14 +95,14 @@ Sonyflake 的低位顺序是 sequence 再 machine。因此在 elapsed time 相�
 
 ```toml
 [dependencies]
-qubit-id = "0.3"
+qubit-id = "0.5"
 ```
 
 通过 feature 选择其他 Snowflake 实现：
 
 ```toml
-qubit-id = { version = "0.3", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.3", default-features = false, features = ["sonyflake"] }
+qubit-id = { version = "0.5", default-features = false, features = ["classic-snowflake"] }
+qubit-id = { version = "0.5", default-features = false, features = ["sonyflake"] }
 ```
 
 根据实现不同，必需的构造身份分别称为 `host`、`node_id` 或 `machine_id`：
