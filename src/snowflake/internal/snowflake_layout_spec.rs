@@ -5,7 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// qubit-style: allow source-test-pair
 //! Private layout contract shared by Snowflake-family generators.
 
 use std::time::Duration;

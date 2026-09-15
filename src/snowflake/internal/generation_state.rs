@@ -5,7 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// qubit-style: allow source-test-pair
 //! Defines shared allocation state for Snowflake-family generators.
 
 use std::time::Duration;

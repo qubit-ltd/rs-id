@@ -5,7 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// qubit-style: allow source-test-pair
 //! Shared, non-waiting Snowflake allocation core.
 
 use std::sync::Arc;

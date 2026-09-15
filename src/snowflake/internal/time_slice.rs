@@ -5,7 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// qubit-style: allow source-test-pair
 //! Defines generator state for one logical time slice.
 
 /// Mutable timestamp and sequence pair protected by each generator lock.

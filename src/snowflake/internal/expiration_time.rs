@@ -5,7 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// qubit-style: allow source-test-pair
 //! Checked exclusive-expiration calculations for Snowflake layouts.
 
 use std::time::Duration;
