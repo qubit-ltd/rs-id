@@ -41,7 +41,9 @@ be stored and transported consistently. Its decision criteria are:
 5. Must the layout be configurable or hide direct numeric time ordering?
 
 Use the comparison first, then configure an exclusive host, node, or machine ID
-for every concurrently active generator in the same namespace.
+for every concurrently active generator in the same namespace. The application
+or deployment system must coordinate these assignments across processes; the
+generator cannot prevent separate processes from reusing a node identifier.
 
 ## Layout comparison
 
@@ -266,6 +268,9 @@ the application must own scheduling and backpressure.
 - Every concurrently active generator in one namespace needs an exclusive
   identity. Sharing one identity across hosts defeats the layout's uniqueness
   assumption.
+- `Id::to_padded_decimal()` returns a fixed-width 20-digit decimal string for
+  persistent text keys whose lexicographic order must match numeric `u64` order.
+  Ordinary `Display` remains unpadded.
 - Timestamp order is not a security boundary. Classical, Sequential Qubit, and
   Sonyflake IDs expose time structure; Qubit `Spread` only applies reversible
   obfuscation.
