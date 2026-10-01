@@ -26,6 +26,19 @@ fn test_id_displays_as_unsigned_decimal() {
 }
 
 #[test]
+fn test_id_padded_decimal_has_fixed_width_and_sorts_numerically() {
+    let ids = [Id::from(0), Id::from(9), Id::from(10), Id::from(u64::MAX)];
+    let padded = ids.map(Id::to_padded_decimal);
+
+    assert_eq!(padded[0], "00000000000000000000");
+    assert_eq!(padded[1], "00000000000000000009");
+    assert_eq!(padded[2], "00000000000000000010");
+    assert_eq!(padded[3], "18446744073709551615");
+    assert!(padded.iter().all(|value| value.len() == 20));
+    assert!(padded.windows(2).all(|pair| pair[0] < pair[1]));
+}
+
+#[test]
 fn test_id_parses_decimal_text() {
     assert_eq!(Id::from_str("42").expect("ID should parse"), Id::from(42));
     assert_eq!(Id::try_from("7").expect("ID should parse"), Id::from(7));

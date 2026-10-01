@@ -29,6 +29,16 @@ impl Id {
     pub const fn value(self) -> u64 {
         self.0
     }
+
+    /// Returns the identifier as a zero-padded, 20-digit decimal string.
+    ///
+    /// This representation preserves numeric order under lexicographic
+    /// comparison and is intended for persistent text keys. [`fmt::Display`]
+    /// keeps its unpadded decimal representation.
+    #[inline]
+    pub fn to_padded_decimal(self) -> String {
+        format!("{:020}", self.value())
+    }
 }
 
 impl From<u64> for Id {
