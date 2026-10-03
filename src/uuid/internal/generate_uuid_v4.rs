@@ -22,7 +22,6 @@ use crate::IdGenerationError;
 ///
 /// Returns [`IdGenerationError::RandomSourceFailed`] when the operating-system
 /// random source cannot fill the UUID bytes.
-#[inline(always)]
 pub(crate) fn generate_uuid_v4() -> Result<Uuid, IdGenerationError> {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).map_err(|source| IdGenerationError::RandomSourceFailed { source })?;

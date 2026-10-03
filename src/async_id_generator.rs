@@ -25,6 +25,35 @@ use crate::IdGenerationFuture;
 /// A spawned task must return an owned, thread-safe result. Consequently both
 /// `Output` and `Error` are required to be `Send + 'static`.
 ///
+/// # Type Parameters
+///
+/// * `Output` - Owned identifier value produced by the returned future.
+/// * `Error` - Failure value produced when the generator cannot allocate an
+///   identifier.
+///
+/// # Examples
+///
+/// ```
+/// use std::convert::Infallible;
+///
+/// use qubit_id::AsyncIdGenerator;
+/// use qubit_id::IdGenerationFuture;
+///
+/// struct ImmediateGenerator;
+///
+/// impl AsyncIdGenerator<u64, Infallible> for ImmediateGenerator {
+///     fn generate_async(&self) -> IdGenerationFuture<'_, u64, Infallible> {
+///         Box::pin(async { Ok(42) })
+///     }
+/// }
+///
+/// let generator = ImmediateGenerator;
+/// let runtime = tokio::runtime::Builder::new_current_thread()
+///     .build()
+///     .unwrap();
+/// assert_eq!(runtime.block_on(generator.generate_async()).unwrap(), 42);
+/// ```
+///
 /// ```compile_fail
 /// use std::fmt;
 /// use std::marker::PhantomData;
@@ -69,6 +98,7 @@ where
     ///
     /// The returned future resolves to `Error` when the implementation cannot
     /// generate an identifier.
+    #[must_use]
     fn generate_async(&self) -> IdGenerationFuture<'_, Output, Error>;
 }
 
@@ -89,7 +119,8 @@ where
     ///
     /// The returned future resolves to any error produced by the wrapped
     /// generator.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     fn generate_async(&self) -> IdGenerationFuture<'_, Output, Error> {
         self.as_ref().generate_async()
     }

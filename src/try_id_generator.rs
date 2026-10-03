@@ -19,6 +19,16 @@ use crate::IdGenerationError;
 /// [`GenerationAttempt::RetryAfter`] result leaves the generator usable and
 /// tells the caller when another attempt can make progress. Implementations
 /// must not block on clocks, timers, or external coordination.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::{GenerationAttempt, SonyflakeGenerator, TryIdGenerator};
+///
+/// let generator = SonyflakeGenerator::new(7).unwrap();
+/// let attempt: Result<GenerationAttempt<qubit_id::Id>, _> = generator.try_generate();
+/// assert!(attempt.is_ok());
+/// ```
 pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
     /// Attempts one non-blocking allocation.
     ///
@@ -37,7 +47,7 @@ where
     G: TryIdGenerator<Output, Error> + ?Sized,
 {
     /// Delegates one non-blocking allocation to the shared generator.
-    #[inline(always)]
+    #[inline]
     fn try_generate(&self) -> Result<GenerationAttempt<Output>, Error> {
         self.as_ref().try_generate()
     }
