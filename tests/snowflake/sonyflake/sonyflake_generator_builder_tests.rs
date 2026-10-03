@@ -93,17 +93,17 @@ fn test_sonyflake_generator_builder_enforces_expiration() {
     for current_time in [expires_at, expires_at + Duration::from_nanos(1)] {
         assert!(
             matches!(
-                    SonyflakeGenerator::builder(17)
-                        .time_unit(time_unit)
-                        .epoch(epoch)
-            .restart_policy(RestartPolicy::Immediate)
-                        .wall_clock(Arc::new(FixedWallClock::new(current_time)))
-                        .build(),
-                    Err(IdGenerationError::GeneratorExpired {
-                        observed_at,
-                        expires_at: actual_expiration,
-                    }) if observed_at == current_time && actual_expiration == expires_at
-                ),
+                SonyflakeGenerator::builder(17)
+                    .time_unit(time_unit)
+                    .epoch(epoch)
+                    .restart_policy(RestartPolicy::Immediate)
+                    .wall_clock(Arc::new(FixedWallClock::new(current_time)))
+                    .build(),
+                Err(IdGenerationError::GeneratorExpired {
+                    observed_at,
+                    expires_at: actual_expiration,
+                }) if observed_at == current_time && actual_expiration == expires_at
+            ),
             "construction at {current_time:?} must return GeneratorExpired"
         );
     }
@@ -164,7 +164,7 @@ fn test_sonyflake_generator_builder_rejects_future_epoch() {
     assert!(matches!(
         SonyflakeGenerator::builder(17)
             .epoch(epoch)
-        .restart_policy(RestartPolicy::Immediate)
+            .restart_policy(RestartPolicy::Immediate)
             .wall_clock(Arc::new(FixedWallClock::new(current_time)))
             .build(),
         Err(IdGenerationError::EpochAhead {

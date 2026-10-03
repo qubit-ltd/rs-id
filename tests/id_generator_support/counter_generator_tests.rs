@@ -7,6 +7,7 @@
 // =============================================================================
 //! Defines a thread-safe counter generator fixture.
 
+use std::io::Error as IoError;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
@@ -32,7 +33,7 @@ impl IdGenerator<u64> for CounterGenerator {
     /// # Errors
     ///
     /// This fixture does not return an error.
-    #[inline(always)]
+    #[inline]
     fn generate(&self) -> Result<u64, IdGenerationError> {
         Ok(self.value.fetch_add(1, Ordering::Relaxed) + 1)
     }
@@ -44,7 +45,7 @@ impl AsyncIdGenerator<u64> for CounterGenerator {
     /// # Returns
     ///
     /// An immediately ready future containing the next counter value.
-    #[inline(always)]
+    #[inline]
     fn generate_async(&self) -> IdGenerationFuture<'_, u64, IdGenerationError> {
         Box::pin(async move { <Self as IdGenerator<u64>>::generate(self) })
     }
@@ -57,7 +58,7 @@ pub(crate) struct IoCounterGenerator {
     value: AtomicU64,
 }
 
-impl IdGenerator<u64, std::io::Error> for IoCounterGenerator {
+impl IdGenerator<u64, IoError> for IoCounterGenerator {
     /// Increments and returns the fixture counter with a custom error type.
     ///
     /// # Returns
@@ -67,21 +68,21 @@ impl IdGenerator<u64, std::io::Error> for IoCounterGenerator {
     /// # Errors
     ///
     /// This fixture does not return an error.
-    #[inline(always)]
-    fn generate(&self) -> Result<u64, std::io::Error> {
+    #[inline]
+    fn generate(&self) -> Result<u64, IoError> {
         Ok(self.value.fetch_add(1, Ordering::Relaxed) + 1)
     }
 }
 
-impl AsyncIdGenerator<u64, std::io::Error> for IoCounterGenerator {
+impl AsyncIdGenerator<u64, IoError> for IoCounterGenerator {
     /// Asynchronously increments and returns the fixture counter with a custom
     /// error type.
     ///
     /// # Returns
     ///
     /// An immediately ready future containing the next counter value.
-    #[inline(always)]
-    fn generate_async(&self) -> IdGenerationFuture<'_, u64, std::io::Error> {
-        Box::pin(async move { <Self as IdGenerator<u64, std::io::Error>>::generate(self) })
+    #[inline]
+    fn generate_async(&self) -> IdGenerationFuture<'_, u64, IoError> {
+        Box::pin(async move { <Self as IdGenerator<u64, IoError>>::generate(self) })
     }
 }

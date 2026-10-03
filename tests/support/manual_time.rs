@@ -54,7 +54,7 @@ impl ManualTime {
     /// # Returns
     ///
     /// A shared wall-clock handle.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn wall_clock(&self) -> Arc<dyn WallClock> {
         self.wall_clock.clone()
     }
@@ -64,7 +64,7 @@ impl ManualTime {
     /// # Returns
     ///
     /// A shared timer handle on the manual timeline.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn timer(&self) -> Arc<dyn Timer> {
         Arc::clone(&self.timer)
     }
@@ -74,7 +74,7 @@ impl ManualTime {
     /// # Parameters
     ///
     /// * `now` - New wall time for the current monotonic instant.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn reanchor(&self, now: SystemTime) {
         self.wall_clock.reanchor(now);
     }
@@ -89,7 +89,7 @@ impl ManualTime {
     ///
     /// Panics when advancing the manual monotonic clock overflows.
     #[cfg(feature = "qubit-snowflake")]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn advance(&self, duration: Duration) {
         self.monotonic_clock
             .advance(duration)
@@ -102,7 +102,7 @@ impl ManualTime {
     ///
     /// Panics when no timer wait registers within the test timeout or advancing
     /// to the registered deadline fails.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn advance_to_next_deadline(&self) {
         self.advance_to_next_deadline_after_waiters(1);
     }
@@ -130,7 +130,7 @@ impl ManualTime {
     /// # Returns
     ///
     /// The earliest future deadline registered on the manual timeline.
-    #[inline(always)]
+    #[inline]
     #[cfg(feature = "qubit-snowflake")]
     pub(crate) async fn wait_for_next_deadline_async(&self) -> MonotonicInstant {
         self.monotonic_clock.wait_for_next_deadline_async().await
@@ -141,7 +141,7 @@ impl ManualTime {
     /// # Returns
     ///
     /// The same-domain instant reached on the manual timeline.
-    #[inline(always)]
+    #[inline]
     pub(crate) async fn advance_to_next_deadline_async(&self) -> MonotonicInstant {
         self.monotonic_clock.advance_to_next_deadline_async().await
     }
@@ -152,7 +152,7 @@ impl ManualTime {
     ///
     /// * `expected` - Registration count that completes the observation.
     #[cfg(feature = "qubit-snowflake")]
-    #[inline(always)]
+    #[inline]
     pub(crate) async fn wait_for_waiters_async(&self, expected: usize) {
         self.monotonic_clock.wait_for_waiters_async(expected).await;
     }
@@ -163,7 +163,7 @@ impl ManualTime {
     ///
     /// The current registration count.
     #[cfg(feature = "qubit-snowflake")]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn pending_waiters(&self) -> usize {
         self.monotonic_clock.pending_waiters()
     }

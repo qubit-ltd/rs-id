@@ -9,6 +9,7 @@
 
 mod id_generator_support;
 
+use std::convert::Infallible;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -21,8 +22,8 @@ struct LocalOutput(Rc<()>);
 
 struct LocalOutputGenerator;
 
-impl IdGenerator<LocalOutput, std::convert::Infallible> for LocalOutputGenerator {
-    fn generate(&self) -> Result<LocalOutput, std::convert::Infallible> {
+impl IdGenerator<LocalOutput, Infallible> for LocalOutputGenerator {
+    fn generate(&self) -> Result<LocalOutput, Infallible> {
         Ok(LocalOutput(Rc::new(())))
     }
 }
@@ -31,7 +32,7 @@ impl IdGenerator<LocalOutput, std::convert::Infallible> for LocalOutputGenerator
 fn test_id_generator_allows_non_send_synchronous_output_type() {
     fn require_id_generator<G>(generator: &G)
     where
-        G: IdGenerator<LocalOutput, std::convert::Infallible>,
+        G: IdGenerator<LocalOutput, Infallible>,
     {
         let _ = generator.generate();
     }
