@@ -17,7 +17,17 @@ use qubit_clock::TimeError;
 use thiserror::Error;
 
 /// Error returned when an ID generator cannot create or compose an ID.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::IdGenerationError;
+///
+/// let error = IdGenerationError::HostOutOfRange { host: 16, max: 15 };
+/// assert!(matches!(error, IdGenerationError::HostOutOfRange { host: 16, max: 15 }));
+/// ```
 #[non_exhaustive]
+#[must_use]
 #[derive(Debug, Error)]
 pub enum IdGenerationError {
     /// A Qubit snowflake host identifier is outside its bit range.

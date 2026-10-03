@@ -17,6 +17,30 @@ use crate::IdGenerationError;
 /// Implementations may wait for time to advance or for another retryable
 /// condition to clear. Use [`crate::TryIdGenerator`] when callers must retain
 /// control over retry scheduling.
+///
+/// # Type Parameters
+///
+/// * `Output` - Identifier value returned after successful generation.
+/// * `Error` - Failure value returned when generation cannot complete.
+///
+/// # Examples
+///
+/// ```
+/// use std::convert::Infallible;
+///
+/// use qubit_id::IdGenerator;
+///
+/// struct FixedGenerator;
+///
+/// impl IdGenerator<u64, Infallible> for FixedGenerator {
+///     fn generate(&self) -> Result<u64, Infallible> {
+///         Ok(42)
+///     }
+/// }
+///
+/// let generator = FixedGenerator;
+/// assert_eq!(generator.generate().unwrap(), 42);
+/// ```
 pub trait IdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
     /// Generates the next identifier.
     ///
@@ -43,7 +67,7 @@ where
     /// # Errors
     ///
     /// Returns any error produced by the wrapped generator.
-    #[inline(always)]
+    #[inline]
     fn generate(&self) -> Result<Output, Error> {
         self.as_ref().generate()
     }

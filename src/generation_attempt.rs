@@ -10,6 +10,19 @@
 use std::time::Duration;
 
 /// Result of an allocation attempt that never sleeps or awaits.
+///
+/// # Type Parameters
+///
+/// * `T` - Identifier value produced when allocation succeeds.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::GenerationAttempt;
+///
+/// let attempt = GenerationAttempt::Generated(41_u8).map(u16::from);
+/// assert_eq!(attempt, GenerationAttempt::Generated(41_u16));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use = "generation attempts must be handled"]
 pub enum GenerationAttempt<T> {
@@ -24,12 +37,33 @@ pub enum GenerationAttempt<T> {
 
 impl<T> GenerationAttempt<T> {
     /// Converts a generated value while preserving retry decisions.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Original generated value type.
+    /// * `U` - Value type produced by `f`.
+    ///
+    /// # Parameters
+    ///
+    /// * `f` - Conversion applied only to a generated value.
+    ///
+    /// # Returns
+    ///
+    /// The converted generated value, or the unchanged retry delay.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_id::GenerationAttempt;
+    ///
+    /// let attempt = GenerationAttempt::Generated(41_u8).map(u16::from);
+    /// assert_eq!(attempt, GenerationAttempt::Generated(41_u16));
+    /// ```
+    #[inline]
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> GenerationAttempt<U> {
-        type Output<U> = GenerationAttempt<U>;
-
         match self {
             Self::Generated(value) => GenerationAttempt::Generated(f(value)),
-            Self::RetryAfter { delay } => Output::<U>::RetryAfter { delay },
+            Self::RetryAfter { delay } => GenerationAttempt::<U>::RetryAfter { delay },
         }
     }
 }

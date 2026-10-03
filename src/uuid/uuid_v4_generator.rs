@@ -21,6 +21,15 @@ use crate::IdGenerator;
 /// UUIDs from an async runtime must choose the runtime-specific blocking
 /// boundary explicitly.
 ///
+/// # Examples
+///
+/// ```
+/// use qubit_id::UuidV4Generator;
+///
+/// let id = UuidV4Generator::new().generate().unwrap();
+/// assert_eq!(id.get_version_num(), 4);
+/// ```
+///
 /// ```compile_fail
 /// use qubit_id::{AsyncIdGenerator, UuidV4Generator};
 ///
@@ -38,7 +47,7 @@ impl UuidV4Generator {
     /// # Returns
     ///
     /// A stateless UUID v4 generator.
-    #[inline(always)]
+    #[inline]
     pub const fn new() -> Self {
         Self
     }
@@ -57,7 +66,6 @@ impl UuidV4Generator {
     ///
     /// Returns [`IdGenerationError::RandomSourceFailed`] when the
     /// operating-system random source cannot provide UUID bytes.
-    #[inline(always)]
     pub fn generate(&self) -> Result<uuid::Uuid, IdGenerationError> {
         generate_uuid_v4()
     }
@@ -74,7 +82,6 @@ impl IdGenerator<uuid::Uuid> for UuidV4Generator {
     ///
     /// Returns [`IdGenerationError::RandomSourceFailed`] when the
     /// operating-system random source cannot provide UUID bytes.
-    #[inline(always)]
     fn generate(&self) -> Result<uuid::Uuid, IdGenerationError> {
         UuidV4Generator::generate(self)
     }
