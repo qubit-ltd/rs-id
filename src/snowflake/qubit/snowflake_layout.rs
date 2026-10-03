@@ -148,7 +148,6 @@ impl SnowflakeLayout {
     /// # Returns
     ///
     /// ID ordering mode encoded by this layout.
-    #[must_use]
     #[inline]
     pub const fn mode(&self) -> IdMode {
         self.mode
@@ -159,7 +158,6 @@ impl SnowflakeLayout {
     /// # Returns
     ///
     /// Timestamp precision encoded by this layout.
-    #[must_use]
     #[inline]
     pub const fn precision(&self) -> TimestampPrecision {
         self.precision

@@ -72,7 +72,6 @@ impl SnowflakeParts {
     /// # Returns
     ///
     /// ID ordering mode.
-    #[must_use]
     #[inline]
     pub const fn mode(self) -> IdMode {
         self.mode
@@ -83,7 +82,6 @@ impl SnowflakeParts {
     /// # Returns
     ///
     /// Timestamp precision.
-    #[must_use]
     #[inline]
     pub const fn precision(self) -> TimestampPrecision {
         self.precision
