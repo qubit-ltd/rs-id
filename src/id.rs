@@ -99,7 +99,6 @@ impl From<Id> for u64 {
     /// # Returns
     ///
     /// The integer stored in `id`.
-    #[must_use]
     #[inline]
     fn from(id: Id) -> Self {
         id.value()

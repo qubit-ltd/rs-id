@@ -119,7 +119,6 @@ where
     ///
     /// The returned future resolves to any error produced by the wrapped
     /// generator.
-    #[must_use]
     #[inline]
     fn generate_async(&self) -> IdGenerationFuture<'_, Output, Error> {
         self.as_ref().generate_async()

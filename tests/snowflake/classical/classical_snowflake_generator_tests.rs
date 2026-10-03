@@ -20,8 +20,6 @@ use qubit_id::IdGenerationError;
 use qubit_id::IdGenerator;
 use qubit_id::RestartPolicy;
 use qubit_id::TryIdGenerator;
-use tokio::spawn;
-use tokio::test as tokio_test;
 
 use crate::support::ManualTime;
 
@@ -267,6 +265,8 @@ mod async_tests {
     use qubit_id::Id;
     use qubit_id::IdGenerationError;
     use qubit_id::RestartPolicy;
+    use tokio::spawn;
+    use tokio::test as tokio_test;
 
     use crate::support::ManualTime;
 
