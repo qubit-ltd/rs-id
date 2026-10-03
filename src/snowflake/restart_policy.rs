@@ -27,13 +27,16 @@
 /// # Examples
 ///
 /// ```
-/// use qubit_id::snowflake::RestartPolicy;
-/// use qubit_id::snowflake::qubit::SnowflakeGenerator;
+/// #[cfg(feature = "qubit-snowflake")]
+/// {
+///     use qubit_id::snowflake::qubit::SnowflakeGenerator;
+///     use qubit_id::snowflake::RestartPolicy;
 ///
-/// let generator = SnowflakeGenerator::builder(1)
-///     .restart_policy(RestartPolicy::WaitNextSlice)
-///     .build();
-/// assert!(generator.is_ok());
+///     let generator = SnowflakeGenerator::builder(1)
+///         .restart_policy(RestartPolicy::WaitNextSlice)
+///         .build();
+///     assert!(generator.is_ok());
+/// }
 /// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[non_exhaustive]
