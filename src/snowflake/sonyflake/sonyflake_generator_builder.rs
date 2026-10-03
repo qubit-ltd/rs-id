@@ -30,6 +30,15 @@ use super::sonyflake_layout::DEFAULT_TIME_UNIT_NANOS;
 use crate::IdGenerationError;
 
 /// Configures synchronous or asynchronous Sonyflake-style generators.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::SonyflakeGenerator;
+///
+/// let generator = SonyflakeGenerator::builder(7).bits_sequence(8).build();
+/// assert!(generator.is_ok());
+/// ```
 #[must_use = "builders do nothing unless built"]
 pub struct SonyflakeGeneratorBuilder {
     /// Machine identifier encoded in generated IDs.
@@ -87,7 +96,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn bits_sequence(mut self, bits_sequence: u8) -> Self {
         self.bits_sequence = bits_sequence;
         self
@@ -102,7 +111,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn bits_machine(mut self, bits_machine: u8) -> Self {
         self.bits_machine = bits_machine;
         self
@@ -117,7 +126,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn time_unit(mut self, time_unit: Duration) -> Self {
         self.time_unit = time_unit;
         self
@@ -132,7 +141,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
         self
@@ -147,7 +156,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn max_clock_skew(mut self, max_clock_skew: Duration) -> Self {
         self.max_clock_skew = max_clock_skew;
         self
@@ -162,7 +171,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
         self
@@ -177,7 +186,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
         self
@@ -199,7 +208,7 @@ impl SonyflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn timer(mut self, timer: Arc<dyn Timer>) -> Self {
         self.timer = timer;
         self

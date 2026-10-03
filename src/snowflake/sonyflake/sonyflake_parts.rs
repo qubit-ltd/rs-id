@@ -11,6 +11,17 @@
 ///
 /// Decoding only extracts fields according to the layout. It does not
 /// authenticate the value or prove that a generator produced it.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::{SonyflakeLayout, SonyflakeParts};
+///
+/// let layout = SonyflakeLayout::new(7, 0, 0, std::time::Duration::from_millis(10)).unwrap();
+/// let encoded = layout.compose_raw(0, 0).unwrap();
+/// let parts: SonyflakeParts = layout.decode_raw(encoded);
+/// assert_eq!(parts.machine_id(), 7);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
 pub struct SonyflakeParts {
@@ -49,7 +60,7 @@ impl SonyflakeParts {
     ///
     /// Time units elapsed since the generator epoch.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn elapsed_time(self) -> u64 {
         self.elapsed_time
     }
@@ -60,7 +71,7 @@ impl SonyflakeParts {
     ///
     /// Sequence number encoded in the ID.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn sequence(self) -> u64 {
         self.sequence
     }
@@ -71,7 +82,7 @@ impl SonyflakeParts {
     ///
     /// Machine identifier encoded in the ID.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn machine_id(self) -> u64 {
         self.machine_id
     }

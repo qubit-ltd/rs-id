@@ -30,6 +30,20 @@ const MAX_NODE_ID: u64 = (1_u64 << NODE_BITS) - 1;
 /// The layout owns the node identifier used by [`Self::compose`]. Composing
 /// and decoding are stateless bit operations and provide no uniqueness
 /// guarantee.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::ClassicalSnowflakeLayout;
+///
+/// let layout = ClassicalSnowflakeLayout::new(42)?;
+/// let id = layout.compose(1_000, 7)?;
+/// let parts = ClassicalSnowflakeLayout::decode(id);
+/// assert_eq!(parts.node_id(), 42);
+/// assert_eq!(parts.timestamp(), 1_000);
+/// assert_eq!(parts.sequence(), 7);
+/// # Ok::<(), qubit_id::IdGenerationError>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
 pub struct ClassicalSnowflakeLayout {
@@ -69,7 +83,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Node identifier encoded by composed IDs.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn node_id(&self) -> u64 {
         self.node_id
     }
@@ -80,7 +94,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Maximum milliseconds elapsed since the generator epoch.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn max_timestamp(&self) -> u64 {
         (1_u64 << TIMESTAMP_BITS) - 1
     }
@@ -91,7 +105,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Maximum sequence number inside one millisecond.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn max_sequence(&self) -> u64 {
         (1_u64 << SEQUENCE_BITS) - 1
     }
@@ -113,7 +127,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::ExpirationTimeOverflow`] when the boundary
     /// cannot be represented by [`SystemTime`].
-    #[inline(always)]
+    #[inline]
     pub fn expires_at(&self, epoch: SystemTime) -> Result<SystemTime, IdGenerationError> {
         expiration_time(epoch, Duration::from_millis(1), self.max_timestamp())
     }
@@ -191,7 +205,7 @@ impl ClassicalSnowflakeLayout {
     /// # Errors
     ///
     /// Returns the same overflow errors as [`Self::compose_raw`].
-    #[inline(always)]
+    #[inline]
     pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(timestamp, sequence).map(Id::from)
     }
@@ -203,7 +217,7 @@ impl SnowflakeLayoutSpec for ClassicalSnowflakeLayout {
     /// # Returns
     ///
     /// A duration of one millisecond.
-    #[inline(always)]
+    #[inline]
     fn time_unit(&self) -> Duration {
         Duration::from_millis(1)
     }
@@ -213,7 +227,7 @@ impl SnowflakeLayoutSpec for ClassicalSnowflakeLayout {
     /// # Returns
     ///
     /// The maximum encoded millisecond timestamp.
-    #[inline(always)]
+    #[inline]
     fn max_timestamp(&self) -> u64 {
         ClassicalSnowflakeLayout::max_timestamp(self)
     }
@@ -223,7 +237,7 @@ impl SnowflakeLayoutSpec for ClassicalSnowflakeLayout {
     /// # Returns
     ///
     /// The maximum sequence within one millisecond.
-    #[inline(always)]
+    #[inline]
     fn max_sequence(&self) -> u64 {
         ClassicalSnowflakeLayout::max_sequence(self)
     }
@@ -243,7 +257,7 @@ impl SnowflakeLayoutSpec for ClassicalSnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a value exceeds its field.
-    #[inline(always)]
+    #[inline]
     fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         ClassicalSnowflakeLayout::compose_raw(self, timestamp, sequence)
     }

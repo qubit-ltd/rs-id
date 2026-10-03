@@ -11,6 +11,20 @@
 ///
 /// Decoding only extracts fields according to the fixed bit layout. It does
 /// not authenticate the value or prove that a generator produced it.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::ClassicalSnowflakeLayout;
+///
+/// let layout = ClassicalSnowflakeLayout::new(42)?;
+/// let id = layout.compose_raw(1_000, 7)?;
+/// let parts = ClassicalSnowflakeLayout::decode_raw(id);
+/// assert_eq!(parts.timestamp(), 1_000);
+/// assert_eq!(parts.node_id(), 42);
+/// assert_eq!(parts.sequence(), 7);
+/// # Ok::<(), qubit_id::IdGenerationError>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
 pub struct ClassicalSnowflakeParts {
@@ -49,7 +63,7 @@ impl ClassicalSnowflakeParts {
     ///
     /// Milliseconds elapsed since the generator epoch.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn timestamp(self) -> u64 {
         self.timestamp
     }
@@ -60,7 +74,7 @@ impl ClassicalSnowflakeParts {
     ///
     /// Node identifier encoded in the ID.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn node_id(self) -> u64 {
         self.node_id
     }
@@ -71,7 +85,7 @@ impl ClassicalSnowflakeParts {
     ///
     /// Sequence number encoded in the ID.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn sequence(self) -> u64 {
         self.sequence
     }

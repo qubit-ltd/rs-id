@@ -20,7 +20,6 @@ use qubit_clock::WallClock;
 ///
 /// A shared wall-clock trait object backed by [`std::time::SystemTime`].
 #[must_use]
-#[inline(always)]
 pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
     Arc::new(StdWallClock::new())
 }
@@ -31,7 +30,6 @@ pub(crate) fn default_wall_clock() -> Arc<dyn WallClock> {
 ///
 /// A shared timer trait object backed by standard monotonic time.
 #[must_use]
-#[inline(always)]
 pub(crate) fn default_timer() -> Arc<dyn Timer> {
     Arc::new(StdTimer::new())
 }

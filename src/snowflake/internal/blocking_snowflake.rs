@@ -18,6 +18,10 @@ use super::SnowflakeLayoutSpec;
 use crate::IdGenerationError;
 
 /// Adapts a non-waiting Snowflake core to synchronous generation.
+///
+/// # Type Parameters
+///
+/// * `L` - Layout that defines the encoding used by the shared allocation core.
 #[derive(Clone)]
 pub(crate) struct BlockingSnowflake<L> {
     /// Shared allocation and layout logic.
@@ -40,7 +44,6 @@ where
     /// # Returns
     ///
     /// A synchronous Snowflake driver.
-    #[inline]
     pub(crate) fn new(core: SnowflakeCore<L>, timer: Arc<dyn Timer>) -> Self {
         Self {
             core: Arc::new(core),
@@ -78,11 +81,29 @@ where
     }
 
     /// Performs one non-blocking allocation attempt.
+    ///
+    /// # Returns
+    ///
+    /// The allocation outcome, either a generated identifier or a retry delay.
+    ///
+    /// # Errors
+    ///
+    /// Returns an allocation error reported by the shared Snowflake core.
     pub(crate) fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdGenerationError> {
         self.core.try_generate()
     }
 
     /// Generates an ID asynchronously, yielding across retryable outcomes.
+    ///
+    /// # Returns
+    ///
+    /// The next generated numeric identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns an allocation error from the shared core or
+    /// [`IdGenerationError::WaitFailed`] when the timer cannot register or
+    /// complete a retry wait.
     pub(crate) async fn generate_async(&self) -> Result<u64, IdGenerationError> {
         loop {
             match self.try_generate()? {
@@ -105,7 +126,7 @@ where
     ///
     /// The allocation core adapted by this blocking driver.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn core(&self) -> &SnowflakeCore<L> {
         self.core.as_ref()
     }

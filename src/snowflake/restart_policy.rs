@@ -23,6 +23,18 @@
 /// allocation watermark, so clock rollback across a restart can still repeat
 /// IDs. It also does not coordinate concurrently running instances with the
 /// same identity; external exclusivity is still required.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::snowflake::RestartPolicy;
+/// use qubit_id::snowflake::qubit::SnowflakeGenerator;
+///
+/// let generator = SnowflakeGenerator::builder(1)
+///     .restart_policy(RestartPolicy::WaitNextSlice)
+///     .build();
+/// assert!(generator.is_ok());
+/// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[non_exhaustive]
 #[must_use]

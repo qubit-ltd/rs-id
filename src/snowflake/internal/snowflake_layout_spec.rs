@@ -12,12 +12,16 @@ use std::time::Duration;
 use crate::IdGenerationError;
 
 /// Supplies the time and bit operations required by the shared allocator.
+///
+/// Implementations must be safe to share across threads because generators
+/// share their layouts while synchronizing allocation state.
 pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
-    /// Returns the duration represented by one encoded timestamp unit.
+    /// Returns the non-zero duration represented by one encoded timestamp unit.
     ///
     /// # Returns
     ///
     /// The duration of one encoded timestamp unit.
+    #[must_use]
     fn time_unit(&self) -> Duration;
 
     /// Returns the greatest encoded timestamp accepted by the layout.
@@ -25,6 +29,7 @@ pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
     /// # Returns
     ///
     /// The maximum encoded timestamp.
+    #[must_use]
     fn max_timestamp(&self) -> u64;
 
     /// Returns the greatest sequence accepted within one timestamp unit.
@@ -32,6 +37,7 @@ pub(crate) trait SnowflakeLayoutSpec: Send + Sync {
     /// # Returns
     ///
     /// The maximum sequence within one timestamp unit.
+    #[must_use]
     fn max_sequence(&self) -> u64;
 
     /// Composes an identifier from an encoded timestamp and sequence.

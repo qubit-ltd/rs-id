@@ -30,6 +30,17 @@ const MIN_TIME_UNIT_NANOS: u128 = 1_000_000;
 /// The layout owns the machine identifier used by [`Self::compose`].
 /// Composing and decoding are stateless bit operations and provide no
 /// uniqueness guarantee.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::SonyflakeLayout;
+///
+/// let layout = SonyflakeLayout::new(7, 0, 0, std::time::Duration::from_millis(10)).unwrap();
+/// let encoded = layout.compose_raw(0, 0).unwrap();
+/// assert_eq!(encoded, 7);
+/// assert_eq!(layout.decode_raw(encoded).machine_id(), 7);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
 pub struct SonyflakeLayout {
@@ -117,7 +128,7 @@ impl SonyflakeLayout {
     ///
     /// Elapsed-time field width.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn bits_time(&self) -> u8 {
         self.bits_time
     }
@@ -128,7 +139,7 @@ impl SonyflakeLayout {
     ///
     /// Sequence field width.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn bits_sequence(&self) -> u8 {
         self.bits_sequence
     }
@@ -139,7 +150,7 @@ impl SonyflakeLayout {
     ///
     /// Machine field width.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn bits_machine(&self) -> u8 {
         self.bits_machine
     }
@@ -150,7 +161,7 @@ impl SonyflakeLayout {
     ///
     /// Duration represented by one elapsed-time unit.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn time_unit(&self) -> Duration {
         self.time_unit
     }
@@ -161,7 +172,7 @@ impl SonyflakeLayout {
     ///
     /// Machine identifier encoded by composed IDs.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn machine_id(&self) -> u64 {
         self.machine_id
     }
@@ -172,7 +183,7 @@ impl SonyflakeLayout {
     ///
     /// Maximum number of elapsed time units.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn max_elapsed_time(&self) -> u64 {
         (1_u64 << self.bits_time) - 1
     }
@@ -183,7 +194,7 @@ impl SonyflakeLayout {
     ///
     /// Maximum sequence number inside one time unit.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn max_sequence(&self) -> u64 {
         (1_u64 << self.bits_sequence) - 1
     }
@@ -194,7 +205,7 @@ impl SonyflakeLayout {
     ///
     /// Maximum machine identifier.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn max_machine_id(&self) -> u64 {
         (1_u64 << self.bits_machine) - 1
     }
@@ -216,7 +227,7 @@ impl SonyflakeLayout {
     ///
     /// Returns [`IdGenerationError::ExpirationTimeOverflow`] when the boundary
     /// cannot be represented by [`SystemTime`].
-    #[inline(always)]
+    #[inline]
     pub fn expires_at(&self, epoch: SystemTime) -> Result<SystemTime, IdGenerationError> {
         expiration_time(epoch, self.time_unit, self.max_elapsed_time())
     }
@@ -297,7 +308,7 @@ impl SonyflakeLayout {
     /// # Errors
     ///
     /// Returns the same overflow errors as [`Self::compose_raw`].
-    #[inline(always)]
+    #[inline]
     pub fn compose(&self, elapsed_time: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(elapsed_time, sequence).map(Id::from)
     }
@@ -338,7 +349,7 @@ impl SnowflakeLayoutSpec for SonyflakeLayout {
     /// # Returns
     ///
     /// The duration of one encoded elapsed-time unit.
-    #[inline(always)]
+    #[inline]
     fn time_unit(&self) -> Duration {
         SonyflakeLayout::time_unit(self)
     }
@@ -348,7 +359,7 @@ impl SnowflakeLayoutSpec for SonyflakeLayout {
     /// # Returns
     ///
     /// The maximum encoded elapsed-time value.
-    #[inline(always)]
+    #[inline]
     fn max_timestamp(&self) -> u64 {
         self.max_elapsed_time()
     }
@@ -358,7 +369,7 @@ impl SnowflakeLayoutSpec for SonyflakeLayout {
     /// # Returns
     ///
     /// The maximum sequence within one elapsed-time unit.
-    #[inline(always)]
+    #[inline]
     fn max_sequence(&self) -> u64 {
         SonyflakeLayout::max_sequence(self)
     }
@@ -378,7 +389,7 @@ impl SnowflakeLayoutSpec for SonyflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a value exceeds its field.
-    #[inline(always)]
+    #[inline]
     fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         SonyflakeLayout::compose_raw(self, timestamp, sequence)
     }

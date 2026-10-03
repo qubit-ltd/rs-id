@@ -37,6 +37,15 @@ pub(super) const DEFAULT_EPOCH_MILLIS: u64 = 1_735_689_600_000;
 /// backwards clock movement within [`Self::max_clock_skew`] is retried after
 /// waiting; a larger movement returns
 /// [`IdGenerationError::ClockMovedBackwards`].
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::SonyflakeGenerator;
+///
+/// let generator = SonyflakeGenerator::new(7).unwrap();
+/// assert!(generator.generate().is_ok());
+/// ```
 #[derive(Clone)]
 #[must_use]
 pub struct SonyflakeGenerator {
@@ -65,7 +74,6 @@ impl SonyflakeGenerator {
     /// later than the current wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when that clock has reached the
     /// boundary.
-    #[inline(always)]
     pub fn new(machine_id: u64) -> Result<Self, IdGenerationError> {
         Self::builder(machine_id).build()
     }
@@ -79,7 +87,7 @@ impl SonyflakeGenerator {
     /// # Returns
     ///
     /// A configurable Sonyflake generator builder.
-    #[inline(always)]
+    #[inline]
     pub fn builder(machine_id: u64) -> SonyflakeGeneratorBuilder {
         SonyflakeGeneratorBuilder::new(machine_id)
     }
@@ -116,7 +124,7 @@ impl SonyflakeGenerator {
     /// generator.layout();
     /// ```
     #[must_use = "use the returned layout reference"]
-    #[inline(always)]
+    #[inline]
     pub fn layout(&self) -> &SonyflakeLayout {
         self.inner.core().layout()
     }
@@ -127,7 +135,7 @@ impl SonyflakeGenerator {
     ///
     /// The wall time represented by elapsed time zero.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn epoch(&self) -> SystemTime {
         self.inner.core().epoch()
     }
@@ -138,7 +146,7 @@ impl SonyflakeGenerator {
     ///
     /// The first wall time that cannot be represented by this generator.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
@@ -149,7 +157,7 @@ impl SonyflakeGenerator {
     ///
     /// Maximum tolerated raw wall-clock rollback.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn max_clock_skew(&self) -> Duration {
         self.inner.core().max_clock_skew()
     }
@@ -168,7 +176,6 @@ impl SonyflakeGenerator {
     ///
     /// Returns the same errors as the [`IdGenerator::generate`]
     /// implementation.
-    #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate().map(Id::from)
     }
@@ -222,7 +229,6 @@ impl SonyflakeGenerator {
     /// has reached the exclusive expiration boundary, or
     /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
     /// the layout.
-    #[inline(always)]
     pub fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<Id, IdGenerationError> {
         self.inner.core().compose_at(time, sequence).map(Id::from)
     }
@@ -243,7 +249,6 @@ impl IdGenerator for SonyflakeGenerator {
     /// a wall-clock rollback exceeds the configured tolerance, or
     /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
     /// registered or completed.
-    #[inline(always)]
     fn generate(&self) -> Result<Id, IdGenerationError> {
         SonyflakeGenerator::generate(self)
     }
