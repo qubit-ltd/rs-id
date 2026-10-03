@@ -35,6 +35,15 @@ use crate::IdGenerationError;
 /// options use Qubit defaults: sequential mode, second precision, epoch
 /// `2018-12-02T00:00:00Z`, the default clock-skew tolerance,
 /// [`RestartPolicy::Immediate`], and standard clock and timer capabilities.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::snowflake::qubit::SnowflakeGenerator;
+///
+/// let generator = SnowflakeGenerator::builder(1).build();
+/// assert!(generator.is_ok());
+/// ```
 #[must_use = "builders do nothing unless built"]
 pub struct SnowflakeGeneratorBuilder {
     /// ID ordering mode encoded in generated IDs.
@@ -90,7 +99,7 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn mode(mut self, mode: IdMode) -> Self {
         self.mode = mode;
         self
@@ -105,7 +114,7 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn precision(mut self, precision: TimestampPrecision) -> Self {
         self.precision = precision;
         self
@@ -120,7 +129,7 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
         self
@@ -135,7 +144,7 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn max_clock_skew(mut self, max_clock_skew: Duration) -> Self {
         self.max_clock_skew = max_clock_skew;
         self
@@ -150,7 +159,7 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
         self
@@ -165,7 +174,7 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
         self
@@ -187,7 +196,7 @@ impl SnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn timer(mut self, timer: Arc<dyn Timer>) -> Self {
         self.timer = timer;
         self

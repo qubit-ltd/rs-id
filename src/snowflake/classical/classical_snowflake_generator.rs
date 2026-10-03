@@ -35,6 +35,17 @@ use crate::TryIdGenerator;
 /// backwards clock movement within [`Self::max_clock_skew`] is retried after
 /// waiting; a larger movement returns
 /// [`IdGenerationError::ClockMovedBackwards`].
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::ClassicalSnowflakeGenerator;
+///
+/// let generator = ClassicalSnowflakeGenerator::builder(7)
+///     .build()
+///     .expect("valid node configuration");
+/// assert!(generator.expires_at() > generator.epoch());
+/// ```
 #[derive(Clone)]
 #[must_use]
 pub struct ClassicalSnowflakeGenerator {
@@ -63,7 +74,6 @@ impl ClassicalSnowflakeGenerator {
     /// the current wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the current wall time
     /// has reached that boundary.
-    #[inline(always)]
     pub fn new(node_id: u64) -> Result<Self, IdGenerationError> {
         Self::builder(node_id).build()
     }
@@ -77,7 +87,7 @@ impl ClassicalSnowflakeGenerator {
     /// # Returns
     ///
     /// A classic Snowflake generator builder.
-    #[inline(always)]
+    #[inline]
     pub fn builder(node_id: u64) -> ClassicalSnowflakeGeneratorBuilder {
         ClassicalSnowflakeGeneratorBuilder::new(node_id)
     }
@@ -114,7 +124,7 @@ impl ClassicalSnowflakeGenerator {
     /// generator.layout();
     /// ```
     #[must_use = "use the returned layout reference"]
-    #[inline(always)]
+    #[inline]
     pub fn layout(&self) -> &ClassicalSnowflakeLayout {
         self.inner.core().layout()
     }
@@ -125,7 +135,7 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// The timestamp origin represented by timestamp zero.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn epoch(&self) -> SystemTime {
         self.inner.core().epoch()
     }
@@ -136,7 +146,7 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// The first wall time that cannot be represented by this generator.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn expires_at(&self) -> SystemTime {
         self.inner.core().expires_at()
     }
@@ -147,7 +157,7 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// Maximum tolerated raw wall-clock rollback.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn max_clock_skew(&self) -> Duration {
         self.inner.core().max_clock_skew()
     }
@@ -166,7 +176,6 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// Returns the same errors as the [`IdGenerator::generate`]
     /// implementation.
-    #[inline(always)]
     pub fn generate(&self) -> Result<Id, IdGenerationError> {
         self.inner.generate().map(Id::from)
     }
@@ -182,7 +191,6 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// Returns the non-retryable allocation errors described by
     /// [`IdGenerator::generate`].
-    #[inline]
     pub fn try_generate(&self) -> Result<GenerationAttempt<Id>, IdGenerationError> {
         self.inner.try_generate().map(|attempt| attempt.map(Id::from))
     }
@@ -220,7 +228,6 @@ impl ClassicalSnowflakeGenerator {
     /// has reached the exclusive expiration boundary, or
     /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
     /// the layout.
-    #[inline(always)]
     pub fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<Id, IdGenerationError> {
         self.inner.core().compose_at(time, sequence).map(Id::from)
     }
@@ -241,7 +248,6 @@ impl IdGenerator for ClassicalSnowflakeGenerator {
     /// wall-clock rollback exceeds the configured tolerance, or
     /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
     /// registered or completed.
-    #[inline(always)]
     fn generate(&self) -> Result<Id, IdGenerationError> {
         ClassicalSnowflakeGenerator::generate(self)
     }
@@ -249,7 +255,15 @@ impl IdGenerator for ClassicalSnowflakeGenerator {
 
 impl TryIdGenerator for ClassicalSnowflakeGenerator {
     /// Attempts one non-blocking classic Snowflake allocation.
-    #[inline]
+    ///
+    /// # Returns
+    ///
+    /// A generated ID, a retry delay, or a non-retryable allocation error.
+    ///
+    /// # Errors
+    ///
+    /// Returns the non-retryable allocation errors described by
+    /// [`IdGenerator::generate`].
     fn try_generate(&self) -> Result<GenerationAttempt<Id>, IdGenerationError> {
         ClassicalSnowflakeGenerator::try_generate(self)
     }
@@ -257,7 +271,15 @@ impl TryIdGenerator for ClassicalSnowflakeGenerator {
 
 impl AsyncIdGenerator for ClassicalSnowflakeGenerator {
     /// Generates a classic Snowflake ID asynchronously.
-    #[inline]
+    ///
+    /// # Returns
+    ///
+    /// A boxed, cancellation-safe future for the next ID.
+    ///
+    /// # Errors
+    ///
+    /// The future resolves to the same errors as
+    /// [`IdGenerator::generate`].
     fn generate_async(&self) -> IdGenerationFuture<'_, Id, IdGenerationError> {
         Box::pin(ClassicalSnowflakeGenerator::generate_async(self))
     }

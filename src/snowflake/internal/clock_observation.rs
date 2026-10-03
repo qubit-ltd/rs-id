@@ -31,7 +31,8 @@ impl ClockObservation {
     ///
     /// * `time` - Wall time reported by the generator clock.
     /// * `epoch` - Reference time for the encoded timestamp.
-    /// * `time_unit` - Duration represented by one encoded timestamp unit.
+    /// * `time_unit` - Non-zero duration represented by one encoded timestamp
+    ///   unit.
     /// * `max_timestamp` - Largest timestamp supported by the layout.
     ///
     /// # Returns
@@ -43,6 +44,11 @@ impl ClockObservation {
     ///
     /// Returns [`IdGenerationError::TimeBeforeEpoch`] when `time` precedes
     /// `epoch`.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `time_unit` is zero because timestamp quantization requires
+    /// division by the unit duration.
     pub(crate) fn from_time(
         time: SystemTime,
         epoch: SystemTime,

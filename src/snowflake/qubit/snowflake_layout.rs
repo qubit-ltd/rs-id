@@ -48,6 +48,17 @@ use crate::IdGenerationError;
 /// Decoding an arbitrary `u64` only extracts fields according to the layout.
 /// It does not prove that the value was produced by this generator and is not
 /// an authenticity or format-validation operation.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::snowflake::qubit::{IdMode, SnowflakeLayout, TimestampPrecision};
+///
+/// let layout = SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 1).unwrap();
+/// let encoded = layout.compose_raw(0, 0).unwrap();
+/// let decoded = SnowflakeLayout::decode_raw(encoded);
+/// assert_eq!(decoded.host(), 1);
+/// ```
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[must_use]
 pub struct SnowflakeLayout {
@@ -137,7 +148,8 @@ impl SnowflakeLayout {
     /// # Returns
     ///
     /// ID ordering mode encoded by this layout.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     pub const fn mode(&self) -> IdMode {
         self.mode
     }
@@ -147,7 +159,8 @@ impl SnowflakeLayout {
     /// # Returns
     ///
     /// Timestamp precision encoded by this layout.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     pub const fn precision(&self) -> TimestampPrecision {
         self.precision
     }
@@ -158,7 +171,7 @@ impl SnowflakeLayout {
     ///
     /// Host identifier encoded by this layout.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn host(&self) -> u64 {
         self.host
     }
@@ -169,7 +182,7 @@ impl SnowflakeLayout {
     ///
     /// Maximum timestamp accepted by [`Self::compose`].
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn max_timestamp(&self) -> u64 {
         self.max_timestamp
     }
@@ -180,7 +193,7 @@ impl SnowflakeLayout {
     ///
     /// Maximum sequence accepted by [`Self::compose`].
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn max_sequence(&self) -> u64 {
         self.max_sequence
     }
@@ -202,7 +215,7 @@ impl SnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::ExpirationTimeOverflow`] when the boundary
     /// cannot be represented by [`SystemTime`].
-    #[inline(always)]
+    #[inline]
     pub fn expires_at(&self, epoch: SystemTime) -> Result<SystemTime, IdGenerationError> {
         expiration_time(
             epoch,
@@ -292,7 +305,7 @@ impl SnowflakeLayout {
     /// # Errors
     ///
     /// Returns the same overflow errors as [`Self::compose_raw`].
-    #[inline(always)]
+    #[inline]
     pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(timestamp, sequence).map(Id::from)
     }
@@ -324,7 +337,7 @@ impl Default for SnowflakeLayout {
     /// # Returns
     ///
     /// Sequential, second-precision layout for host zero.
-    #[inline(always)]
+    #[inline]
     fn default() -> Self {
         Self::new_unchecked(IdMode::Sequential, TimestampPrecision::Second, 0)
     }
@@ -336,7 +349,7 @@ impl SnowflakeLayoutSpec for SnowflakeLayout {
     /// # Returns
     ///
     /// The duration selected by this layout's timestamp precision.
-    #[inline(always)]
+    #[inline]
     fn time_unit(&self) -> Duration {
         Duration::from_millis(self.precision.divisor_millis())
     }
@@ -346,7 +359,7 @@ impl SnowflakeLayoutSpec for SnowflakeLayout {
     /// # Returns
     ///
     /// The maximum encoded timestamp.
-    #[inline(always)]
+    #[inline]
     fn max_timestamp(&self) -> u64 {
         SnowflakeLayout::max_timestamp(self)
     }
@@ -356,7 +369,7 @@ impl SnowflakeLayoutSpec for SnowflakeLayout {
     /// # Returns
     ///
     /// The maximum sequence within one timestamp unit.
-    #[inline(always)]
+    #[inline]
     fn max_sequence(&self) -> u64 {
         SnowflakeLayout::max_sequence(self)
     }
@@ -376,7 +389,7 @@ impl SnowflakeLayoutSpec for SnowflakeLayout {
     ///
     /// Returns [`IdGenerationError::TimestampOverflow`] or
     /// [`IdGenerationError::SequenceOverflow`] when a value exceeds its field.
-    #[inline(always)]
+    #[inline]
     fn compose(&self, timestamp: u64, sequence: u64) -> Result<u64, IdGenerationError> {
         SnowflakeLayout::compose_raw(self, timestamp, sequence)
     }

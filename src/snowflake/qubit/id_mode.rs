@@ -63,7 +63,7 @@ impl IdMode {
     ///
     /// `0` for [`IdMode::Sequential`] and `1` for [`IdMode::Spread`].
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn ordinal(self) -> u64 {
         match self {
             Self::Sequential => 0,

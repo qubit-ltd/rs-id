@@ -22,6 +22,21 @@ use crate::IdGenerationError;
 use crate::RestartPolicy;
 
 /// Owns the shared Snowflake layout, clock, and synchronized allocation state.
+///
+/// # Type Parameters
+///
+/// * `L` - Layout that defines the timestamp unit, representable bounds, and ID
+///   composition.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::ClassicalSnowflakeGenerator;
+///
+/// let generator = ClassicalSnowflakeGenerator::builder(42).build()?;
+/// let _id = generator.generate()?;
+/// # Ok::<(), qubit_id::IdGenerationError>(())
+/// ```
 pub(crate) struct SnowflakeCore<L> {
     /// Bit layout used to compose generated IDs.
     layout: L,
@@ -89,7 +104,9 @@ where
     /// Returns [`IdGenerationError::TimeBeforeEpoch`] when the clock precedes
     /// the epoch, [`IdGenerationError::GeneratorExpired`] at the lifetime
     /// boundary, or [`IdGenerationError::ClockMovedBackwards`] when
-    /// rollback exceeds the configured tolerance.
+    /// rollback exceeds the configured tolerance. Also returns layout
+    /// composition errors if the allocated timestamp or sequence cannot be
+    /// represented by the configured layout.
     pub(crate) fn try_generate(&self) -> Result<GenerationAttempt<u64>, IdGenerationError> {
         let mut state = self.state.lock();
         let observed_at = self.wall_clock.now();
@@ -124,7 +141,6 @@ where
     /// has reached the exclusive expiration boundary, or
     /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
     /// the layout.
-    #[inline(always)]
     pub(crate) fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<u64, IdGenerationError> {
         self.ensure_active(time)?;
         let observation = self.observation_for(time)?;
@@ -137,7 +153,7 @@ where
     ///
     /// The layout used to compose generated IDs.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub(crate) const fn layout(&self) -> &L {
         &self.layout
     }
@@ -147,7 +163,8 @@ where
     /// # Returns
     ///
     /// The timestamp origin represented by timestamp zero.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     pub(crate) const fn epoch(&self) -> SystemTime {
         self.epoch
     }
@@ -157,7 +174,8 @@ where
     /// # Returns
     ///
     /// The first wall time that cannot be represented by this core.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     pub(crate) const fn expires_at(&self) -> SystemTime {
         self.expires_at
     }
@@ -167,7 +185,8 @@ where
     /// # Returns
     ///
     /// The largest rollback duration accepted by the allocation state.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     pub(crate) const fn max_clock_skew(&self) -> Duration {
         self.max_clock_skew
     }

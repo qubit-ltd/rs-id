@@ -11,6 +11,16 @@ use super::IdMode;
 use super::TimestampPrecision;
 
 /// Fields decoded from a Qubit snowflake ID.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::snowflake::qubit::{SnowflakeLayout, SnowflakeParts};
+///
+/// let encoded = SnowflakeLayout::default().compose_raw(0, 0).unwrap();
+/// let parts: SnowflakeParts = SnowflakeLayout::decode_raw(encoded);
+/// assert_eq!(parts.host(), 0);
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[must_use]
 pub struct SnowflakeParts {
@@ -62,7 +72,8 @@ impl SnowflakeParts {
     /// # Returns
     ///
     /// ID ordering mode.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     pub const fn mode(self) -> IdMode {
         self.mode
     }
@@ -72,7 +83,8 @@ impl SnowflakeParts {
     /// # Returns
     ///
     /// Timestamp precision.
-    #[inline(always)]
+    #[must_use]
+    #[inline]
     pub const fn precision(self) -> TimestampPrecision {
         self.precision
     }
@@ -83,7 +95,7 @@ impl SnowflakeParts {
     ///
     /// Timestamp since the generator epoch.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn timestamp(self) -> u64 {
         self.timestamp
     }
@@ -94,7 +106,7 @@ impl SnowflakeParts {
     ///
     /// Host identifier.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn host(self) -> u64 {
         self.host
     }
@@ -105,7 +117,7 @@ impl SnowflakeParts {
     ///
     /// Sequence number.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn sequence(self) -> u64 {
         self.sequence
     }

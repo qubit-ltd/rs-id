@@ -27,6 +27,18 @@ use super::ClassicalSnowflakeLayout;
 use crate::IdGenerationError;
 
 /// Configures synchronous or asynchronous classic Snowflake generators.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::ClassicalSnowflakeGenerator;
+///
+/// let generator = ClassicalSnowflakeGenerator::builder(7)
+///     .max_clock_skew(std::time::Duration::from_millis(5))
+///     .build()
+///     .expect("valid node configuration");
+/// assert_eq!(generator.max_clock_skew(), std::time::Duration::from_millis(5));
+/// ```
 #[must_use = "builders do nothing unless built"]
 pub struct ClassicalSnowflakeGeneratorBuilder {
     /// Node identifier encoded in generated IDs.
@@ -54,7 +66,6 @@ impl ClassicalSnowflakeGeneratorBuilder {
     ///
     /// A builder initialized with the default epoch, zero clock-skew
     /// tolerance, clocks, and immediate restart policy.
-    #[inline]
     pub(crate) fn new(node_id: u64) -> Self {
         Self {
             node_id,
@@ -75,7 +86,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn epoch(mut self, epoch: SystemTime) -> Self {
         self.epoch = epoch;
         self
@@ -90,7 +101,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn max_clock_skew(mut self, max_clock_skew: Duration) -> Self {
         self.max_clock_skew = max_clock_skew;
         self
@@ -105,7 +116,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn restart_policy(mut self, restart_policy: RestartPolicy) -> Self {
         self.restart_policy = restart_policy;
         self
@@ -120,7 +131,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn wall_clock(mut self, wall_clock: Arc<dyn WallClock>) -> Self {
         self.wall_clock = wall_clock;
         self
@@ -142,7 +153,7 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn timer(mut self, timer: Arc<dyn Timer>) -> Self {
         self.timer = timer;
         self
@@ -162,7 +173,6 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// epoch is later than the wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
     /// has reached the expiration boundary.
-    #[inline]
     pub fn build(self) -> Result<ClassicalSnowflakeGenerator, IdGenerationError> {
         let (core, timer) = self.into_core()?;
         Ok(ClassicalSnowflakeGenerator::from_core(core, timer))

@@ -67,6 +67,11 @@ impl GenerationState {
     ///
     /// Returns [`IdGenerationError::ClockMovedBackwards`] when raw rollback
     /// exceeds the configured tolerance.
+    ///
+    /// # Panics
+    ///
+    /// Panics in debug builds if the observed timestamp is behind the current
+    /// logical time slice, violating the clock-observation invariant.
     pub(crate) fn reserve(
         &mut self,
         observation: ClockObservation,

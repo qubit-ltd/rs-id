@@ -13,6 +13,16 @@ use super::constants::TIMESTAMP_BITS_IN_MILLISECOND;
 use super::constants::TIMESTAMP_BITS_IN_SECOND;
 
 /// Timestamp precision encoded in a Qubit snowflake ID.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_id::snowflake::qubit::TimestampPrecision;
+///
+/// let precision = TimestampPrecision::Millisecond;
+/// assert_eq!(precision.timestamp_bits(), 41);
+/// assert_eq!(precision.sequence_bits(), 12);
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[must_use]
 pub enum TimestampPrecision {
@@ -45,7 +55,7 @@ impl TimestampPrecision {
     ///
     /// `0` for millisecond precision and `1` for second precision.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn ordinal(self) -> u64 {
         match self {
             Self::Millisecond => 0,
@@ -59,7 +69,7 @@ impl TimestampPrecision {
     ///
     /// Timestamp bit length.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn timestamp_bits(self) -> u8 {
         match self {
             Self::Millisecond => TIMESTAMP_BITS_IN_MILLISECOND,
@@ -73,7 +83,7 @@ impl TimestampPrecision {
     ///
     /// Sequence bit length.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn sequence_bits(self) -> u8 {
         match self {
             Self::Millisecond => SEQUENCE_BITS_IN_MILLISECOND,
@@ -87,7 +97,7 @@ impl TimestampPrecision {
     ///
     /// `1` for millisecond precision and `1000` for second precision.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn divisor_millis(self) -> u64 {
         match self {
             Self::Millisecond => 1,
