@@ -26,7 +26,7 @@ use qubit_id::IdGenerationError;
 /// # Returns
 ///
 /// The error's display representation.
-#[inline(always)]
+#[inline]
 fn assert_error_trait(error: &dyn Error) -> String {
     error.to_string()
 }

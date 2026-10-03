@@ -20,6 +20,8 @@ use qubit_id::IdGenerationError;
 use qubit_id::IdGenerator;
 use qubit_id::RestartPolicy;
 use qubit_id::TryIdGenerator;
+use tokio::spawn;
+use tokio::test as tokio_test;
 
 use crate::support::ManualTime;
 
@@ -282,7 +284,7 @@ mod async_tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio_test]
     async fn test_async_snowflake_generator_supports_async_trait_object() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(10));
@@ -299,7 +301,7 @@ mod async_tests {
         assert!(generator.generate_async().await.is_ok());
     }
 
-    #[tokio::test]
+    #[tokio_test]
     async fn test_async_snowflake_generator_increments_sequence() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(10));
@@ -318,7 +320,7 @@ mod async_tests {
         assert_eq!(ClassicalSnowflakeLayout::decode(second).sequence(), 1);
     }
 
-    #[tokio::test]
+    #[tokio_test]
     async fn test_async_snowflake_generator_waits_with_injected_timer() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_micros(10_250));
@@ -332,7 +334,7 @@ mod async_tests {
                 .expect("configuration should be valid"),
         );
         let worker_generator = Arc::clone(&generator);
-        let worker = tokio::spawn(async move { worker_generator.generate_async().await });
+        let worker = spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
             time.advance_to_next_deadline_async().await.elapsed_since_origin(),
@@ -345,7 +347,7 @@ mod async_tests {
         assert_eq!(ClassicalSnowflakeLayout::decode(id).timestamp(), 11);
     }
 
-    #[tokio::test]
+    #[tokio_test]
     async fn test_async_snowflake_generator_reports_runtime_expiration() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let layout = ClassicalSnowflakeLayout::new(17).expect("layout should be valid");
@@ -369,7 +371,7 @@ mod async_tests {
         ));
     }
 
-    #[tokio::test]
+    #[tokio_test]
     async fn test_async_snowflake_generator_reports_time_before_epoch() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(1));

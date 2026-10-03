@@ -13,6 +13,10 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
+use toml::Table;
+use toml::Value;
+use toml::from_str;
+
 /// Compiles all Rust snippets in the English and Chinese README files.
 ///
 /// # Panics
@@ -394,46 +398,43 @@ fn test_readmes_document_structured_generation_failures() {
 fn test_docs_rs_build_enables_all_features() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let manifest = fs::read_to_string(manifest_dir.join("Cargo.toml")).expect("Cargo.toml should be readable");
-    let manifest_value = toml::from_str::<toml::Table>(&manifest).expect("Cargo.toml should be valid TOML");
+    let manifest_value = from_str::<Table>(&manifest).expect("Cargo.toml should be valid TOML");
     let package = manifest_value
         .get("package")
-        .and_then(toml::Value::as_table)
+        .and_then(Value::as_table)
         .expect("Cargo.toml must define a package table");
     let docs_rs = package
         .get("metadata")
-        .and_then(toml::Value::as_table)
+        .and_then(Value::as_table)
         .and_then(|metadata| metadata.get("docs"))
-        .and_then(toml::Value::as_table)
+        .and_then(Value::as_table)
         .and_then(|docs| docs.get("rs"))
-        .and_then(toml::Value::as_table)
+        .and_then(Value::as_table)
         .expect("Cargo.toml must define package.metadata.docs.rs");
 
     assert!(
         docs_rs
             .get("all-features")
-            .and_then(toml::Value::as_bool)
+            .and_then(Value::as_bool)
             .is_some_and(|all_features| all_features),
         "Cargo.toml must enable all features for docs.rs"
     );
 
     let rustdoc_args = docs_rs
         .get("rustdoc-args")
-        .and_then(toml::Value::as_array)
+        .and_then(Value::as_array)
         .expect("Cargo.toml must define docs.rs rustdoc arguments");
     assert!(
-        rustdoc_args
-            .iter()
-            .filter_map(toml::Value::as_str)
-            .eq(["--cfg", "docsrs"]),
+        rustdoc_args.iter().filter_map(Value::as_str).eq(["--cfg", "docsrs"]),
         "Cargo.toml must enable docsrs cfg for feature annotations"
     );
 
     let includes_docs = package
         .get("include")
-        .and_then(toml::Value::as_array)
+        .and_then(Value::as_array)
         .into_iter()
         .flatten()
-        .filter_map(toml::Value::as_str)
+        .filter_map(Value::as_str)
         .any(|path| path == "/doc/**");
     assert!(
         includes_docs,

@@ -47,7 +47,7 @@ impl Timer for CompletionFailingTimer {
     /// # Returns
     ///
     /// The monotonic clock required by the timer contract.
-    #[inline(always)]
+    #[inline]
     fn clock(&self) -> &dyn MonotonicClock {
         &self.clock
     }
