@@ -31,11 +31,16 @@ use crate::RestartPolicy;
 /// # Examples
 ///
 /// ```
-/// use qubit_id::ClassicalSnowflakeGenerator;
+/// # fn main() -> Result<(), qubit_id::IdGenerationError> {
+/// #[cfg(feature = "classic-snowflake")]
+/// {
+///     use qubit_id::ClassicalSnowflakeGenerator;
 ///
-/// let generator = ClassicalSnowflakeGenerator::builder(42).build()?;
-/// let _id = generator.generate()?;
-/// # Ok::<(), qubit_id::IdGenerationError>(())
+///     let generator = ClassicalSnowflakeGenerator::builder(42).build()?;
+///     let _id = generator.generate()?;
+/// }
+/// # Ok(())
+/// # }
 /// ```
 pub(crate) struct SnowflakeCore<L> {
     /// Bit layout used to compose generated IDs.

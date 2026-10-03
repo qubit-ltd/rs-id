@@ -23,11 +23,20 @@ use crate::IdGenerationError;
 /// # Examples
 ///
 /// ```
-/// use qubit_id::{GenerationAttempt, SonyflakeGenerator, TryIdGenerator};
+/// use std::convert::Infallible;
 ///
-/// let generator = SonyflakeGenerator::new(7).unwrap();
-/// let attempt: Result<GenerationAttempt<qubit_id::Id>, _> = generator.try_generate();
-/// assert!(attempt.is_ok());
+/// use qubit_id::{GenerationAttempt, TryIdGenerator};
+///
+/// struct ImmediateGenerator;
+///
+/// impl TryIdGenerator<u64, Infallible> for ImmediateGenerator {
+///     fn try_generate(&self) -> Result<GenerationAttempt<u64>, Infallible> {
+///         Ok(GenerationAttempt::Generated(42))
+///     }
+/// }
+///
+/// let attempt = ImmediateGenerator.try_generate().unwrap();
+/// assert_eq!(attempt, GenerationAttempt::Generated(42));
 /// ```
 pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
     /// Attempts one non-blocking allocation.
