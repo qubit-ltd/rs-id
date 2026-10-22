@@ -7,9 +7,19 @@
 // =============================================================================
 //! Optional serde integration for [`crate::Id`].
 
+use std::fmt;
+use std::string::String;
+
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
+use serde::de::Error;
+use serde::de::Visitor;
+
 use crate::Id;
 
-impl serde::Serialize for Id {
+impl Serialize for Id {
     /// Serializes an identifier as decimal text for human-readable formats
     /// and as an unsigned 64-bit value for compact formats.
     ///
@@ -40,7 +50,7 @@ impl serde::Serialize for Id {
     /// ```
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         if serializer.is_human_readable() {
             serializer.collect_str(self)
@@ -50,7 +60,7 @@ impl serde::Serialize for Id {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for Id {
+impl<'de> Deserialize<'de> for Id {
     /// Deserializes decimal text or an unsigned integer for human-readable
     /// formats and an unsigned 64-bit value for compact formats.
     ///
@@ -84,13 +94,13 @@ impl<'de> serde::Deserialize<'de> for Id {
     /// ```
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         if deserializer.is_human_readable() {
             /// Parses human-readable unsigned decimal identifiers.
             struct IdVisitor;
 
-            impl<'de> serde::de::Visitor<'de> for IdVisitor {
+            impl<'de> Visitor<'de> for IdVisitor {
                 /// Identifier value produced by this visitor.
                 type Value = Id;
 
@@ -110,7 +120,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                 ///
                 /// Returns the formatter's error if writing the description
                 /// fails.
-                fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                     formatter.write_str("an unsigned decimal identifier string or integer")
                 }
 
@@ -134,7 +144,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                 /// range.
                 fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
                 where
-                    E: serde::de::Error,
+                    E: Error,
                 {
                     self.visit_str(value)
                 }
@@ -159,7 +169,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                 /// range.
                 fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
                 where
-                    E: serde::de::Error,
+                    E: Error,
                 {
                     value.parse().map_err(E::custom)
                 }
@@ -184,7 +194,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                 /// range.
                 fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
                 where
-                    E: serde::de::Error,
+                    E: Error,
                 {
                     self.visit_str(&value)
                 }
@@ -205,7 +215,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                 /// The identifier containing `value`.
                 fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
                 where
-                    E: serde::de::Error,
+                    E: Error,
                 {
                     Ok(Id::from(value))
                 }
@@ -230,7 +240,7 @@ impl<'de> serde::Deserialize<'de> for Id {
                 /// `u64`.
                 fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
                 where
-                    E: serde::de::Error,
+                    E: Error,
                 {
                     u64::try_from(value).map(Id::from).map_err(E::custom)
                 }
@@ -238,7 +248,7 @@ impl<'de> serde::Deserialize<'de> for Id {
 
             deserializer.deserialize_any(IdVisitor)
         } else {
-            let value = <u64 as serde::Deserialize>::deserialize(deserializer)?;
+            let value = <u64 as Deserialize>::deserialize(deserializer)?;
             Ok(Id::from(value))
         }
     }

@@ -66,6 +66,7 @@ impl UuidV4Generator {
     ///
     /// Returns [`IdGenerationError::RandomSourceFailed`] when the
     /// operating-system random source cannot provide UUID bytes.
+    #[inline]
     pub fn generate(&self) -> Result<uuid::Uuid, IdGenerationError> {
         generate_uuid_v4()
     }

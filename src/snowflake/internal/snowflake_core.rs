@@ -75,6 +75,7 @@ where
     /// # Returns
     ///
     /// A core containing the complete non-waiting allocation state.
+    #[must_use]
     #[inline]
     pub(crate) fn new(
         layout: L,

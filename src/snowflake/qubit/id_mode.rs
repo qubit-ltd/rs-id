@@ -9,6 +9,15 @@
 
 /// Ordering mode encoded in a Qubit snowflake ID.
 ///
+/// # Examples
+///
+/// ```
+/// use qubit_id::IdMode;
+///
+/// let mode = IdMode::Spread;
+/// assert_eq!(mode.ordinal(), 1);
+/// ```
+///
 /// # Must use
 ///
 /// Query results on ID configuration values must not be silently discarded.
