@@ -9,9 +9,9 @@ publish = false
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
+libfuzzer-sys = "^0.4"
 qubit-id = { path = "..", default-features = false, features = ["qubit-snowflake", "classic-snowflake", "sonyflake"] }
-qubit-clock = { version = "0.13", features = ["test-util"] }
+qubit-clock = { version = "^0.13", features = ["test-util"] }
 
 [[bin]]
 name = "qubit_layout_round_trip"
