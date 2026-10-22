@@ -117,16 +117,8 @@ fn test_sonyflake_generator_builder_rejects_invalid_layout() {
     ));
 }
 
-#[tokio::test]
-async fn test_sonyflake_generator_builder_async_propagates_layout_error() {
-    assert!(matches!(
-        SonyflakeGenerator::builder(1_u64 << 16).build(),
-        Err(IdGenerationError::MachineIdOutOfRange { .. })
-    ));
-}
-
-#[tokio::test]
-async fn test_sonyflake_generator_builder_async_propagates_expiration_error() {
+#[test]
+fn test_sonyflake_generator_builder_rejects_expiration_overflow() {
     let epoch = latest_representable_whole_second();
 
     assert!(matches!(

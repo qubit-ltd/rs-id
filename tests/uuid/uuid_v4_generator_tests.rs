@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Tests for numeric UUID v4 generation.
+//! Tests for UUID v4 generation.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -43,7 +43,7 @@ mod inherent_api_tests {
 fn test_uuid_v4_generator_supports_sync_trait_object() {
     let generator: Arc<dyn IdGenerator<Uuid>> = Arc::new(UuidV4Generator::new());
 
-    assert!(generator.generate().is_ok());
+    generator.generate().expect("shared UUID generator should generate");
 }
 
 #[test]

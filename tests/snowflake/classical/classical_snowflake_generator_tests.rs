@@ -5,7 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Integration tests for the synchronous classic Snowflake generator.
+//! Integration tests for the synchronous and asynchronous classic Snowflake
+//! generators.
 
 use std::sync::Arc;
 use std::thread;
@@ -246,13 +247,6 @@ fn test_classical_snowflake_generator_reports_runtime_expiration() {
 }
 
 mod async_tests {
-    // =============================================================================
-    //    Copyright (c) 2026 Haixing Hu.
-    //
-    //    SPDX-License-Identifier: Apache-2.0
-    //
-    //    Licensed under the Apache License, Version 2.0.
-    // =============================================================================
     //! Integration tests for the asynchronous classic Snowflake generator.
 
     use std::sync::Arc;
@@ -271,7 +265,7 @@ mod async_tests {
     use crate::support::ManualTime;
 
     #[test]
-    fn test_async_snowflake_generator_convenience_api() {
+    fn test_classical_snowflake_generator_convenience_api() {
         let generator = ClassicalSnowflakeGenerator::new(17).expect("default configuration should be valid");
 
         assert_eq!(generator.layout().node_id(), 17);
@@ -285,7 +279,7 @@ mod async_tests {
     }
 
     #[tokio_test]
-    async fn test_async_snowflake_generator_supports_async_trait_object() {
+    async fn test_async_classical_snowflake_generator_supports_async_trait_object() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(10));
         let generator: Arc<dyn AsyncIdGenerator<Id>> = Arc::new(
@@ -302,7 +296,7 @@ mod async_tests {
     }
 
     #[tokio_test]
-    async fn test_async_snowflake_generator_increments_sequence() {
+    async fn test_async_classical_snowflake_generator_increments_sequence() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(10));
         let generator: ClassicalSnowflakeGenerator = ClassicalSnowflakeGenerator::builder(17)
@@ -321,7 +315,7 @@ mod async_tests {
     }
 
     #[tokio_test]
-    async fn test_async_snowflake_generator_waits_with_injected_timer() {
+    async fn test_async_classical_snowflake_generator_waits_with_injected_timer() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_micros(10_250));
         let generator = Arc::new(
@@ -348,7 +342,7 @@ mod async_tests {
     }
 
     #[tokio_test]
-    async fn test_async_snowflake_generator_reports_runtime_expiration() {
+    async fn test_async_classical_snowflake_generator_reports_runtime_expiration() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let layout = ClassicalSnowflakeLayout::new(17).expect("layout should be valid");
         let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
@@ -372,7 +366,7 @@ mod async_tests {
     }
 
     #[tokio_test]
-    async fn test_async_snowflake_generator_reports_time_before_epoch() {
+    async fn test_async_classical_snowflake_generator_reports_time_before_epoch() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let time = ManualTime::new(epoch + Duration::from_millis(1));
         let generator = ClassicalSnowflakeGenerator::builder(17)
