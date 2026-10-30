@@ -20,14 +20,18 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
+use qubit_clock::FixedWallClock;
 use qubit_id::AsyncIdGenerator;
+use qubit_id::GenerationAttempt;
 use qubit_id::Id;
 use qubit_id::IdGenerationError;
 use qubit_id::IdGenerator;
 use qubit_id::IdMode;
 use qubit_id::RestartPolicy;
 use qubit_id::SnowflakeGenerator;
+use qubit_id::SnowflakeGeneratorBuilder;
 use qubit_id::SnowflakeLayout;
 use qubit_id::TimestampPrecision;
 
@@ -55,6 +59,12 @@ const DISPATCH_WARM_UP_ITERATIONS: usize = 20_000;
 /// Panics when benchmark configuration, ID generation, worker execution, or
 /// system-clock conversion fails.
 fn main() {
+    check_startup_configuration();
+    if std::env::args().any(|argument| argument == "--check-startup") {
+        println!("startup-check passed");
+        return;
+    }
+
     println!(
         "configuration throughput_samples={SAMPLE_COUNT} \
          startup_samples={STARTUP_SAMPLE_COUNT} warm_up_ids={WARM_UP_IDS}"
@@ -366,10 +376,7 @@ fn measure_startup_latency(precision: TimestampPrecision) -> StartupLatencySumma
     let mut samples = Vec::with_capacity(STARTUP_SAMPLE_COUNT);
     for _ in 0..STARTUP_SAMPLE_COUNT {
         let started = Instant::now();
-        let generator = SnowflakeGenerator::builder(HOST)
-            .mode(IdMode::Sequential)
-            .precision(precision)
-            .restart_policy(RestartPolicy::Immediate)
+        let generator = startup_builder(precision)
             .build()
             .expect("benchmark generator configuration must be valid");
         let _ = black_box(generator.generate().expect("first ID generation must succeed"));
@@ -381,6 +388,66 @@ fn measure_startup_latency(precision: TimestampPrecision) -> StartupLatencySumma
         min_nanos: samples[0],
         median_nanos: samples[STARTUP_SAMPLE_COUNT / 2],
         max_nanos: samples[STARTUP_SAMPLE_COUNT - 1],
+    }
+}
+
+/// Creates the shared configuration used by startup latency measurements.
+///
+/// # Parameters
+///
+/// * `precision` - Timestamp precision configured on the generator.
+///
+/// # Returns
+///
+/// A builder with the same host, ordering mode, and immediate restart policy
+/// used by startup latency measurements.
+fn startup_builder(precision: TimestampPrecision) -> SnowflakeGeneratorBuilder {
+    SnowflakeGenerator::builder(HOST)
+        .mode(IdMode::Sequential)
+        .precision(precision)
+        .restart_policy(RestartPolicy::Immediate)
+}
+
+/// Checks the startup policy against deterministic wall-clock observations.
+///
+/// # Panics
+///
+/// Panics if the shared startup configuration does not allocate immediately,
+/// or if the explicit wait policy does not request a retry.
+fn check_startup_configuration() {
+    let epoch = UNIX_EPOCH;
+    let now = epoch + Duration::from_secs(10);
+    for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
+        let make_builder = || {
+            startup_builder(precision)
+                .epoch(epoch)
+                .wall_clock(Arc::new(FixedWallClock::new(now)))
+        };
+
+        let generator = make_builder()
+            .build()
+            .expect("startup check generator configuration must be valid");
+        let id = match generator.try_generate() {
+            Ok(GenerationAttempt::Generated(id)) => id,
+            Ok(GenerationAttempt::RetryAfter { .. }) => {
+                panic!("startup configuration must allocate immediately")
+            }
+            Err(error) => panic!("startup check generation failed: {error}"),
+        };
+        assert_eq!(
+            SnowflakeLayout::decode(id).sequence(),
+            0,
+            "startup configuration must allocate sequence zero"
+        );
+
+        let generator = make_builder()
+            .restart_policy(RestartPolicy::WaitNextSlice)
+            .build()
+            .expect("wait-policy check generator configuration must be valid");
+        assert!(
+            matches!(generator.try_generate(), Ok(GenerationAttempt::RetryAfter { .. })),
+            "explicit wait policy must request a retry on first allocation"
+        );
     }
 }
 

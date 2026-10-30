@@ -47,6 +47,12 @@ Startup latency is measured separately over 10,000 fresh instances with
 the first `generate` call, measuring the default immediate-allocation path. It
 is excluded from sustained throughput timing.
 
+Before any measurement, the executable performs a deterministic startup
+configuration check for both timestamp precisions. It verifies that the shared
+startup builder produces sequence zero immediately and that explicitly
+overriding it with `WaitNextSlice` returns `RetryAfter`. This check uses a fixed
+wall clock and `try_generate`; it does not wait, sleep, or contribute samples.
+
 Before sustained-throughput sampling, the benchmark also runs 200,000-operation
 fixed workloads through concrete and
 `Arc<dyn IdGenerator<Id>>`
@@ -62,6 +68,16 @@ capacity measurements because they can cross clock slices.
 RUSTFLAGS="-C target-cpu=native" \
     cargo bench --bench qubit_snowflake_throughput
 ```
+
+Run only the startup configuration check with:
+
+```bash
+cargo bench --locked --bench qubit_snowflake_throughput -- --check-startup
+```
+
+The short path prints `startup-check passed` and exits before dispatch,
+throughput, or startup latency measurements. Normal benchmark runs perform the
+same check before starting measurements.
 
 The run reported this configuration:
 

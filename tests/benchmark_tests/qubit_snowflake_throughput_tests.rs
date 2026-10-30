@@ -31,24 +31,6 @@ fn test_qubit_snowflake_throughput_benchmarks_id_string_paths() {
     }
 }
 
-/// Verifies that startup measurements do not include restart-fence waits.
-#[test]
-fn test_qubit_snowflake_throughput_startup_uses_immediate_restart_policy() {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let benchmark_path = manifest_dir.join("benches/qubit_snowflake_throughput/main.rs");
-    let source = fs::read_to_string(&benchmark_path)
-        .unwrap_or_else(|error| panic!("failed to read benchmark source {}: {error}", benchmark_path.display()));
-
-    assert!(
-        source.contains("RestartPolicy::Immediate"),
-        "startup benchmark must opt out of restart-fence waits"
-    );
-    assert!(
-        source.contains("fn measure_startup_latency"),
-        "startup benchmark function must remain present"
-    );
-}
-
 /// Verifies that dynamic benchmark paths use the generic generator parameters
 /// introduced by the generator trait refactor.
 #[test]
