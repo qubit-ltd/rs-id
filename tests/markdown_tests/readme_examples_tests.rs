@@ -8,10 +8,10 @@
 //! Compiles Rust code fences from the crate README files.
 
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 use std::fs;
+use std::fs::File;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::fs::TryLockError;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -194,52 +194,44 @@ fn copy_fixture(manifest_dir: &Path, run_dir: &Path) -> Result<(), String> {
     let fixture = manifest_dir.join("tests/fixtures/markdown_examples");
     fs::copy(fixture.join("Cargo.toml"), run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
     fs::copy(fixture.join("Cargo.lock"), run_dir.join("Cargo.lock")).map_err(|error| error.to_string())?;
-    let mut manifest: Table =
-        from_str(&fs::read_to_string(run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?)
-            .map_err(|error| error.to_string())?;
-    manifest["dependencies"]["qubit-id"]["path"] = Value::String(
-        manifest_dir
-            .canonicalize()
-            .map_err(|error| error.to_string())?
-            .display()
-            .to_string(),
-    );
-    fs::write(
-        run_dir.join("Cargo.toml"),
-        toml::to_string(&manifest).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())
+    let source = fs::read_to_string(run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
+    let dependency_root = manifest_dir.canonicalize().map_err(|error| error.to_string())?;
+    let rewritten = rewrite_fixture_manifest(&source, &dependency_root)?;
+    fs::write(run_dir.join("Cargo.toml"), rewritten).map_err(|error| error.to_string())
 }
 
-struct RunLock(PathBuf);
+fn rewrite_fixture_manifest(source: &str, dependency_root: &Path) -> Result<String, String> {
+    let mut manifest: Table = from_str(source).map_err(|error| error.to_string())?;
+    manifest["dependencies"]["qubit-id"]["path"] = Value::String(dependency_root.to_string_lossy().into_owned());
+    toml::to_string(&manifest).map_err(|error| error.to_string())
+}
 
-impl Drop for RunLock {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
-    }
+#[derive(Debug)]
+struct RunLock {
+    _file: File,
 }
 
 fn acquire_run_lock(output_root: &Path, budget: Duration) -> Result<RunLock, String> {
     let path = output_root.join(".markdown-run.lock");
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&path)
+        .map_err(|error| format!("open documentation run lock {}: {error}", path.display()))?;
     let started = Instant::now();
     loop {
-        match OpenOptions::new().write(true).create_new(true).open(&path) {
-            Ok(mut file) => {
-                writeln!(file, "pid={}", std::process::id()).map_err(|error| error.to_string())?;
-                return Ok(RunLock(path));
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists && started.elapsed() < budget => {
+        match file.try_lock() {
+            Ok(()) => return Ok(RunLock { _file: file }),
+            Err(TryLockError::WouldBlock) if started.elapsed() < budget => {
                 thread::sleep(Duration::from_millis(10));
             }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                let owner = fs::read_to_string(&path).unwrap_or_else(|_| "owner unavailable".to_owned());
-                return Err(format!(
-                    "timed out acquiring documentation run lock {} ({owner})",
-                    path.display()
-                ));
+            Err(TryLockError::WouldBlock) => {
+                return Err(format!("timed out acquiring documentation run lock {}", path.display()));
             }
-            Err(error) => {
-                return Err(format!("create documentation run lock {}: {error}", path.display()));
+            Err(TryLockError::Error(error)) => {
+                return Err(format!("lock documentation run lock {}: {error}", path.display()));
             }
         }
     }
@@ -425,79 +417,6 @@ fn is_rust_fence(language: &str) -> bool {
     matches!(tag, "rust" | "rs")
 }
 
-/// Builds a Cargo manifest for a temporary Markdown snippet crate.
-///
-/// # Parameters
-///
-/// * `name` - Stable name for the temporary crate.
-/// * `manifest_dir` - Root directory of the `qubit-id` crate dependency.
-/// * `features` - `qubit-id` features required by the snippets.
-///
-/// # Returns
-///
-/// A Cargo manifest for a private temporary crate.
-fn build_markdown_doctest_manifest(name: &str, manifest_dir: &Path, features: &[String]) -> String {
-    let manifest_path = toml_basic_string(&manifest_dir.display().to_string());
-    let uses_qubit_snowflake = features.iter().any(|feature| feature == "qubit-snowflake");
-    let features = format!(
-        "[{}]",
-        features
-            .iter()
-            .map(|feature| format!("\"{}\"", toml_basic_string(feature)))
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
-
-    let runtime_dependencies = if uses_qubit_snowflake {
-        "qubit-clock = { version = \"0.13\", features = [\"tokio\"] }\ntokio = { version = \"1.54\", features = [\"macros\", \"rt\", \"time\"] }\n"
-    } else {
-        ""
-    };
-
-    format!(
-        r#"[package]
-name = "qubit-id-{name}-markdown-doctest"
-version = "0.0.0"
-edition = "2024"
-publish = false
-
-[dependencies]
-qubit-id = {{ path = "{manifest_path}", default-features = false, features = {features} }}
-{runtime_dependencies}uuid = {{ version = "1", features = ["v4"] }}
-serde_json = "1"
-"#
-    )
-}
-
-/// Escapes a value for use inside a TOML basic string.
-///
-/// # Parameters
-///
-/// * `value` - Unescaped string value.
-///
-/// # Returns
-///
-/// A TOML-safe basic string body.
-fn toml_basic_string(value: &str) -> String {
-    let mut escaped = String::with_capacity(value.len());
-    for ch in value.chars() {
-        match ch {
-            '\u{0008}' => escaped.push_str("\\b"),
-            '\t' => escaped.push_str("\\t"),
-            '\n' => escaped.push_str("\\n"),
-            '\u{000C}' => escaped.push_str("\\f"),
-            '\r' => escaped.push_str("\\r"),
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\u{0000}'..='\u{001F}' | '\u{007F}' => {
-                write!(escaped, "\\u{:04X}", ch as u32).expect("writing TOML escape to String should not fail");
-            }
-            _ => escaped.push(ch),
-        }
-    }
-    escaped
-}
-
 /// Normalizes a Markdown snippet into a standalone binary source file.
 ///
 /// # Parameters
@@ -564,15 +483,164 @@ fn assert_document_versions_match(manifest_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Verifies that Windows dependency paths are escaped in the generated TOML.
 #[test]
-fn test_build_markdown_doctest_manifest_escapes_windows_dependency_path() {
-    let manifest = build_markdown_doctest_manifest("readme_en", Path::new(r"D:\a\rs-id\rs-id"), &[]);
+fn test_markdown_fixture_feature_mapping() {
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/markdown_examples/Cargo.toml");
+    let source = fs::read_to_string(fixture).unwrap();
+    let parsed: Table = from_str(&source).unwrap();
+    let features = parsed["features"].as_table().unwrap();
+    assert!(features["default"].as_array().unwrap().is_empty());
+    let qubit = features["qubit-snowflake"].as_array().unwrap();
+    assert_eq!(qubit.len(), 3);
+    for expected in ["qubit-id/qubit-snowflake", "dep:qubit-clock", "dep:tokio"] {
+        assert!(qubit.iter().any(|value| value.as_str() == Some(expected)));
+    }
+    for (feature, forwarded) in [
+        ("classic-snowflake", "qubit-id/classic-snowflake"),
+        ("sonyflake", "qubit-id/sonyflake"),
+        ("uuid", "qubit-id/uuid"),
+        ("serde", "qubit-id/serde"),
+    ] {
+        assert_eq!(
+            features[feature].as_array().unwrap(),
+            &[Value::String(forwarded.to_owned())]
+        );
+    }
+    let dependencies = parsed["dependencies"].as_table().unwrap();
+    assert_eq!(dependencies["qubit-id"]["default-features"].as_bool(), Some(false));
+    assert_eq!(dependencies["qubit-clock"]["optional"].as_bool(), Some(true));
+    assert_eq!(dependencies["tokio"]["optional"].as_bool(), Some(true));
+}
 
-    assert!(
-        manifest.contains(r#"path = "D:\\a\\rs-id\\rs-id""#),
-        "Windows backslashes must be escaped in the generated TOML manifest:\n{manifest}"
+#[test]
+fn test_markdown_fixture_path_round_trip() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture = manifest_dir.join("tests/fixtures/markdown_examples/Cargo.toml");
+    let source = fs::read_to_string(&fixture).unwrap();
+    let original: Table = from_str(&source).unwrap();
+    let local_root = manifest_dir.canonicalize().unwrap();
+    let roots = [
+        local_root.to_string_lossy().into_owned(),
+        r#"D:\work\quoted"name\rs-id"#.to_owned(),
+        r#"/tmp/quoted"name/rs-id"#.to_owned(),
+    ];
+    for root in roots {
+        let rewritten = rewrite_fixture_manifest(&source, Path::new(&root)).unwrap();
+        let mut parsed: Table = from_str(&rewritten).unwrap();
+        assert_eq!(parsed["dependencies"]["qubit-id"]["path"].as_str(), Some(root.as_str()));
+        parsed["dependencies"]["qubit-id"]["path"] = original["dependencies"]["qubit-id"]["path"].clone();
+        assert_eq!(parsed, original);
+    }
+
+    let output_root = std::env::temp_dir().join(format!("qubit-markdown-fixture-{}", timestamp_nonce()));
+    fs::create_dir_all(&output_root).unwrap();
+    let result = copy_fixture(&manifest_dir, &output_root);
+    assert!(result.is_ok(), "copy_fixture failed: {result:?}");
+    let mut output_manifest: Table = from_str(&fs::read_to_string(output_root.join("Cargo.toml")).unwrap()).unwrap();
+    assert_eq!(
+        output_manifest["dependencies"]["qubit-id"]["path"].as_str(),
+        Some(manifest_dir.canonicalize().unwrap().to_string_lossy().as_ref())
     );
+    output_manifest["dependencies"]["qubit-id"]["path"] = original["dependencies"]["qubit-id"]["path"].clone();
+    assert_eq!(output_manifest, original);
+    assert_eq!(
+        fs::read(output_root.join("Cargo.lock")).unwrap(),
+        fs::read(manifest_dir.join("tests/fixtures/markdown_examples/Cargo.lock")).unwrap()
+    );
+    fs::remove_dir_all(output_root).unwrap();
+}
+
+#[test]
+fn test_markdown_run_lock_normal_release_and_stale_text() {
+    let root = std::env::temp_dir().join(format!("qubit-markdown-lock-normal-{}", timestamp_nonce()));
+    fs::create_dir_all(&root).unwrap();
+    let lock_path = root.join(".markdown-run.lock");
+    fs::write(&lock_path, "stale pid=12345\n").unwrap();
+    let first = acquire_run_lock(&root, Duration::from_millis(100)).unwrap();
+    let error = acquire_run_lock(&root, Duration::from_millis(40)).unwrap_err();
+    assert!(error.contains(&lock_path.display().to_string()), "{error}");
+    assert!(lock_path.exists());
+    drop(first);
+    let second = acquire_run_lock(&root, Duration::from_millis(100)).unwrap();
+    assert!(lock_path.exists());
+    drop(second);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn test_markdown_run_lock_reports_io_error() {
+    let parent = std::env::temp_dir().join(format!("qubit-markdown-lock-error-{}", timestamp_nonce()));
+    fs::create_dir_all(&parent).unwrap();
+    let lock_path = parent.join(".markdown-run.lock");
+    fs::create_dir(&lock_path).unwrap();
+    let error = acquire_run_lock(&parent, Duration::from_millis(50)).unwrap_err();
+    assert!(error.contains(&lock_path.display().to_string()), "{error}");
+    fs::remove_dir_all(parent).unwrap();
+}
+
+struct ChildProcessGuard(Option<std::process::Child>);
+
+impl Drop for ChildProcessGuard {
+    fn drop(&mut self) {
+        if let Some(child) = self.0.as_mut() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+#[test]
+fn test_markdown_run_lock_child() {
+    let Ok(root) = std::env::var("QUBIT_ID_LOCK_CHILD_DIR") else {
+        return;
+    };
+    let root = PathBuf::from(root);
+    let _lock = acquire_run_lock(&root, Duration::from_secs(2)).expect("child should acquire lock");
+    fs::write(root.join("ready"), "locked").expect("write child ready marker");
+    loop {
+        thread::park_timeout(Duration::from_secs(1));
+    }
+}
+
+#[test]
+fn test_markdown_run_lock_recovers_after_child_exit() {
+    let root = std::env::temp_dir().join(format!("qubit-markdown-lock-child-{}", timestamp_nonce()));
+    fs::create_dir_all(&root).unwrap();
+    let ready = root.join("ready");
+    let executable = std::env::current_exe().unwrap();
+    let mut command = Command::new(executable);
+    command
+        .arg("--exact")
+        .arg("markdown_tests::readme_examples_tests::test_markdown_run_lock_child")
+        .arg("--nocapture")
+        .env("QUBIT_ID_LOCK_CHILD_DIR", &root);
+    let child = command.spawn().unwrap();
+    let mut child = ChildProcessGuard(Some(child));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if ready.exists() {
+            break;
+        }
+        if let Some(status) = child.0.as_mut().unwrap().try_wait().unwrap() {
+            panic!("lock child exited before ready: {status}");
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for lock child ready marker"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+    let lock_path = root.join(".markdown-run.lock");
+    let error = acquire_run_lock(&root, Duration::from_millis(50)).unwrap_err();
+    assert!(error.contains(&lock_path.display().to_string()), "{error}");
+    child.0.as_mut().unwrap().kill().unwrap();
+    child.0.as_mut().unwrap().wait().unwrap();
+    child.0 = None;
+    assert!(lock_path.exists(), "lock path must remain after child exit");
+    let recovered = acquire_run_lock(&root, Duration::from_millis(500)).unwrap();
+    assert!(lock_path.exists());
+    drop(recovered);
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -650,61 +718,8 @@ fn test_review_markdown_metadata_ignores_non_rust_fences() {
 }
 
 #[test]
-fn test_review_markdown_manifest_enables_only_declared_features() {
-    let manifest =
-        build_markdown_doctest_manifest("classic", Path::new("/tmp/qubit-id"), &["classic-snowflake".to_owned()]);
-    let parsed: Value = from_str(&manifest).unwrap();
-    let features = parsed["dependencies"]["qubit-id"]["features"].as_array().unwrap();
-    assert_eq!(features, &[Value::String("classic-snowflake".to_owned())]);
-}
-
-#[test]
-fn test_build_markdown_doctest_manifest_adds_tokio_only_for_qubit_snowflake() {
-    let manifest_dir = Path::new("/tmp/qubit-id");
-    let qubit_manifest = build_markdown_doctest_manifest("qubit", manifest_dir, &["qubit-snowflake".to_owned()]);
-    let qubit: Value = from_str(&qubit_manifest).unwrap();
-    assert!(!qubit["dependencies"]["qubit-id"]["default-features"].as_bool().unwrap());
-    assert_eq!(
-        qubit["dependencies"]["qubit-id"]["features"].as_array().unwrap(),
-        &[Value::String("qubit-snowflake".to_owned())]
-    );
-    assert_eq!(
-        qubit["dependencies"]["qubit-clock"]["features"].as_array().unwrap(),
-        &[Value::String("tokio".to_owned())]
-    );
-    assert_eq!(
-        qubit["dependencies"]["tokio"]["features"].as_array().unwrap(),
-        &[
-            Value::String("macros".to_owned()),
-            Value::String("rt".to_owned()),
-            Value::String("time".to_owned()),
-        ]
-    );
-
-    let classic_manifest = build_markdown_doctest_manifest("classic", manifest_dir, &["classic-snowflake".to_owned()]);
-    let classic: Value = from_str(&classic_manifest).unwrap();
-    assert!(classic["dependencies"].get("qubit-clock").is_none());
-    assert!(classic["dependencies"].get("tokio").is_none());
-}
-
-#[test]
 fn test_review_markdown_document_versions_match_package_minor() {
     assert_document_versions_match(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
-}
-
-/// Verifies that a temporary README manifest enables only its declared feature.
-#[test]
-fn test_build_markdown_doctest_manifest_enables_declared_features() {
-    let manifest = build_markdown_doctest_manifest(
-        "readme_en",
-        Path::new("/workspace/rs-id"),
-        &["classic-snowflake".to_owned()],
-    );
-
-    assert!(
-        manifest.contains(r#"features = ["classic-snowflake"]"#),
-        "temporary dependency must enable only its declared feature:\n{manifest}"
-    );
 }
 
 /// Verifies that both READMEs explain feature selection, IoC capabilities,
