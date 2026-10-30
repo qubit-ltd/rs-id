@@ -7,6 +7,7 @@
 // =============================================================================
 //! Compiles Rust code fences from the crate README files.
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
@@ -17,6 +18,40 @@ use toml::Table;
 use toml::Value;
 use toml::from_str;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExampleMode {
+    Run,
+    Check,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct MarkdownExample {
+    source: String,
+    source_path: String,
+    line: usize,
+    features: Vec<String>,
+    mode: ExampleMode,
+}
+
+const ALLOWED_FEATURES: &[&str] = &["qubit-snowflake", "classic-snowflake", "sonyflake", "uuid", "serde"];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum DocumentSource {
+    ReadmeEn,
+    ReadmeZhCn,
+    GuideEn,
+    GuideZhCn,
+}
+
+impl DocumentSource {
+    const ALL: [(Self, &'static str); 4] = [
+        (Self::ReadmeEn, "README.md"),
+        (Self::ReadmeZhCn, "README.zh_CN.md"),
+        (Self::GuideEn, "doc/user_guide.md"),
+        (Self::GuideZhCn, "doc/user_guide.zh_CN.md"),
+    ];
+}
+
 /// Compiles all Rust snippets in the English and Chinese README files.
 ///
 /// # Panics
@@ -24,37 +59,93 @@ use toml::from_str;
 /// Panics when a README cannot be read, a temporary crate cannot be created,
 /// or a snippet fails to compile.
 #[test]
-fn test_readme_rust_examples_compile() {
+fn test_review_documentation_examples() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let output_dir = manifest_dir.join("target/markdown-doctest");
-    recreate_dir(&output_dir);
-
-    let readmes = [
-        ("readme_en", manifest_dir.join("README.md")),
-        ("readme_zh_cn", manifest_dir.join("README.zh_CN.md")),
-    ];
-
-    for (name, path) in readmes {
-        let snippets = extract_rust_snippets(&path);
-        assert!(!snippets.is_empty(), "{} should contain Rust snippets", path.display());
-        compile_snippets(&manifest_dir, &output_dir, name, &snippets);
+    let output_dir = manifest_dir
+        .join("target/markdown-doctest")
+        .join(format!("run-{}", std::process::id()));
+    fs::create_dir_all(&output_dir).expect("failed to create markdown output directory");
+    let mut groups: BTreeMap<Vec<String>, Vec<MarkdownExample>> = BTreeMap::new();
+    for (_, relative) in DocumentSource::ALL {
+        let path = manifest_dir.join(relative);
+        let content = fs::read_to_string(&path).expect("failed to read markdown document");
+        let examples = parse_markdown_examples(&path.display().to_string(), &content).unwrap_or_else(|e| panic!("{e}"));
+        assert!(!examples.is_empty(), "{} should contain Rust snippets", path.display());
+        for example in examples {
+            groups.entry(example.features.clone()).or_default().push(example);
+        }
     }
-}
-
-/// Recreates the directory used by temporary Markdown example crates.
-///
-/// # Parameters
-///
-/// * `path` - Directory to remove if present and then recreate.
-///
-/// # Panics
-///
-/// Panics when the directory cannot be removed or created.
-fn recreate_dir(path: &Path) {
-    if path.exists() {
-        fs::remove_dir_all(path).expect("failed to remove old markdown doctest directory");
+    for (index, (features, examples)) in groups.into_iter().enumerate() {
+        let name = format!("group_{index}");
+        let crate_dir = output_dir.join(&name);
+        let bin_dir = crate_dir.join("src/bin");
+        fs::create_dir_all(&bin_dir).expect("failed to create snippet bin directory");
+        fs::write(
+            crate_dir.join("Cargo.toml"),
+            build_markdown_doctest_manifest(&name, &manifest_dir, &features),
+        )
+        .expect("failed to write snippet manifest");
+        for mode in [ExampleMode::Check, ExampleMode::Run] {
+            for (example_index, example) in examples.iter().filter(|e| e.mode == mode).enumerate() {
+                let bin = format!(
+                    "{}_{}",
+                    if mode == ExampleMode::Run { "run" } else { "check" },
+                    example_index
+                );
+                fs::write(bin_dir.join(format!("{bin}.rs")), normalize_snippet(&example.source))
+                    .expect("failed to write snippet source");
+                let action = if mode == ExampleMode::Run { "run" } else { "check" };
+                let output = Command::new("cargo")
+                    .arg(action)
+                    .arg("--quiet")
+                    .arg("--bin")
+                    .arg(&bin)
+                    .current_dir(&crate_dir)
+                    .env("CARGO_TARGET_DIR", output_dir.join("target"))
+                    .output()
+                    .expect("failed to run cargo for markdown example");
+                assert!(
+                    output.status.success(),
+                    "{}:{} {action} failed ({}):\n{}",
+                    example.source_path,
+                    example.line,
+                    output.status,
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+        }
     }
-    fs::create_dir_all(path).expect("failed to create markdown doctest directory");
+    let failure_dir = output_dir.join("expected_failure");
+    let failure_bin = failure_dir.join("src/bin");
+    fs::create_dir_all(&failure_bin).expect("failed to create failure example directory");
+    fs::write(
+        failure_dir.join("Cargo.toml"),
+        build_markdown_doctest_manifest("expected_failure", &manifest_dir, &[]),
+    )
+    .expect("failed to write failure manifest");
+    fs::write(
+        failure_bin.join("expected_failure.rs"),
+        "fn main() { panic!(\"expected failure\"); }\n",
+    )
+    .expect("failed to write failure example");
+    let failure = Command::new("cargo")
+        .arg("run")
+        .arg("--quiet")
+        .arg("--bin")
+        .arg("expected_failure")
+        .current_dir(&failure_dir)
+        .env("CARGO_TARGET_DIR", output_dir.join("target"))
+        .output()
+        .expect("failed to run controlled failure example");
+    assert!(
+        !failure.status.success(),
+        "run mode must propagate a child panic as failure"
+    );
+    assert!(
+        String::from_utf8_lossy(&failure.stderr).contains("expected failure"),
+        "child stderr should be retained: {}",
+        String::from_utf8_lossy(&failure.stderr)
+    );
 }
 
 /// Extracts Rust code fences from a Markdown file.
@@ -70,31 +161,111 @@ fn recreate_dir(path: &Path) {
 /// # Panics
 ///
 /// Panics when the Markdown file cannot be read.
-fn extract_rust_snippets(path: &Path) -> Vec<String> {
-    let content = fs::read_to_string(path).expect("failed to read markdown file");
-    let mut snippets = Vec::new();
+fn parse_markdown_examples(path: &str, content: &str) -> Result<Vec<MarkdownExample>, String> {
+    let mut examples = Vec::new();
+    let mut pending: Option<(usize, Vec<String>, ExampleMode)> = None;
     let mut in_rust = false;
+    let mut other_fence_line = None;
     let mut current = String::new();
-
-    for line in content.lines() {
-        if let Some(language) = line.trim_start().strip_prefix("```") {
-            if in_rust {
-                snippets.push(current.trim().to_owned());
-                current.clear();
-                in_rust = false;
-                continue;
+    let mut source_line = 0;
+    for (index, line) in content.lines().enumerate() {
+        let number = index + 1;
+        let trimmed = line.trim();
+        if other_fence_line.is_some() {
+            if trimmed.starts_with("```") {
+                other_fence_line = None;
             }
-            in_rust = is_rust_fence(language);
             continue;
         }
-
         if in_rust {
-            current.push_str(line);
-            current.push('\n');
+            if trimmed.starts_with("```") {
+                let (_, features, mode) = pending.take().unwrap();
+                examples.push(MarkdownExample {
+                    source: current.trim().to_owned(),
+                    source_path: path.to_owned(),
+                    line: source_line,
+                    features,
+                    mode,
+                });
+                current.clear();
+                in_rust = false;
+            } else {
+                current.push_str(line);
+                current.push('\n');
+            }
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("<!-- qubit-id-example") {
+            if pending.is_some() {
+                return Err(format!("{path}:{number}: previous metadata was not consumed"));
+            }
+            let body = rest
+                .strip_suffix("-->")
+                .ok_or_else(|| format!("{path}:{number}: malformed metadata"))?
+                .trim();
+            let fields = body.split_whitespace().collect::<Vec<_>>();
+            if fields.len() != 2 {
+                return Err(format!("{path}:{number}: expected features and mode"));
+            }
+            let raw = fields[0]
+                .strip_prefix("features=\"")
+                .and_then(|s| s.strip_suffix('"'))
+                .ok_or_else(|| format!("{path}:{number}: malformed features"))?;
+            let mode_raw = fields[1]
+                .strip_prefix("mode=\"")
+                .and_then(|s| s.strip_suffix('"'))
+                .ok_or_else(|| format!("{path}:{number}: malformed mode"))?;
+            let mode = match mode_raw {
+                "run" => ExampleMode::Run,
+                "check" => ExampleMode::Check,
+                _ => return Err(format!("{path}:{number}: unknown mode {mode_raw}")),
+            };
+            let mut features = Vec::new();
+            for feature in raw.split(',').filter(|s| !s.is_empty()) {
+                if !ALLOWED_FEATURES.contains(&feature) {
+                    return Err(format!("{path}:{number}: unknown feature {feature}"));
+                }
+                if features.iter().any(|f| f == feature) {
+                    return Err(format!("{path}:{number}: duplicate feature {feature}"));
+                }
+                features.push(feature.to_owned());
+            }
+            features.sort();
+            pending = Some((number, features, mode));
+            continue;
+        }
+        if let Some(language) = trimmed.strip_prefix("```") {
+            if let Some((line, _, _)) = pending.as_ref().filter(|_| !is_rust_fence(language)) {
+                return Err(format!("{path}:{line}: metadata must bind to a Rust fence"));
+            }
+            if is_rust_fence(language) {
+                if pending.is_none() {
+                    return Err(format!("{path}:{number}: Rust fence has no metadata"));
+                }
+                in_rust = true;
+                source_line = number + 1;
+            } else {
+                if pending.is_some() {
+                    return Err(format!("{path}:{number}: metadata was not consumed"));
+                }
+                other_fence_line = Some(number);
+            }
+            continue;
+        }
+        if let Some((line, _, _)) = pending.as_ref().filter(|_| !trimmed.is_empty()) {
+            return Err(format!("{path}:{line}: metadata was not followed by a Rust fence"));
         }
     }
-
-    snippets
+    if in_rust {
+        return Err(format!("{path}:{source_line}: unclosed Rust fence"));
+    }
+    if let Some(line) = other_fence_line {
+        return Err(format!("{path}:{line}: unclosed non-Rust fence"));
+    }
+    if let Some((line, _, _)) = pending {
+        return Err(format!("{path}:{line}: metadata was not consumed"));
+    }
+    Ok(examples)
 }
 
 /// Returns whether a Markdown fence language identifies Rust source code.
@@ -115,56 +286,27 @@ fn is_rust_fence(language: &str) -> bool {
     matches!(tag, "rust" | "rs")
 }
 
-/// Compiles a README's Rust snippets in an isolated temporary crate.
+/// Builds a Cargo manifest for a temporary Markdown snippet crate.
 ///
 /// # Parameters
 ///
-/// * `manifest_dir` - Root directory of the `qubit-id` crate.
-/// * `output_dir` - Parent directory for generated temporary crates and build
-///   output.
 /// * `name` - Stable name for the temporary crate.
-/// * `snippets` - Rust source snippets to compile as binary targets.
-///
-/// # Panics
-///
-/// Panics when temporary crate files cannot be written or `cargo check` fails.
-fn compile_snippets(manifest_dir: &Path, output_dir: &Path, name: &str, snippets: &[String]) {
-    let crate_dir = output_dir.join(name);
-    let bin_dir = crate_dir.join("src/bin");
-    fs::create_dir_all(&bin_dir).expect("failed to create snippet bin directory");
-
-    let manifest = build_markdown_doctest_manifest(name, manifest_dir);
-    fs::write(crate_dir.join("Cargo.toml"), manifest).expect("failed to write snippet Cargo.toml");
-
-    for (index, snippet) in snippets.iter().enumerate() {
-        let source = normalize_snippet(snippet);
-        fs::write(bin_dir.join(format!("snippet_{index}.rs")), source).expect("failed to write snippet source");
-    }
-
-    let status = Command::new("cargo")
-        .arg("check")
-        .arg("--quiet")
-        .arg("--bins")
-        .current_dir(&crate_dir)
-        .env("CARGO_TARGET_DIR", output_dir.join("target"))
-        .status()
-        .expect("failed to run cargo check for markdown snippets");
-
-    assert!(status.success(), "markdown Rust snippets failed to compile for {name}");
-}
-
-/// Builds the temporary Cargo manifest used to compile README snippets.
-///
-/// # Parameters
-///
-/// * `name` - Stable suffix identifying the README under test.
 /// * `manifest_dir` - Root directory of the `qubit-id` crate dependency.
+/// * `features` - `qubit-id` features required by the snippets.
 ///
 /// # Returns
 ///
 /// A Cargo manifest for a private temporary crate.
-fn build_markdown_doctest_manifest(name: &str, manifest_dir: &Path) -> String {
+fn build_markdown_doctest_manifest(name: &str, manifest_dir: &Path, features: &[String]) -> String {
     let manifest_path = toml_basic_string(&manifest_dir.display().to_string());
+    let features = format!(
+        "[{}]",
+        features
+            .iter()
+            .map(|feature| format!("\"{}\"", toml_basic_string(feature)))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 
     format!(
         r#"[package]
@@ -174,7 +316,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-qubit-id = {{ path = "{manifest_path}", default-features = false, features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid", "serde"] }}
+qubit-id = {{ path = "{manifest_path}", default-features = false, features = {features} }}
 uuid = {{ version = "1", features = ["v4"] }}
 serde_json = "1"
 "#
@@ -228,10 +370,58 @@ fn normalize_snippet(snippet: &str) -> String {
     }
 }
 
+fn assert_document_versions_match(manifest_dir: &Path) -> Result<(), String> {
+    let cargo: Value = from_str(&fs::read_to_string(manifest_dir.join("Cargo.toml")).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let package_version = cargo["package"]["version"]
+        .as_str()
+        .ok_or("Cargo package.version missing")?;
+    let expected = package_version.split('.').take(2).collect::<Vec<_>>().join(".");
+    for relative in [
+        "README.md",
+        "README.zh_CN.md",
+        "doc/user_guide.md",
+        "doc/user_guide.zh_CN.md",
+    ] {
+        let content = fs::read_to_string(manifest_dir.join(relative)).map_err(|e| e.to_string())?;
+        let mut found = Vec::new();
+        for line in content
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("qubit-id ="))
+        {
+            let parsed: Table = from_str(line).map_err(|e| format!("{relative}: invalid qubit-id dependency: {e}"))?;
+            let dependency = &parsed["qubit-id"];
+            let version = dependency
+                .as_str()
+                .or_else(|| dependency.get("version").and_then(Value::as_str))
+                .ok_or_else(|| format!("{relative}: qubit-id dependency has no version"))?;
+            found.push(version.to_owned());
+        }
+        if found.is_empty() || found.iter().any(|version| version != &expected) {
+            return Err(format!(
+                "{relative}: qubit-id dependency versions {found:?} do not match {expected}"
+            ));
+        }
+        if relative.starts_with("doc/")
+            && !content.lines().any(|line| {
+                line.contains("qubit-id")
+                    && line.contains(&expected)
+                    && (line.contains("series") || line.contains("系列"))
+            })
+        {
+            return Err(format!(
+                "{relative}: guide version declaration does not match {expected}"
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Verifies that Windows dependency paths are escaped in the generated TOML.
 #[test]
 fn test_build_markdown_doctest_manifest_escapes_windows_dependency_path() {
-    let manifest = build_markdown_doctest_manifest("readme_en", Path::new(r"D:\a\rs-id\rs-id"));
+    let manifest = build_markdown_doctest_manifest("readme_en", Path::new(r"D:\a\rs-id\rs-id"), &[]);
 
     assert!(
         manifest.contains(r#"path = "D:\\a\\rs-id\\rs-id""#),
@@ -239,14 +429,106 @@ fn test_build_markdown_doctest_manifest_escapes_windows_dependency_path() {
     );
 }
 
-/// Verifies that README examples can use every feature-gated public API.
 #[test]
-fn test_build_markdown_doctest_manifest_enables_all_example_features() {
-    let manifest = build_markdown_doctest_manifest("readme_en", Path::new("/workspace/rs-id"));
+fn test_review_markdown_metadata_parses_source_features_and_mode() {
+    let snippets = parse_markdown_examples(
+        "README.md",
+        "<!-- qubit-id-example features=\"classic-snowflake,uuid\" mode=\"run\" -->\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    assert_eq!(snippets.len(), 1);
+    assert_eq!(snippets[0].source, "fn main() {}");
+    assert_eq!(snippets[0].features, ["classic-snowflake", "uuid"]);
+    assert_eq!(snippets[0].mode, ExampleMode::Run);
+    assert_eq!(snippets[0].source_path, "README.md");
+    assert_eq!(snippets[0].line, 3);
+}
+
+#[test]
+fn test_review_markdown_has_all_four_document_sources() {
+    assert_eq!(
+        DocumentSource::ALL
+            .map(|(source, _)| source)
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        4
+    );
+    assert_eq!(
+        DocumentSource::ALL.map(|(_, path)| path),
+        [
+            "README.md",
+            "README.zh_CN.md",
+            "doc/user_guide.md",
+            "doc/user_guide.zh_CN.md"
+        ]
+    );
+}
+
+#[test]
+fn test_review_markdown_metadata_groups_feature_lists_stably_and_accepts_empty() {
+    let snippets = parse_markdown_examples(
+        "guide.md",
+        "<!-- qubit-id-example features=\"uuid,serde\" mode=\"check\" -->\n```rs\na\n```\n<!-- qubit-id-example features=\"serde,uuid\" mode=\"check\" -->\n```rust\nb\n```\n<!-- qubit-id-example features=\"\" mode=\"run\" -->\n```rust\nc\n```\n",
+    )
+    .unwrap();
+    assert_eq!(snippets[0].features, ["serde", "uuid"]);
+    assert_eq!(snippets[1].features, ["serde", "uuid"]);
+    assert!(snippets[2].features.is_empty());
+}
+
+#[test]
+fn test_review_markdown_metadata_rejects_invalid_or_unbound_metadata() {
+    for content in [
+        "<!-- qubit-id-example features=\"made-up\" mode=\"run\" -->\n```rust\nx\n```",
+        "<!-- qubit-id-example features=\"uuid,uuid\" mode=\"run\" -->\n```rust\nx\n```",
+        "<!-- qubit-id-example features=\"uuid\" mode=\"execute\" -->\n```rust\nx\n```",
+        "```rust\nx\n```",
+        "```toml\nx = 1",
+        "<!-- qubit-id-example features=\"uuid\" mode=\"run\" -->\ntext",
+        "<!-- qubit-id-example features=\"uuid\" mode=\"run\" -->\n```rust\nx",
+    ] {
+        let error = parse_markdown_examples("guide.md", content).unwrap_err();
+        assert!(error.contains("guide.md:"), "{error}");
+    }
+}
+
+#[test]
+fn test_review_markdown_metadata_ignores_non_rust_fences() {
+    let snippets = parse_markdown_examples(
+        "guide.md",
+        "```toml\n<!-- qubit-id-example features=\"unknown\" mode=\"bad\" -->\nx = 1\n```\n",
+    )
+    .unwrap();
+    assert!(snippets.is_empty());
+}
+
+#[test]
+fn test_review_markdown_manifest_enables_only_declared_features() {
+    let manifest =
+        build_markdown_doctest_manifest("classic", Path::new("/tmp/qubit-id"), &["classic-snowflake".to_owned()]);
+    let parsed: Value = from_str(&manifest).unwrap();
+    let features = parsed["dependencies"]["qubit-id"]["features"].as_array().unwrap();
+    assert_eq!(features, &[Value::String("classic-snowflake".to_owned())]);
+}
+
+#[test]
+fn test_review_markdown_document_versions_match_package_minor() {
+    assert_document_versions_match(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
+}
+
+/// Verifies that a temporary README manifest enables only its declared feature.
+#[test]
+fn test_build_markdown_doctest_manifest_enables_declared_features() {
+    let manifest = build_markdown_doctest_manifest(
+        "readme_en",
+        Path::new("/workspace/rs-id"),
+        &["classic-snowflake".to_owned()],
+    );
 
     assert!(
-        manifest.contains(r#"features = ["classic-snowflake", "qubit-snowflake", "sonyflake", "uuid", "serde"]"#,),
-        "README dependency must enable every documented feature:\n{manifest}"
+        manifest.contains(r#"features = ["classic-snowflake"]"#),
+        "temporary dependency must enable only its declared feature:\n{manifest}"
     );
 }
 

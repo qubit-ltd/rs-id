@@ -49,6 +49,38 @@ fn test_snowflake_layout_compose_decode_round_trip() {
 }
 
 #[test]
+fn test_review_decode_accepts_only_the_63_bit_layout_as_round_trip_input() {
+    let layout = ClassicalSnowflakeLayout::new(0).expect("zero node ID must be valid");
+    let maximum_63_bit_id = (1_u64 << 63) - 1;
+
+    for raw in [0, maximum_63_bit_id] {
+        let raw_parts = ClassicalSnowflakeLayout::decode_raw(raw);
+        let typed_parts = ClassicalSnowflakeLayout::decode(raw.into());
+
+        assert_eq!(typed_parts, raw_parts);
+        assert!(layout.compose(raw_parts.timestamp(), raw_parts.sequence()).is_ok());
+    }
+
+    let high_bit_parts = ClassicalSnowflakeLayout::decode_raw(1_u64 << 63);
+    let typed_high_bit_parts = ClassicalSnowflakeLayout::decode((1_u64 << 63).into());
+    assert_eq!(typed_high_bit_parts, high_bit_parts);
+    assert_eq!(high_bit_parts.timestamp(), 1_u64 << 41);
+    assert!(matches!(
+        layout.compose(high_bit_parts.timestamp(), high_bit_parts.sequence()),
+        Err(IdGenerationError::TimestampOverflow { .. })
+    ));
+
+    let all_bits_parts = ClassicalSnowflakeLayout::decode_raw(u64::MAX);
+    let typed_all_bits_parts = ClassicalSnowflakeLayout::decode(u64::MAX.into());
+    assert_eq!(typed_all_bits_parts, all_bits_parts);
+    assert_eq!(all_bits_parts.timestamp(), (1_u64 << 41) - 1 + (1_u64 << 41));
+    assert!(matches!(
+        layout.compose(all_bits_parts.timestamp(), all_bits_parts.sequence()),
+        Err(IdGenerationError::TimestampOverflow { .. })
+    ));
+}
+
+#[test]
 fn test_snowflake_layout_getters_return_configuration_and_limits() {
     let layout = ClassicalSnowflakeLayout::new(23).expect("node id must fit the classic layout");
 

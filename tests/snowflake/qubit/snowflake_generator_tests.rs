@@ -400,6 +400,173 @@ fn test_snowflake_generator_preserves_wait_failure_source() {
     ));
 }
 
+#[test]
+fn test_review_distinct_epochs_can_generate_equal_ids() {
+    let epoch = UNIX_EPOCH;
+    let now = epoch + Duration::from_micros(10_500_000);
+    let (first_generator, _first_time) = build_generator(TimestampPrecision::Second, 7, epoch, now, Duration::ZERO);
+    let (second_generator, _second_time) = build_generator(
+        TimestampPrecision::Second,
+        7,
+        epoch + Duration::from_millis(1),
+        now,
+        Duration::ZERO,
+    );
+
+    let first = match first_generator.try_generate().expect("first attempt should succeed") {
+        GenerationAttempt::Generated(id) => id,
+        GenerationAttempt::RetryAfter { .. } => panic!("immediate generation should allocate"),
+    };
+    let second = match second_generator.try_generate().expect("second attempt should succeed") {
+        GenerationAttempt::Generated(id) => id,
+        GenerationAttempt::RetryAfter { .. } => panic!("immediate generation should allocate"),
+    };
+
+    assert_eq!(first, second);
+    let parts = SnowflakeLayout::decode(first);
+    assert_eq!(parts.timestamp(), 10);
+    assert_eq!(parts.sequence(), 0);
+}
+
+#[test]
+fn test_review_subslice_rollback_retains_high_water() {
+    let epoch = UNIX_EPOCH;
+    for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
+        let (zero_tolerance, zero_time) = build_generator(
+            precision,
+            7,
+            epoch,
+            epoch + Duration::from_micros(10_900),
+            Duration::ZERO,
+        );
+        let first = match zero_tolerance
+            .try_generate()
+            .expect("initial allocation should succeed")
+        {
+            GenerationAttempt::Generated(id) => id,
+            GenerationAttempt::RetryAfter { .. } => panic!("initial allocation should be immediate"),
+        };
+        let first_parts = SnowflakeLayout::decode(first);
+        assert_eq!(
+            first_parts.timestamp(),
+            if precision == TimestampPrecision::Millisecond {
+                10
+            } else {
+                0
+            }
+        );
+        assert_eq!(first_parts.sequence(), 0);
+        zero_time.reanchor(epoch + Duration::from_micros(10_800));
+        assert!(matches!(
+            zero_tolerance.try_generate(),
+            Err(IdGenerationError::ClockMovedBackwards {
+                last_elapsed,
+                current_elapsed,
+                skew,
+                max_skew,
+            }) if last_elapsed == Duration::from_micros(10_900)
+                && current_elapsed == Duration::from_micros(10_800)
+                && skew == Duration::from_micros(100)
+                && max_skew == Duration::ZERO
+        ));
+        zero_time.reanchor(epoch + Duration::from_micros(10_900));
+        let recovered = match zero_tolerance
+            .try_generate()
+            .expect("recovery at high-water should succeed")
+        {
+            GenerationAttempt::Generated(id) => id,
+            GenerationAttempt::RetryAfter { .. } => panic!("recovery at high-water should allocate"),
+        };
+        let recovered_parts = SnowflakeLayout::decode(recovered);
+        assert_eq!(recovered_parts.timestamp(), first_parts.timestamp());
+        assert_eq!(recovered_parts.sequence(), 1);
+
+        let (tolerant, time) = build_generator(
+            precision,
+            7,
+            epoch,
+            epoch + Duration::from_micros(10_900),
+            Duration::from_micros(100),
+        );
+        let first = match tolerant.try_generate().expect("initial allocation should succeed") {
+            GenerationAttempt::Generated(id) => id,
+            GenerationAttempt::RetryAfter { .. } => panic!("initial allocation should be immediate"),
+        };
+        let first_parts = SnowflakeLayout::decode(first);
+        time.reanchor(epoch + Duration::from_micros(10_800));
+        assert_eq!(
+            tolerant.try_generate().expect("rollback at tolerance should retry"),
+            GenerationAttempt::RetryAfter {
+                delay: Duration::from_micros(100)
+            },
+        );
+        time.reanchor(epoch + Duration::from_micros(10_850));
+        assert_eq!(
+            tolerant.try_generate().expect("partial recovery should retry"),
+            GenerationAttempt::RetryAfter {
+                delay: Duration::from_micros(50)
+            },
+        );
+        time.reanchor(epoch + Duration::from_micros(10_900));
+        let recovered = match tolerant.try_generate().expect("recovery at high-water should succeed") {
+            GenerationAttempt::Generated(id) => id,
+            GenerationAttempt::RetryAfter { .. } => panic!("recovery at high-water should allocate"),
+        };
+        let recovered_parts = SnowflakeLayout::decode(recovered);
+        assert_eq!(recovered_parts.timestamp(), first_parts.timestamp());
+        assert_eq!(recovered_parts.sequence(), 1);
+    }
+}
+
+#[test]
+fn test_review_exhaustion_rollback_recovery() {
+    let epoch = UNIX_EPOCH;
+    let (generator, time) = build_generator(
+        TimestampPrecision::Millisecond,
+        7,
+        epoch,
+        epoch + Duration::from_millis(100),
+        Duration::from_millis(1),
+    );
+    let mut generated = HashSet::new();
+    for _ in 0..=generator.layout().max_sequence() {
+        match generator.try_generate().expect("available sequence should generate") {
+            GenerationAttempt::Generated(id) => assert!(generated.insert(id), "generated IDs must be unique"),
+            GenerationAttempt::RetryAfter { .. } => panic!("sequence capacity should not be exhausted early"),
+        }
+    }
+    assert_eq!(generated.len(), 4096);
+    assert_eq!(
+        generator.try_generate().expect("exhaustion should request retry"),
+        GenerationAttempt::RetryAfter {
+            delay: Duration::from_millis(1)
+        },
+    );
+
+    time.reanchor(epoch + Duration::from_millis(101));
+    let next_slice = match generator.try_generate().expect("next slice should generate") {
+        GenerationAttempt::Generated(id) => id,
+        GenerationAttempt::RetryAfter { .. } => panic!("new slice should have sequence capacity"),
+    };
+    assert_eq!(SnowflakeLayout::decode(next_slice).timestamp(), 101);
+    assert_eq!(SnowflakeLayout::decode(next_slice).sequence(), 0);
+
+    time.reanchor(epoch + Duration::from_millis(100));
+    assert_eq!(
+        generator.try_generate().expect("rollback should request retry"),
+        GenerationAttempt::RetryAfter {
+            delay: Duration::from_millis(1)
+        },
+    );
+    time.reanchor(epoch + Duration::from_millis(101));
+    let recovered = match generator.try_generate().expect("recovery should generate") {
+        GenerationAttempt::Generated(id) => id,
+        GenerationAttempt::RetryAfter { .. } => panic!("recovery at high-water should allocate"),
+    };
+    assert_eq!(SnowflakeLayout::decode(recovered).timestamp(), 101);
+    assert_eq!(SnowflakeLayout::decode(recovered).sequence(), 1);
+}
+
 mod async_tests {
     // =============================================================================
     //    Copyright (c) 2026 Haixing Hu.

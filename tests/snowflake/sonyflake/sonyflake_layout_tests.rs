@@ -51,6 +51,30 @@ fn test_sonyflake_layout_compose_decode_round_trip() {
 }
 
 #[test]
+fn test_review_decode_extracts_default_and_custom_layout_fields() {
+    let default_layout =
+        SonyflakeLayout::new(0, 0, 0, Duration::from_millis(10)).expect("default layout must be valid");
+    let custom_layout = SonyflakeLayout::new(1, 4, 8, Duration::from_millis(1)).expect("custom layout must be valid");
+    let maximum_63_bit_id = (1_u64 << 63) - 1;
+
+    for layout in [default_layout, custom_layout] {
+        for raw in [0, maximum_63_bit_id, 1_u64 << 63, u64::MAX] {
+            let raw_parts = layout.decode_raw(raw);
+            let typed_parts = layout.decode(raw.into());
+
+            assert_eq!(typed_parts, raw_parts);
+        }
+    }
+
+    let default_high_bit_parts = default_layout.decode_raw(1_u64 << 63);
+    assert_eq!(default_high_bit_parts.elapsed_time(), 1_u64 << 39);
+
+    let custom_high_bit_parts = custom_layout.decode_raw(1_u64 << 63);
+    assert_eq!(custom_high_bit_parts.elapsed_time(), 1_u64 << 51);
+    assert!(custom_high_bit_parts.elapsed_time() > custom_layout.max_elapsed_time());
+}
+
+#[test]
 fn test_sonyflake_layout_getters_return_configuration_and_limits() {
     let time_unit = Duration::from_millis(10);
     let layout = SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
