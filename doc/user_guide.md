@@ -312,19 +312,70 @@ time correlation and can store unsigned 64-bit values.
 
 ### Deterministic clocks in tests
 
-Derive the wall clock and timer from one `ManualMonotonicClock` so tests can
-advance time after observing a registered retry deadline:
+The following standalone program derives the wall clock and timer from one
+`ManualMonotonicClock`. Its observer confirms that the retry deadline is
+registered before `advance_to_next_deadline()` advances logical time. On
+success, its assertions pass and the program exits. The timeout only protects
+against a hung example; it does not advance logical time. `WaitNextSlice`
+deliberately causes one wait here and does not provide persistence or
+cross-process uniqueness.
 
-```text
-let clock = ManualMonotonicClock::new_shared();
-let generator = SnowflakeGenerator::builder(7)
-    .wall_clock(clock.new_wall_clock(initial_time))
-    .timer(clock.new_timer())
-    .build()?;
+Use these exact dependencies. The clock crate's `test-util` feature is not
+needed; Tokio's `time` feature is enabled on Tokio itself:
+
+```toml
+[dependencies]
+qubit-id = "0.7"
+qubit-clock = "0.13"
+tokio = { version = "1.54", features = ["macros", "rt", "time"] }
 ```
 
-This avoids real sleeps and makes sequence rollover, clock rollback, and
-expiration tests repeatable.
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::UNIX_EPOCH;
+
+use qubit_clock::ManualMonotonicClock;
+use qubit_clock::MonotonicClock;
+use qubit_id::RestartPolicy;
+use qubit_id::SnowflakeGenerator;
+use qubit_id::TimestampPrecision;
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_600_000_000);
+    let initial_time = epoch + Duration::from_secs(10);
+    let clock = ManualMonotonicClock::new_shared();
+    let generator = Arc::new(
+        SnowflakeGenerator::builder(7)
+            .epoch(epoch)
+            .precision(TimestampPrecision::Millisecond)
+            .restart_policy(RestartPolicy::WaitNextSlice)
+            .wall_clock(clock.new_wall_clock(initial_time))
+            .timer(clock.new_timer())
+            .build()?,
+    );
+    let worker_generator = Arc::clone(&generator);
+    let task = tokio::spawn(async move { worker_generator.generate_async().await });
+    let observed = tokio::time::timeout(
+        Duration::from_secs(5),
+        clock.wait_for_next_deadline_async(),
+    )
+    .await?;
+    assert_eq!(observed.elapsed_since_origin(), Duration::from_millis(1));
+    assert!(!task.is_finished());
+    let reached = clock.advance_to_next_deadline().expect("registered deadline");
+    assert_eq!(reached, observed);
+    let id = tokio::time::timeout(Duration::from_secs(5), task).await???;
+    let expected = generator.compose_at(initial_time + Duration::from_millis(1), 0)?;
+    assert_eq!(id, expected);
+    Ok(())
+}
+```
+
+The one-millisecond assertion verifies the wait duration, and comparing the
+returned ID with the ID composed at the new time slice verifies sequence zero.
 
 ## Errors and diagnostics
 

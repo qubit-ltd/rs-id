@@ -274,18 +274,66 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### 测试中的确定性时钟
 
-从同一个 `ManualMonotonicClock` 派生 WallClock 与 Timer，使测试在观察到 retry deadline
-后再推进时间：
+下面的独立程序从同一个 `ManualMonotonicClock` 派生 WallClock 与 Timer。observer 会先确认
+retry deadline 已注册，然后 `advance_to_next_deadline()` 才推进逻辑时间。程序成功时，所有
+断言通过并正常退出。timeout 只用于防止示例挂起，不负责推进逻辑时间。这里使用
+`WaitNextSlice` 是为了刻意触发一次等待；它不提供持久化或跨进程唯一性保证。
 
-```text
-let clock = ManualMonotonicClock::new_shared();
-let generator = SnowflakeGenerator::builder(7)
-    .wall_clock(clock.new_wall_clock(initial_time))
-    .timer(clock.new_timer())
-    .build()?;
+请使用以下精确依赖；无需启用时钟库的 `test-util` feature，也无需在 `qubit-clock` 上启用
+Tokio timer feature：
+
+```toml
+[dependencies]
+qubit-id = "0.7"
+qubit-clock = "0.13"
+tokio = { version = "1.54", features = ["macros", "rt", "time"] }
 ```
 
-这样可以避免真实 sleep，并使序列耗尽、时钟回拨和到期测试可重复。
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::UNIX_EPOCH;
+
+use qubit_clock::ManualMonotonicClock;
+use qubit_clock::MonotonicClock;
+use qubit_id::RestartPolicy;
+use qubit_id::SnowflakeGenerator;
+use qubit_id::TimestampPrecision;
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_600_000_000);
+    let initial_time = epoch + Duration::from_secs(10);
+    let clock = ManualMonotonicClock::new_shared();
+    let generator = Arc::new(
+        SnowflakeGenerator::builder(7)
+            .epoch(epoch)
+            .precision(TimestampPrecision::Millisecond)
+            .restart_policy(RestartPolicy::WaitNextSlice)
+            .wall_clock(clock.new_wall_clock(initial_time))
+            .timer(clock.new_timer())
+            .build()?,
+    );
+    let worker_generator = Arc::clone(&generator);
+    let task = tokio::spawn(async move { worker_generator.generate_async().await });
+    let observed = tokio::time::timeout(
+        Duration::from_secs(5),
+        clock.wait_for_next_deadline_async(),
+    )
+    .await?;
+    assert_eq!(observed.elapsed_since_origin(), Duration::from_millis(1));
+    assert!(!task.is_finished());
+    let reached = clock.advance_to_next_deadline().expect("registered deadline");
+    assert_eq!(reached, observed);
+    let id = tokio::time::timeout(Duration::from_secs(5), task).await???;
+    let expected = generator.compose_at(initial_time + Duration::from_millis(1), 0)?;
+    assert_eq!(id, expected);
+    Ok(())
+}
+```
+
+一毫秒断言验证等待时长；将返回 ID 与新时间片上 sequence 为 0 的 ID 比较，则验证了返回结果。
 
 ## 错误与诊断
 

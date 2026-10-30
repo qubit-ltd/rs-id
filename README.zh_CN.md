@@ -195,6 +195,7 @@ let generator = SnowflakeGenerator::builder(7)
 ```
 
 Manual Timer observer 可以先确认 deadline 已注册，再推进逻辑时钟，避免真实 sleep 和异步调度猜测。
+完整可执行示例见[确定性时钟指南](doc/user_guide.zh_CN.md#测试中的确定性时钟)。
 
 ## UUID v4
 

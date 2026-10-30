@@ -225,6 +225,7 @@ let generator = SnowflakeGenerator::builder(7)
 
 Manual timer observers let tests wait until a deadline is registered before
 advancing logical time, avoiding real sleeps and scheduling guesses.
+See the [complete deterministic clock example](doc/user_guide.md#deterministic-clocks-in-tests).
 
 ## UUID v4
 
