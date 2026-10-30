@@ -363,13 +363,11 @@ fn test_snowflake_generator_waits_with_injected_timer() {
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker = thread::spawn(move || worker_generator.generate());
+    let worker =
+        crate::support::spawn_with_timeout("qubit injected timer allocation", move || worker_generator.generate());
 
     time.advance_to_next_deadline();
-    let id = worker
-        .join()
-        .expect("worker should finish")
-        .expect("next slice should allocate");
+    let id = worker.finish().expect("next slice should allocate");
     let parts = SnowflakeLayout::decode(id);
 
     assert_eq!(parts.timestamp(), 11);

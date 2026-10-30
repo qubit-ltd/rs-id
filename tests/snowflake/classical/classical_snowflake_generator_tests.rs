@@ -10,7 +10,6 @@
 
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 use std::time::UNIX_EPOCH;
 
@@ -198,13 +197,12 @@ fn test_classical_snowflake_generator_waits_with_injected_timer() {
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker = thread::spawn(move || worker_generator.generate());
+    let worker = crate::support::spawn_with_timeout("classical injected timer allocation", move || {
+        worker_generator.generate()
+    });
 
     time.advance_to_next_deadline();
-    let id = worker
-        .join()
-        .expect("worker should finish")
-        .expect("next millisecond should allocate");
+    let id = worker.finish().expect("next millisecond should allocate");
 
     assert_eq!(ClassicalSnowflakeLayout::decode(id).timestamp(), 11);
     assert_eq!(ClassicalSnowflakeLayout::decode(id).sequence(), 0);
