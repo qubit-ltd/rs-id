@@ -53,7 +53,9 @@ pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns `Error` when the allocation cannot recover by waiting.
+    /// Returns `Error` when the current allocation attempt fails. Recovery
+    /// depends on the implementation and error; an error does not necessarily
+    /// make the generator permanently unusable.
     fn try_generate(&self) -> Result<GenerationAttempt<Output>, Error>;
 }
 
