@@ -46,6 +46,8 @@ pub(super) const DEFAULT_EPOCH_MILLIS: u64 = 1_735_689_600_000;
 /// let generator = SonyflakeGenerator::new(7).unwrap();
 /// assert!(generator.generate().is_ok());
 /// ```
+/// Cloning shares allocation state with the original generator; it does not
+/// create an independent allocator.
 #[derive(Clone)]
 #[must_use]
 pub struct SonyflakeGenerator {

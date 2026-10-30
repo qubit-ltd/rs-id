@@ -46,6 +46,8 @@ use crate::TryIdGenerator;
 ///     .expect("valid node configuration");
 /// assert!(generator.expires_at() > generator.epoch());
 /// ```
+/// Cloning shares allocation state with the original generator; it does not
+/// create an independent allocator.
 #[derive(Clone)]
 #[must_use]
 pub struct ClassicalSnowflakeGenerator {

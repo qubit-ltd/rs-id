@@ -8,6 +8,7 @@
 //! Integration tests for the synchronous and asynchronous classic Snowflake
 //! generators.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -150,6 +151,37 @@ fn test_classical_snowflake_generator_increments_sequence_in_same_millisecond() 
 
     assert_eq!(ClassicalSnowflakeLayout::decode(first).sequence(), 0);
     assert_eq!(ClassicalSnowflakeLayout::decode(second).sequence(), 1);
+}
+
+#[tokio::test]
+async fn test_classical_clone_shares_allocation_state() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let time = ManualTime::new(epoch + Duration::from_millis(10));
+    let generator = ClassicalSnowflakeGenerator::builder(17)
+        .epoch(epoch)
+        .restart_policy(RestartPolicy::Immediate)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("configuration should be valid");
+
+    let first = generator.generate().expect("first allocation");
+    let cloned = generator.clone();
+    let second = cloned.generate().expect("allocation through clone");
+    let third = generator.try_generate().expect("try allocation");
+    let third = match third {
+        GenerationAttempt::Generated(id) => id,
+        GenerationAttempt::RetryAfter { .. } => panic!("fixed slice has capacity"),
+    };
+    let fourth = crate::support::complete_with_timeout("allocation through clone", cloned.generate_async())
+        .await
+        .expect("async allocation");
+    let parts = [first, second, third, fourth].map(ClassicalSnowflakeLayout::decode);
+
+    assert_eq!(parts.map(|part| part.timestamp()), [10; 4]);
+    assert_eq!(parts.map(|part| part.sequence()), [0, 1, 2, 3]);
+    assert_eq!(parts.map(|part| part.node_id()), [17; 4]);
+    assert_eq!(HashSet::from([first, second, third, fourth]).len(), 4);
 }
 
 #[test]
@@ -328,14 +360,20 @@ mod async_tests {
                 .expect("configuration should be valid"),
         );
         let worker_generator = Arc::clone(&generator);
-        let worker = spawn(async move { worker_generator.generate_async().await });
+        let mut worker = spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
             time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_micros(750)
         );
-        let id = worker
-            .await
+        let joined = match tokio::time::timeout(Duration::from_secs(10), &mut worker).await {
+            Ok(joined) => joined,
+            Err(_) => {
+                worker.abort();
+                panic!("test coordination timed out: generator worker completion");
+            }
+        };
+        let id = joined
             .expect("worker should finish")
             .expect("next millisecond should allocate");
         assert_eq!(ClassicalSnowflakeLayout::decode(id).timestamp(), 11);

@@ -74,6 +74,8 @@ use crate::TryIdGenerator;
 /// let generator = SnowflakeGenerator::new(7).expect("valid host");
 /// let _id = generator.generate().expect("generate an ID");
 /// ```
+/// Cloning shares allocation state with the original generator; it does not
+/// create an independent allocator.
 #[derive(Clone)]
 #[must_use]
 pub struct SnowflakeGenerator {

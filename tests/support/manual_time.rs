@@ -18,6 +18,8 @@ use qubit_clock::MonotonicInstant;
 use qubit_clock::Timer;
 use qubit_clock::WallClock;
 
+use super::complete_with_timeout;
+
 /// Couples manual wall time and blocking waits to one monotonic timeline.
 pub(crate) struct ManualTime {
     /// Monotonic timeline advanced by the test driver.
@@ -133,7 +135,11 @@ impl ManualTime {
     #[inline]
     #[cfg(feature = "qubit-snowflake")]
     pub(crate) async fn wait_for_next_deadline_async(&self) -> MonotonicInstant {
-        self.monotonic_clock.wait_for_next_deadline_async().await
+        complete_with_timeout(
+            "waiting for next deadline registration",
+            self.monotonic_clock.wait_for_next_deadline_async(),
+        )
+        .await
     }
 
     /// Asynchronously waits for and advances to the next timer deadline.
@@ -143,7 +149,11 @@ impl ManualTime {
     /// The same-domain instant reached on the manual timeline.
     #[inline]
     pub(crate) async fn advance_to_next_deadline_async(&self) -> MonotonicInstant {
-        self.monotonic_clock.advance_to_next_deadline_async().await
+        complete_with_timeout(
+            "advancing to next deadline",
+            self.monotonic_clock.advance_to_next_deadline_async(),
+        )
+        .await
     }
 
     /// Asynchronously waits until `expected` timer waiters are registered.
@@ -154,7 +164,11 @@ impl ManualTime {
     #[cfg(feature = "qubit-snowflake")]
     #[inline]
     pub(crate) async fn wait_for_waiters_async(&self, expected: usize) {
-        self.monotonic_clock.wait_for_waiters_async(expected).await;
+        complete_with_timeout(
+            &format!("waiting for expected timer waiters: {expected}"),
+            self.monotonic_clock.wait_for_waiters_async(expected),
+        )
+        .await;
     }
 
     /// Returns the number of timer waiter registrations awaiting cleanup.
