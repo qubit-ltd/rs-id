@@ -23,6 +23,7 @@ use qubit_id::GenerationAttempt;
 use qubit_id::Id;
 use qubit_id::IdGenerationError;
 use qubit_id::SnowflakeGenerator;
+use qubit_id::SnowflakeLayout;
 use qubit_id::TimestampPrecision;
 
 /// Maximum number of state-machine operations interpreted from one input.
@@ -114,11 +115,37 @@ fn require_positive_retry(attempt: Result<GenerationAttempt<Id>, IdGenerationErr
 /// # Panics
 ///
 /// Panics when the excessive rollback does not return `ClockMovedBackwards`.
-fn require_large_rollback_error(attempt: Result<GenerationAttempt<Id>, IdGenerationError>) {
+fn require_large_rollback_error(
+    attempt: Result<GenerationAttempt<Id>, IdGenerationError>,
+    last_elapsed: Duration,
+    current_elapsed: Duration,
+) {
     match attempt {
-        Err(IdGenerationError::ClockMovedBackwards { skew, max_skew, .. }) => {
+        Err(IdGenerationError::ClockMovedBackwards {
+            last_elapsed: actual_last,
+            current_elapsed: actual_current,
+            skew,
+            max_skew,
+        }) => {
+            assert_eq!(
+                actual_last, last_elapsed,
+                "rollback error must report the allocator high-water time"
+            );
+            assert_eq!(
+                actual_current, current_elapsed,
+                "rollback error must report the observed wall time"
+            );
+            assert_eq!(
+                skew,
+                last_elapsed - current_elapsed,
+                "rollback error must report the exact skew"
+            );
+            assert_eq!(
+                max_skew, MAX_CLOCK_SKEW,
+                "rollback error must report the configured tolerance"
+            );
             assert!(
-                skew > max_skew,
+                skew > MAX_CLOCK_SKEW,
                 "clock rollback error must exceed its configured tolerance",
             );
         }
@@ -143,6 +170,7 @@ fuzz_target!(|input: &[u8]| {
     let generator = build_generator(&clock, wall_clock.clone());
     let mut generated_ids = BTreeSet::new();
     let mut remaining_normal_attempts = MAX_NORMAL_ATTEMPTS;
+    let mut expected_slice = INITIAL_ELAPSED.as_millis() as u64;
 
     let first_id = match generator.try_generate() {
         Ok(GenerationAttempt::Generated(id)) => id,
@@ -152,6 +180,18 @@ fuzz_target!(|input: &[u8]| {
         Err(error) => panic!("initial generation must succeed: {error}"),
     };
     record_generated(first_id, &mut generated_ids);
+    let first_parts = SnowflakeLayout::decode(first_id);
+    assert_eq!(
+        first_parts.timestamp(),
+        expected_slice,
+        "initial ID must use the initial timestamp slice"
+    );
+    assert_eq!(
+        first_parts.sequence(),
+        0,
+        "first allocation in a slice must use sequence zero"
+    );
+    let mut successes_in_slice = 1_u64;
     let mut last_observed_time = current_time;
 
     for operation in operations {
@@ -162,9 +202,37 @@ fuzz_target!(|input: &[u8]| {
                 remaining_normal_attempts -= attempts;
 
                 for _ in 0..attempts {
+                    let wall_slice = current_time
+                        .duration_since(epoch)
+                        .expect("fuzz time must not precede epoch")
+                        .as_millis() as u64;
+                    if wall_slice > expected_slice {
+                        expected_slice = wall_slice;
+                        successes_in_slice = 0;
+                    }
+                    let has_capacity = successes_in_slice <= generator.layout().max_sequence();
                     match generator.try_generate() {
-                        Ok(GenerationAttempt::Generated(id)) => record_generated(id, &mut generated_ids),
+                        Ok(GenerationAttempt::Generated(id)) => {
+                            assert!(has_capacity, "generator must defer after exhausting a timestamp slice");
+                            record_generated(id, &mut generated_ids);
+                            let parts = SnowflakeLayout::decode(id);
+                            assert_eq!(
+                                parts.timestamp(),
+                                expected_slice,
+                                "generated ID must use the expected timestamp slice"
+                            );
+                            assert_eq!(
+                                parts.sequence(),
+                                successes_in_slice,
+                                "generated ID must use the next sequence"
+                            );
+                            successes_in_slice += 1;
+                        }
                         Ok(GenerationAttempt::RetryAfter { delay }) => {
+                            assert!(
+                                !has_capacity,
+                                "generator must allocate while the expected slice has capacity"
+                            );
                             assert!(
                                 !delay.is_zero(),
                                 "a deferred generation attempt must report a positive delay",
@@ -204,7 +272,11 @@ fuzz_target!(|input: &[u8]| {
                     .checked_sub(rollback)
                     .expect("initial fuzz offset must contain bounded rollback");
                 wall_clock.reanchor(rollback_time);
-                require_large_rollback_error(generator.try_generate());
+                let last_elapsed = Duration::from_millis(expected_slice);
+                let current_elapsed = rollback_time
+                    .duration_since(epoch)
+                    .expect("rollback must remain after epoch");
+                require_large_rollback_error(generator.try_generate(), last_elapsed, current_elapsed);
                 wall_clock.reanchor(current_time);
             }
         }
