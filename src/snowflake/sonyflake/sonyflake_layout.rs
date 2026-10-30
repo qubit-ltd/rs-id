@@ -331,7 +331,8 @@ impl SonyflakeLayout {
     /// # Parameters
     ///
     /// * `elapsed_time` - Elapsed-time units from zero through
-    ///   [`Self::max_elapsed_time`], inclusive; each unit is [`Self::time_unit`].
+    ///   [`Self::max_elapsed_time`], inclusive; each unit is
+    ///   [`Self::time_unit`].
     /// * `sequence` - Sequence from zero through [`Self::max_sequence`],
     ///   inclusive.
     ///

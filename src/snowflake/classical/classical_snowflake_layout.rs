@@ -132,7 +132,8 @@ impl ClassicalSnowflakeLayout {
         expiration_time(epoch, Duration::from_millis(1), self.max_timestamp())
     }
 
-    /// Composes a raw classic Snowflake value from timestamp and sequence parts.
+    /// Composes a raw classic Snowflake value from timestamp and sequence
+    /// parts.
     ///
     /// The timestamp is milliseconds elapsed from the epoch selected by the
     /// caller. The layout supplies the configured node identity and does not
@@ -214,7 +215,8 @@ impl ClassicalSnowflakeLayout {
         ClassicalSnowflakeParts::new(timestamp, node_id, sequence)
     }
 
-    /// Composes a typed classic Snowflake [`Id`] from timestamp and sequence parts.
+    /// Composes a typed classic Snowflake [`Id`] from timestamp and sequence
+    /// parts.
     ///
     /// The timestamp is milliseconds elapsed from the epoch selected by the
     /// caller. The layout supplies the configured node identity and does not
