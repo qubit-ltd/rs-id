@@ -269,12 +269,18 @@ cargo bench --no-default-features --features uuid --bench uuid_comparison
 
 ## Testing
 
-Documentation examples run as part of the ordinary test suite. To check only
-the README and user guide examples, run:
+Ordinary tests validate Markdown metadata and document versions. The complete
+README and user guide examples run once through the project hook:
 
 ```bash
-cargo test --locked --test mod --no-default-features test_review_documentation_examples -- --nocapture
+./.infra/project-ci-check.local.sh
 ```
+
+The hook uses the checked-in fixture lockfile. When intentionally updating its
+dependency resolution, run `cargo generate-lockfile --manifest-path
+tests/fixtures/markdown_examples/Cargo.toml`, review the lockfile change, then
+run the hook. After dependencies have been cached, the same run can be checked
+offline with `QUBIT_ID_MARKDOWN_OFFLINE=1 ./.infra/project-ci-check.local.sh`.
 
 ```bash
 # Run tests with the default feature set

@@ -10,13 +10,21 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
+use std::time::Instant;
 
 use toml::Table;
 use toml::Value;
 use toml::from_str;
+
+use super::process::ProcessOutcome;
+use super::process::run_with_timeout;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ExampleMode {
@@ -52,19 +60,24 @@ impl DocumentSource {
     ];
 }
 
-/// Compiles all Rust snippets in the English and Chinese README files.
+/// Compiles and runs all Rust snippets in the README files and user guides.
 ///
 /// # Panics
 ///
 /// Panics when a README cannot be read, a temporary crate cannot be created,
-/// or a snippet fails to compile.
+/// or a snippet fails to compile or run.
 #[test]
+#[ignore = "complete documentation execution is run once by the project hook"]
 fn test_review_documentation_examples() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let output_dir = manifest_dir
-        .join("target/markdown-doctest")
-        .join(format!("run-{}", std::process::id()));
-    fs::create_dir_all(&output_dir).expect("failed to create markdown output directory");
+    let output_root = manifest_dir.join("target/markdown-doctest");
+    fs::create_dir_all(&output_root).expect("failed to create markdown output directory");
+    let _run_lock = acquire_run_lock(&output_root, Duration::from_secs(10)).unwrap_or_else(|error| panic!("{error}"));
+    let run_id = format!("run-{}-{}", std::process::id(), timestamp_nonce());
+    let run_dir = output_root.join(&run_id);
+    fs::create_dir_all(run_dir.join("src")).expect("failed to create markdown run directory");
+    copy_fixture(&manifest_dir, &run_dir).unwrap_or_else(|error| panic!("{error}"));
+    let target_dir = output_root.join("build");
     let mut groups: BTreeMap<Vec<String>, Vec<MarkdownExample>> = BTreeMap::new();
     for (_, relative) in DocumentSource::ALL {
         let path = manifest_dir.join(relative);
@@ -75,77 +88,203 @@ fn test_review_documentation_examples() {
             groups.entry(example.features.clone()).or_default().push(example);
         }
     }
-    for (index, (features, examples)) in groups.into_iter().enumerate() {
-        let name = format!("group_{index}");
-        let crate_dir = output_dir.join(&name);
-        let bin_dir = crate_dir.join("src/bin");
-        fs::create_dir_all(&bin_dir).expect("failed to create snippet bin directory");
-        fs::write(
-            crate_dir.join("Cargo.toml"),
-            build_markdown_doctest_manifest(&name, &manifest_dir, &features),
-        )
-        .expect("failed to write snippet manifest");
-        for mode in [ExampleMode::Check, ExampleMode::Run] {
-            for (example_index, example) in examples.iter().filter(|e| e.mode == mode).enumerate() {
-                let bin = format!(
-                    "{}_{}",
-                    if mode == ExampleMode::Run { "run" } else { "check" },
-                    example_index
-                );
-                fs::write(bin_dir.join(format!("{bin}.rs")), normalize_snippet(&example.source))
-                    .expect("failed to write snippet source");
-                let action = if mode == ExampleMode::Run { "run" } else { "check" };
-                let output = Command::new("cargo")
-                    .arg(action)
-                    .arg("--quiet")
-                    .arg("--bin")
-                    .arg(&bin)
-                    .current_dir(&crate_dir)
-                    .env("CARGO_TARGET_DIR", output_dir.join("target"))
-                    .output()
-                    .expect("failed to run cargo for markdown example");
-                assert!(
-                    output.status.success(),
-                    "{}:{} {action} failed ({}):\n{}",
-                    example.source_path,
-                    example.line,
-                    output.status,
-                    String::from_utf8_lossy(&output.stderr)
-                );
+    let mut executed = 0;
+    for (features, examples) in groups {
+        for example in examples {
+            executed += 1;
+            run_example(&run_dir, &target_dir, &features, &example).unwrap_or_else(|error| panic!("{error}"));
+        }
+    }
+    let failure = MarkdownExample {
+        source: "fn main() { panic!(\"expected failure\"); }".to_owned(),
+        source_path: "controlled_failure".to_owned(),
+        line: 1,
+        features: Vec::new(),
+        mode: ExampleMode::Run,
+    };
+    run_example(&run_dir, &target_dir, &[], &failure).unwrap_or_else(|error| panic!("{error}"));
+    println!(
+        "executed {executed} documentation snippets; shared target: {}",
+        target_dir.display()
+    );
+    fs::remove_dir_all(&run_dir)
+        .unwrap_or_else(|error| panic!("remove successful run directory {}: {error}", run_dir.display()));
+}
+
+fn run_example(
+    run_dir: &Path,
+    target_dir: &Path,
+    features: &[String],
+    example: &MarkdownExample,
+) -> Result<(), String> {
+    fs::write(run_dir.join("src/main.rs"), normalize_snippet(&example.source))
+        .map_err(|error| format!("{}:{} write source: {error}", example.source_path, example.line))?;
+    let label = format!("{}:{} features={features:?}", example.source_path, example.line);
+    let offline = std::env::var_os("QUBIT_ID_MARKDOWN_OFFLINE").is_some_and(|value| value == "1");
+    let cargo_stage = if example.mode == ExampleMode::Check {
+        "check"
+    } else {
+        "build"
+    };
+    let mut cargo = Command::new("cargo");
+    cargo
+        .arg(cargo_stage)
+        .arg("--locked")
+        .arg("--no-default-features")
+        .arg("--quiet");
+    if !features.is_empty() {
+        cargo.arg("--features").arg(features.join(","));
+    }
+    if offline {
+        cargo.arg("--offline");
+    }
+    cargo.current_dir(run_dir).env("CARGO_TARGET_DIR", target_dir);
+    let build_budget = Duration::from_secs(600);
+    let build_log = run_dir.join(format!("{cargo_stage}.log"));
+    let build = run_with_timeout(cargo, build_budget, &format!("{label} {cargo_stage}"), &build_log)?;
+    ensure_success(&build, &format!("{label} {cargo_stage}"))?;
+    if example.mode == ExampleMode::Run {
+        let executable = target_dir
+            .join("debug")
+            .join(executable_name("qubit-id-markdown-examples"));
+        let mut command = Command::new(executable);
+        command.current_dir(run_dir);
+        let log = run_dir.join("run.log");
+        let outcome = run_with_timeout(command, Duration::from_secs(15), &format!("{label} run"), &log)?;
+        if example.source.contains("expected failure") {
+            if outcome.status.success() {
+                return Err(format!("{label} controlled failure unexpectedly succeeded"));
+            }
+            let logs = fs::read_to_string(&outcome.log_path).unwrap_or_default();
+            if !logs.contains("expected failure") {
+                return Err(format!(
+                    "{label} failure log omitted expected stderr: {}\n{logs}",
+                    outcome.log_path.display()
+                ));
+            }
+        } else {
+            ensure_success(&outcome, &format!("{label} run"))?;
+        }
+    }
+    Ok(())
+}
+
+fn ensure_success(outcome: &ProcessOutcome, stage: &str) -> Result<(), String> {
+    if outcome.status.success() {
+        Ok(())
+    } else {
+        let log = fs::read_to_string(&outcome.log_path).unwrap_or_default();
+        Err(format!(
+            "{stage}: exited {}. Log: {}\n{log}",
+            outcome.status,
+            outcome.log_path.display()
+        ))
+    }
+}
+
+fn executable_name(name: &str) -> String {
+    if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_owned()
+    }
+}
+
+fn copy_fixture(manifest_dir: &Path, run_dir: &Path) -> Result<(), String> {
+    let fixture = manifest_dir.join("tests/fixtures/markdown_examples");
+    fs::copy(fixture.join("Cargo.toml"), run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
+    fs::copy(fixture.join("Cargo.lock"), run_dir.join("Cargo.lock")).map_err(|error| error.to_string())?;
+    let mut manifest: Table =
+        from_str(&fs::read_to_string(run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    manifest["dependencies"]["qubit-id"]["path"] = Value::String(
+        manifest_dir
+            .canonicalize()
+            .map_err(|error| error.to_string())?
+            .display()
+            .to_string(),
+    );
+    fs::write(
+        run_dir.join("Cargo.toml"),
+        toml::to_string(&manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+struct RunLock(PathBuf);
+
+impl Drop for RunLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
+fn acquire_run_lock(output_root: &Path, budget: Duration) -> Result<RunLock, String> {
+    let path = output_root.join(".markdown-run.lock");
+    let started = Instant::now();
+    loop {
+        match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(mut file) => {
+                writeln!(file, "pid={}", std::process::id()).map_err(|error| error.to_string())?;
+                return Ok(RunLock(path));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists && started.elapsed() < budget => {
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                let owner = fs::read_to_string(&path).unwrap_or_else(|_| "owner unavailable".to_owned());
+                return Err(format!(
+                    "timed out acquiring documentation run lock {} ({owner})",
+                    path.display()
+                ));
+            }
+            Err(error) => {
+                return Err(format!("create documentation run lock {}: {error}", path.display()));
             }
         }
     }
-    let failure_dir = output_dir.join("expected_failure");
-    let failure_bin = failure_dir.join("src/bin");
-    fs::create_dir_all(&failure_bin).expect("failed to create failure example directory");
-    fs::write(
-        failure_dir.join("Cargo.toml"),
-        build_markdown_doctest_manifest("expected_failure", &manifest_dir, &[]),
-    )
-    .expect("failed to write failure manifest");
-    fs::write(
-        failure_bin.join("expected_failure.rs"),
-        "fn main() { panic!(\"expected failure\"); }\n",
-    )
-    .expect("failed to write failure example");
-    let failure = Command::new("cargo")
-        .arg("run")
-        .arg("--quiet")
-        .arg("--bin")
-        .arg("expected_failure")
-        .current_dir(&failure_dir)
-        .env("CARGO_TARGET_DIR", output_dir.join("target"))
-        .output()
-        .expect("failed to run controlled failure example");
-    assert!(
-        !failure.status.success(),
-        "run mode must propagate a child panic as failure"
-    );
-    assert!(
-        String::from_utf8_lossy(&failure.stderr).contains("expected failure"),
-        "child stderr should be retained: {}",
-        String::from_utf8_lossy(&failure.stderr)
-    );
+}
+
+fn timestamp_nonce() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos()
+}
+
+#[test]
+fn test_markdown_process_child() {
+    match std::env::var("QUBIT_ID_MARKDOWN_CHILD_MODE").as_deref() {
+        Ok("fail") => panic!("controlled child failure"),
+        Ok("wait") => loop {
+            thread::park_timeout(Duration::from_secs(1));
+        },
+        _ => {}
+    }
+}
+
+#[test]
+fn test_markdown_process_timeout_helper_handles_success_failure_and_hang() {
+    let temp = std::env::temp_dir().join(format!("qubit-markdown-process-{}", timestamp_nonce()));
+    fs::create_dir_all(&temp).unwrap();
+    let success = controlled_child("success", &temp.join("success.log"), Duration::from_secs(2)).unwrap();
+    assert!(success.status.success());
+    let failure = controlled_child("fail", &temp.join("failure.log"), Duration::from_secs(2)).unwrap();
+    assert!(!failure.status.success());
+    let error = controlled_child("wait", &temp.join("wait.log"), Duration::from_millis(50)).unwrap_err();
+    assert!(error.contains("controlled wait"), "{error}");
+    let _ = fs::remove_dir_all(temp);
+}
+
+fn controlled_child(mode: &str, log: &Path, budget: Duration) -> Result<ProcessOutcome, String> {
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    let mut command = Command::new(executable);
+    command
+        .arg("--exact")
+        .arg("markdown_tests::readme_examples_tests::test_markdown_process_child")
+        .arg("--nocapture")
+        .env("QUBIT_ID_MARKDOWN_CHILD_MODE", mode);
+    run_with_timeout(command, budget, &format!("controlled {mode}"), log)
 }
 
 /// Extracts Rust code fences from a Markdown file.

@@ -7,4 +7,5 @@
 // =============================================================================
 //! Tests for Markdown documentation.
 
+mod process;
 mod readme_examples_tests;

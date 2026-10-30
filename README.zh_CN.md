@@ -237,11 +237,16 @@ cargo bench --no-default-features --features uuid --bench uuid_comparison
 
 ## 测试
 
-文档示例也会随普通测试套件运行。若只需验证 README 和用户手册中的示例，可运行：
+普通测试会检查 Markdown 元数据与文档版本。README 和用户手册中的完整示例由项目 hook 执行一次：
 
 ```bash
-cargo test --locked --test mod --no-default-features test_review_documentation_examples -- --nocapture
+./.infra/project-ci-check.local.sh
 ```
+
+hook 使用仓库固定的 fixture lockfile。若要有意更新依赖解析结果，可运行
+`cargo generate-lockfile --manifest-path tests/fixtures/markdown_examples/Cargo.toml`，审查 lockfile
+变更后再运行 hook。依赖已缓存后，可通过 `QUBIT_ID_MARKDOWN_OFFLINE=1
+./.infra/project-ci-check.local.sh` 检查离线执行。
 
 ```bash
 # 使用默认 feature 集运行测试
