@@ -132,7 +132,7 @@ impl ClassicalSnowflakeLayout {
         expiration_time(epoch, Duration::from_millis(1), self.max_timestamp())
     }
 
-    /// Composes a typed classic Snowflake ID from timestamp and sequence parts.
+    /// Composes a raw classic Snowflake value from timestamp and sequence parts.
     ///
     /// The timestamp is milliseconds elapsed from the epoch selected by the
     /// caller. The layout supplies the configured node identity and does not
@@ -150,19 +150,7 @@ impl ClassicalSnowflakeLayout {
     ///
     /// # Returns
     ///
-    /// The typed [`Id`] composed with this layout's configured node identity.
-    ///
-    /// Repeating the same layout and parts repeats the ID, so this method does
-    /// not provide a uniqueness guarantee.
-    ///
-    /// # Parameters
-    ///
-    /// * `timestamp` - Milliseconds elapsed since the generator epoch.
-    /// * `sequence` - Sequence number inside the timestamp millisecond.
-    ///
-    /// # Returns
-    ///
-    /// Encoded classic Snowflake ID.
+    /// The encoded unsigned 64-bit classic Snowflake value.
     ///
     /// # Errors
     ///
@@ -226,7 +214,26 @@ impl ClassicalSnowflakeLayout {
         ClassicalSnowflakeParts::new(timestamp, node_id, sequence)
     }
 
-    /// Composes a classic Snowflake ID from timestamp and sequence parts.
+    /// Composes a typed classic Snowflake [`Id`] from timestamp and sequence parts.
+    ///
+    /// The timestamp is milliseconds elapsed from the epoch selected by the
+    /// caller. The layout supplies the configured node identity and does not
+    /// select or retain an epoch or allocation state. This operation is
+    /// stateless, so the same inputs produce the same ID. Use a generator
+    /// allocation method to obtain a timestamp and sequence suitable for a new
+    /// ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `timestamp` - Milliseconds elapsed since the caller-selected epoch.
+    /// * `sequence` - Sequence from zero through [`Self::max_sequence`],
+    ///   inclusive.
+    ///
+    /// # Returns
+    ///
+    /// The typed [`Id`] composed with this layout's configured node identity.
+    /// Repeating the same layout and parts repeats the ID, so this method does
+    /// not provide a uniqueness guarantee.
     ///
     /// # Errors
     ///

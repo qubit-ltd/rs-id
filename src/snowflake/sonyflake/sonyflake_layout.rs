@@ -232,7 +232,7 @@ impl SonyflakeLayout {
         expiration_time(epoch, self.time_unit, self.max_elapsed_time())
     }
 
-    /// Composes a typed Sonyflake ID from elapsed-time and sequence parts.
+    /// Composes a raw Sonyflake value from elapsed-time and sequence parts.
     ///
     /// `elapsed_time` counts this layout's configured `time_unit`; the default
     /// unit is 10 milliseconds. The layout supplies the configured machine
@@ -252,20 +252,7 @@ impl SonyflakeLayout {
     ///
     /// # Returns
     ///
-    /// The typed [`Id`] composed with this layout's configured machine
-    /// identity.
-    ///
-    /// Repeating the same layout and parts repeats the ID, so this method does
-    /// not provide a uniqueness guarantee.
-    ///
-    /// # Parameters
-    ///
-    /// * `elapsed_time` - Time units elapsed since the generator epoch.
-    /// * `sequence` - Sequence number inside the elapsed-time unit.
-    ///
-    /// # Returns
-    ///
-    /// Encoded Sonyflake ID.
+    /// The encoded unsigned 64-bit Sonyflake value.
     ///
     /// # Errors
     ///
@@ -332,7 +319,27 @@ impl SonyflakeLayout {
         SonyflakeParts::new(elapsed_time, sequence, machine_id)
     }
 
-    /// Composes a Sonyflake ID from elapsed-time and sequence parts.
+    /// Composes a typed Sonyflake [`Id`] from elapsed-time and sequence parts.
+    ///
+    /// `elapsed_time` counts this layout's configured `time_unit`; the default
+    /// unit is 10 milliseconds. The layout supplies the configured machine
+    /// identity and does not select or retain an epoch or allocation state.
+    /// This operation is stateless, so the same inputs produce the same ID.
+    /// Use a generator allocation method to obtain an elapsed time and
+    /// sequence suitable for a new ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `elapsed_time` - Elapsed-time units from zero through
+    ///   [`Self::max_elapsed_time`], inclusive; each unit is [`Self::time_unit`].
+    /// * `sequence` - Sequence from zero through [`Self::max_sequence`],
+    ///   inclusive.
+    ///
+    /// # Returns
+    ///
+    /// The typed [`Id`] composed with this layout's configured machine
+    /// identity. Repeating the same layout and parts repeats the ID, so this
+    /// method does not provide a uniqueness guarantee.
     ///
     /// # Errors
     ///
