@@ -27,6 +27,9 @@ use qubit_id::TimestampPrecision;
 
 /// Maximum number of state-machine operations interpreted from one input.
 const MAX_OPERATIONS: usize = 256;
+/// Maximum number of normal generation attempts across one fuzz input.
+/// The initial allocation and each rollback probe can add at most 257 attempts.
+const MAX_NORMAL_ATTEMPTS: usize = 8192;
 /// Raw rollback tolerated by the configured generator.
 const MAX_CLOCK_SKEW: Duration = Duration::from_millis(5);
 /// Initial offset after the epoch, leaving room for bounded rollbacks.
@@ -139,6 +142,7 @@ fuzz_target!(|input: &[u8]| {
     let wall_clock = clock.new_wall_clock(current_time);
     let generator = build_generator(&clock, wall_clock.clone());
     let mut generated_ids = BTreeSet::new();
+    let mut remaining_normal_attempts = MAX_NORMAL_ATTEMPTS;
 
     let first_id = match generator.try_generate() {
         Ok(GenerationAttempt::Generated(id)) => id,
@@ -152,18 +156,30 @@ fuzz_target!(|input: &[u8]| {
 
     for operation in operations {
         match operation >> 6 {
-            0 => match generator.try_generate() {
-                Ok(GenerationAttempt::Generated(id)) => record_generated(id, &mut generated_ids),
-                Ok(GenerationAttempt::RetryAfter { delay }) => {
-                    assert!(
-                        !delay.is_zero(),
-                        "a deferred generation attempt must report a positive delay",
-                    );
+            0 => {
+                let requested = 1_usize << (operation & 0x0f).min(12);
+                let attempts = requested.min(remaining_normal_attempts);
+                remaining_normal_attempts -= attempts;
+
+                for _ in 0..attempts {
+                    match generator.try_generate() {
+                        Ok(GenerationAttempt::Generated(id)) => record_generated(id, &mut generated_ids),
+                        Ok(GenerationAttempt::RetryAfter { delay }) => {
+                            assert!(
+                                !delay.is_zero(),
+                                "a deferred generation attempt must report a positive delay",
+                            );
+                        }
+                        Err(error) => {
+                            panic!("normal generation must not fail: {error}")
+                        }
+                    }
                 }
-                Err(error) => {
-                    panic!("normal generation must not fail: {error}")
+
+                if attempts > 0 {
+                    last_observed_time = current_time;
                 }
-            },
+            }
             1 => {
                 let advance = Duration::from_millis(u64::from(operation & 0x07) + 1);
                 clock
@@ -191,10 +207,6 @@ fuzz_target!(|input: &[u8]| {
                 require_large_rollback_error(generator.try_generate());
                 wall_clock.reanchor(current_time);
             }
-        }
-
-        if operation >> 6 == 0 {
-            last_observed_time = current_time;
         }
     }
 });
