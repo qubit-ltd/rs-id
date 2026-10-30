@@ -21,8 +21,12 @@ fn test_qubit_snowflake_throughput_benchmarks_id_string_paths() {
     for fragment in [
         "sync_string_concrete",
         "sync_string_arc_dyn",
-        "async_string_concrete",
-        "async_string_arc_dyn",
+        "async_bridge_per_call_concrete_string",
+        "async_bridge_per_call_dyn_string",
+        "async_task_concrete_string",
+        "async_task_dyn_string",
+        "async_task_concrete_numeric",
+        "async_task_dyn_numeric",
     ] {
         assert!(
             source.contains(fragment),
@@ -47,8 +51,8 @@ fn test_qubit_snowflake_throughput_uses_generic_generator_parameters() {
     );
     assert_eq!(
         source.matches("dyn AsyncIdGenerator<Id, IdGenerationError>").count(),
-        2,
-        "async benchmark paths must use generic generator parameters"
+        4,
+        "async bridge and async-task paths must use generic generator parameters"
     );
     assert!(
         !source.contains("Output = Id, Error = IdGenerationError"),

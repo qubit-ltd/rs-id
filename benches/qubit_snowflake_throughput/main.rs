@@ -51,6 +51,8 @@ const BATCH_SIZE: usize = 64;
 const DISPATCH_ITERATIONS: usize = 200_000;
 /// Untimed operations used to warm each call-path sample.
 const DISPATCH_WARM_UP_ITERATIONS: usize = 20_000;
+const DISPATCH_CHECK_ITERATIONS: usize = 128;
+const DISPATCH_CHECK_WARM_UP_ITERATIONS: usize = 16;
 
 /// Runs every precision and worker-count benchmark case.
 ///
@@ -64,13 +66,18 @@ fn main() {
         println!("startup-check passed");
         return;
     }
+    if std::env::args().any(|argument| argument == "--check-dispatch") {
+        measure_dispatch_paths(DISPATCH_CHECK_ITERATIONS, DISPATCH_CHECK_WARM_UP_ITERATIONS);
+        println!("dispatch-check passed");
+        return;
+    }
 
     println!(
         "configuration throughput_samples={SAMPLE_COUNT} \
          startup_samples={STARTUP_SAMPLE_COUNT} warm_up_ids={WARM_UP_IDS}"
     );
 
-    measure_dispatch_paths();
+    measure_dispatch_paths(DISPATCH_ITERATIONS, DISPATCH_WARM_UP_ITERATIONS);
 
     for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
         for worker_count in WORKER_COUNTS {
@@ -119,13 +126,13 @@ fn main() {
 ///
 /// Panics when a generator cannot be constructed, ID generation fails, or the
 /// Tokio current-thread runtime cannot be built.
-fn measure_dispatch_paths() {
+fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
     let concrete = SnowflakeGenerator::builder(HOST)
         .precision(TimestampPrecision::Second)
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("concrete benchmark generator must be valid");
-    run_dispatch_case("sync_concrete", || {
+    run_dispatch_case("sync_concrete", iterations, warm_up_iterations, || {
         concrete.generate().expect("concrete generation must succeed")
     });
 
@@ -136,7 +143,7 @@ fn measure_dispatch_paths() {
             .build()
             .expect("dynamic benchmark generator must be valid"),
     );
-    run_dispatch_case("sync_arc_dyn", || {
+    run_dispatch_case("sync_arc_dyn", iterations, warm_up_iterations, || {
         dynamic.generate().expect("dynamic generation must succeed")
     });
 
@@ -145,7 +152,7 @@ fn measure_dispatch_paths() {
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("concrete string benchmark generator must be valid");
-    run_dispatch_case("sync_string_concrete", || {
+    run_dispatch_case("sync_string_concrete", iterations, warm_up_iterations, || {
         string_concrete
             .generate()
             .expect("concrete string generation must succeed")
@@ -159,7 +166,7 @@ fn measure_dispatch_paths() {
             .build()
             .expect("dynamic string benchmark generator must be valid"),
     );
-    run_dispatch_case("sync_string_arc_dyn", || {
+    run_dispatch_case("sync_string_arc_dyn", iterations, warm_up_iterations, || {
         string_dynamic
             .generate()
             .expect("dynamic string generation must succeed")
@@ -174,11 +181,16 @@ fn measure_dispatch_paths() {
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("async concrete benchmark generator must be valid");
-    run_dispatch_case("async_concrete_unboxed_future", || {
-        runtime
-            .block_on(async_concrete.generate_async())
-            .expect("async concrete generation must succeed")
-    });
+    run_dispatch_case(
+        "async_bridge_per_call_concrete_numeric",
+        iterations,
+        warm_up_iterations,
+        || {
+            runtime
+                .block_on(async_concrete.generate_async())
+                .expect("async concrete generation must succeed")
+        },
+    );
 
     let async_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> = Arc::new(
         SnowflakeGenerator::builder(HOST)
@@ -187,23 +199,33 @@ fn measure_dispatch_paths() {
             .build()
             .expect("async dynamic benchmark generator must be valid"),
     );
-    run_dispatch_case("async_arc_dyn_boxed_future", || {
-        runtime
-            .block_on(async_dynamic.generate_async())
-            .expect("async dynamic generation must succeed")
-    });
+    run_dispatch_case(
+        "async_bridge_per_call_dyn_numeric",
+        iterations,
+        warm_up_iterations,
+        || {
+            runtime
+                .block_on(async_dynamic.generate_async())
+                .expect("async dynamic generation must succeed")
+        },
+    );
 
     let async_string_concrete = SnowflakeGenerator::builder(HOST)
         .precision(TimestampPrecision::Second)
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("async concrete string benchmark generator must be valid");
-    run_dispatch_case("async_string_concrete", || {
-        runtime
-            .block_on(async_string_concrete.generate_async())
-            .expect("async concrete string generation must succeed")
-            .to_string()
-    });
+    run_dispatch_case(
+        "async_bridge_per_call_concrete_string",
+        iterations,
+        warm_up_iterations,
+        || {
+            runtime
+                .block_on(async_string_concrete.generate_async())
+                .expect("async concrete string generation must succeed")
+                .to_string()
+        },
+    );
 
     let async_string_dynamic: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> = Arc::new(
         SnowflakeGenerator::builder(HOST)
@@ -212,11 +234,115 @@ fn measure_dispatch_paths() {
             .build()
             .expect("async dynamic string benchmark generator must be valid"),
     );
-    run_dispatch_case("async_string_arc_dyn", || {
-        runtime
-            .block_on(async_string_dynamic.generate_async())
-            .expect("async dynamic string generation must succeed")
-            .to_string()
+    run_dispatch_case(
+        "async_bridge_per_call_dyn_string",
+        iterations,
+        warm_up_iterations,
+        || {
+            runtime
+                .block_on(async_string_dynamic.generate_async())
+                .expect("async dynamic string generation must succeed")
+                .to_string()
+        },
+    );
+
+    let task_concrete_numeric = SnowflakeGenerator::builder(HOST)
+        .precision(TimestampPrecision::Second)
+        .restart_policy(RestartPolicy::Immediate)
+        .build()
+        .expect("async task concrete numeric generator must be valid");
+    runtime.block_on(async {
+        for _ in 0..warm_up_iterations {
+            let _ = black_box(task_concrete_numeric.generate_async().await.expect("warm-up"));
+        }
+        let started = Instant::now();
+        let mut completed = 0;
+        for _ in 0..iterations {
+            let _ = black_box(
+                task_concrete_numeric
+                    .generate_async()
+                    .await
+                    .expect("measured allocation"),
+            );
+            completed += 1;
+        }
+        print_dispatch_result("async_task_concrete_numeric", completed, started.elapsed());
+    });
+
+    let task_dyn_numeric: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> = Arc::new(
+        SnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .restart_policy(RestartPolicy::Immediate)
+            .build()
+            .expect("async task dynamic numeric generator must be valid"),
+    );
+    runtime.block_on(async {
+        for _ in 0..warm_up_iterations {
+            let _ = black_box(task_dyn_numeric.generate_async().await.expect("warm-up"));
+        }
+        let started = Instant::now();
+        let mut completed = 0;
+        for _ in 0..iterations {
+            let _ = black_box(task_dyn_numeric.generate_async().await.expect("measured allocation"));
+            completed += 1;
+        }
+        print_dispatch_result("async_task_dyn_numeric", completed, started.elapsed());
+    });
+
+    let task_concrete_string = SnowflakeGenerator::builder(HOST)
+        .precision(TimestampPrecision::Second)
+        .restart_policy(RestartPolicy::Immediate)
+        .build()
+        .expect("async task concrete string generator must be valid");
+    runtime.block_on(async {
+        for _ in 0..warm_up_iterations {
+            black_box(
+                task_concrete_string
+                    .generate_async()
+                    .await
+                    .expect("warm-up")
+                    .to_string(),
+            );
+        }
+        let started = Instant::now();
+        let mut completed = 0;
+        for _ in 0..iterations {
+            black_box(
+                task_concrete_string
+                    .generate_async()
+                    .await
+                    .expect("measured allocation")
+                    .to_string(),
+            );
+            completed += 1;
+        }
+        print_dispatch_result("async_task_concrete_string", completed, started.elapsed());
+    });
+
+    let task_dyn_string: Arc<dyn AsyncIdGenerator<Id, IdGenerationError>> = Arc::new(
+        SnowflakeGenerator::builder(HOST)
+            .precision(TimestampPrecision::Second)
+            .restart_policy(RestartPolicy::Immediate)
+            .build()
+            .expect("async task dynamic string generator must be valid"),
+    );
+    runtime.block_on(async {
+        for _ in 0..warm_up_iterations {
+            black_box(task_dyn_string.generate_async().await.expect("warm-up").to_string());
+        }
+        let started = Instant::now();
+        let mut completed = 0;
+        for _ in 0..iterations {
+            black_box(
+                task_dyn_string
+                    .generate_async()
+                    .await
+                    .expect("measured allocation")
+                    .to_string(),
+            );
+            completed += 1;
+        }
+        print_dispatch_result("async_task_dyn_string", completed, started.elapsed());
     });
 }
 
@@ -226,23 +352,27 @@ fn measure_dispatch_paths() {
 ///
 /// * `name` - Stable case name printed with the result.
 /// * `operation` - One ID generation operation.
-fn run_dispatch_case<T, F>(name: &str, mut operation: F)
+fn run_dispatch_case<T, F>(name: &str, iterations: usize, warm_up_iterations: usize, mut operation: F)
 where
     F: FnMut() -> T,
 {
-    for _ in 0..DISPATCH_WARM_UP_ITERATIONS {
+    for _ in 0..warm_up_iterations {
         black_box(operation());
     }
     let started = Instant::now();
-    for _ in 0..DISPATCH_ITERATIONS {
+    let mut completed = 0;
+    for _ in 0..iterations {
         black_box(operation());
+        completed += 1;
     }
-    let elapsed = started.elapsed();
+    print_dispatch_result(name, completed, started.elapsed());
+}
+
+fn print_dispatch_result(name: &str, completed: usize, elapsed: Duration) {
     println!(
-        "dispatch case={name} iterations={DISPATCH_ITERATIONS} \
-         elapsed_s={:.6} throughput={:.0} operations/s",
+        "dispatch case={name} completed={completed} elapsed_s={:.6} throughput={:.0} operations/s",
         elapsed.as_secs_f64(),
-        DISPATCH_ITERATIONS as f64 / elapsed.as_secs_f64(),
+        completed as f64 / elapsed.as_secs_f64(),
     );
 }
 

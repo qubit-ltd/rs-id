@@ -59,8 +59,13 @@ fixed workloads through concrete and
 synchronous paths, plus concrete and
 `Arc<dyn AsyncIdGenerator<Id>>`
 asynchronous paths. Both numeric and `Id::to_string()` paths are included.
-These measurements compare dispatch and string-conversion costs; they are not
-capacity measurements because they can cross clock slices.
+The asynchronous `bridge_per_call` cases call `block_on` once per ID, so every
+operation includes entering and leaving the current-thread executor. The
+`async_task` cases enter it once, then await all measured allocations inside one
+task; their timed loop excludes per-ID executor entry and exit. Both boundaries
+use the same warm-up and measured operation counts. These are dispatch and
+string-conversion observations, not capacity measurements, because they can
+cross clock slices.
 
 ## Command
 
@@ -75,9 +80,18 @@ Run only the startup configuration check with:
 cargo bench --locked --bench qubit_snowflake_throughput -- --check-startup
 ```
 
-The short path prints `startup-check passed` and exits before dispatch,
-throughput, or startup latency measurements. Normal benchmark runs perform the
-same check before starting measurements.
+Execute every dispatch case with a short sample and verify its completion count:
+
+```bash
+cargo bench --locked --bench qubit_snowflake_throughput -- --check-dispatch
+```
+
+The startup short path prints `startup-check passed` and exits before dispatch,
+throughput, or startup latency measurements. The dispatch short path executes
+all sync, `bridge_per_call`, and `async_task` cases with 128 measured operations
+and 16 warm-up operations, prints the completed count for each case, then exits
+before sustained throughput or startup latency measurements. Normal benchmark
+runs use the same dispatch cases with the full sample size.
 
 The run reported this configuration:
 
@@ -93,10 +107,49 @@ configuration throughput_samples=3 startup_samples=10000 warm_up_ids=100000
 | Sync numeric, `Arc<dyn ...>` | 200,000 | 0.013786 s | 14,507,162 |
 | Sync string, concrete | 200,000 | 0.020082 s | 9,959,115 |
 | Sync string, `Arc<dyn ...>` | 200,000 | 0.018652 s | 10,722,475 |
-| Async numeric, concrete/unboxed outer future | 200,000 | 0.047779 s | 4,185,951 |
-| Async numeric, `Arc<dyn ...>`/boxed future | 200,000 | 0.049252 s | 4,060,779 |
-| Async string, concrete | 200,000 | 0.055613 s | 3,596,313 |
-| Async string, `Arc<dyn ...>` | 200,000 | 0.058587 s | 3,413,744 |
+| Async `bridge_per_call`, concrete numeric | 200,000 | 0.047779 s | 4,185,951 |
+| Async `bridge_per_call`, dyn numeric | 200,000 | 0.049252 s | 4,060,779 |
+| Async `bridge_per_call`, concrete string | 200,000 | 0.055613 s | 3,596,313 |
+| Async `bridge_per_call`, dyn string | 200,000 | 0.058587 s | 3,413,744 |
+
+The four async values above are historical `bridge_per_call` measurements from
+the environment and date recorded at the top of this report. They do not
+measure the single-task await boundary. Results for the new `async_task` cases
+are recorded below from three fresh default benchmark runs. Do not compare the
+two boundaries as an isolated dynamic-dispatch experiment because executor
+entry and exit costs differ.
+
+### Async task measurements
+
+Measured on 2026-10-30 with Linux 7.0.0-38-generic, x86-64, Intel Core
+i5-9600K (6 physical cores, 6 logical CPUs), rustc/cargo 1.94.0, optimized
+Cargo bench profile, and `RUSTFLAGS="-C target-cpu=native"`. Each run used 20,000
+warm-up allocations and 200,000 measured allocations per case. These runs shared
+the workspace machine with other build and validation work, so the values are
+observations of that environment rather than isolated hardware measurements.
+
+Raw per-run results:
+
+| Case | Run 1 elapsed / ops/s | Run 2 elapsed / ops/s | Run 3 elapsed / ops/s |
+|---|---:|---:|---:|
+| Concrete numeric | 0.113142 s / 1,767,694 | 0.019058 s / 10,494,386 | 0.061230 s / 3,266,377 |
+| Dyn numeric | 0.074723 s / 2,676,540 | 0.026966 s / 7,416,845 | 0.071422 s / 2,800,271 |
+| Concrete string | 0.134858 s / 1,483,038 | 0.024540 s / 8,150,086 | 0.065621 s / 3,047,786 |
+| Dyn string | 0.090836 s / 2,201,774 | 0.040013 s / 4,998,433 | 0.062059 s / 3,222,741 |
+
+Across those three runs:
+
+| Case | Minimum ops/s | Median ops/s | Maximum ops/s |
+|---|---:|---:|---:|
+| Concrete numeric | 1,767,694 | 3,266,377 | 10,494,386 |
+| Dyn numeric | 2,676,540 | 2,800,271 | 7,416,845 |
+| Concrete string | 1,483,038 | 3,047,786 | 8,150,086 |
+| Dyn string | 2,201,774 | 3,222,741 | 4,998,433 |
+
+All 12 dispatch cases (four sync and eight async boundary/type combinations)
+reported `completed=200000` in every full run, and each run exited successfully.
+The three-run spread is wide, especially for numeric cases; these data do not
+support a general concrete versus dynamic dispatch performance claim.
 
 ## Sustained Throughput Results
 
