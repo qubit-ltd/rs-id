@@ -77,6 +77,16 @@ Asynchronous ID generation is runtime-neutral. Applications that need a Tokio
 timer enable the corresponding feature directly on their `qubit-clock`
 dependency.
 
+For a Tokio-backed asynchronous application, declare the runtime dependencies
+in the application itself:
+
+```toml
+[dependencies]
+qubit-id = "0.7"
+qubit-clock = { version = "0.13", features = ["tokio"] }
+tokio = { version = "1.54", features = ["macros", "rt", "time"] }
+```
+
 ## Quick start
 
 The following service-local generator uses host `7` and returns a typed `Id`:
@@ -103,7 +113,9 @@ Every Snowflake generator exposes `try_generate()`, `generate()`, and
 a retry may still create the timer's internal Future. For synchronous injection,
 use `Arc<dyn IdGenerator<Id>>`. Use
 `Arc<dyn AsyncIdGenerator<Id>>` when an
-asynchronous object-safe injection boundary is required.
+asynchronous object-safe injection boundary is required. The [Tokio guide](doc/user_guide.md#asynchronous-generation-with-tokio)
+shows runtime setup, and [retry scheduling](doc/user_guide.md#scheduling-retries-with-try_generate)
+covers caller-managed `RetryAfter` handling.
 
 ## Snowflake generators
 
@@ -232,6 +244,8 @@ fn main() -> Result<(), IdGenerationError> {
         Arc::new(UuidV4Generator::new());
     let uuid = generator.generate()?;
     assert_eq!(uuid.to_string().len(), 36);
+    assert_eq!(UuidV4Generator::new().generate()?.to_string().len(), 36);
+    assert_eq!(IdGenerator::generate(&UuidV4Generator::new())?.to_string().len(), 36);
     Ok(())
 }
 ```

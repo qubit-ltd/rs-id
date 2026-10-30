@@ -115,6 +115,16 @@ Enable the default Qubit generator:
 qubit-id = "0.7"
 ```
 
+For an application that uses `TokioTimer`, declare the timer and runtime in the
+application's own dependencies. These are not production features of `qubit-id`:
+
+```toml
+[dependencies]
+qubit-id = "0.7"
+qubit-clock = { version = "0.13", features = ["tokio"] }
+tokio = { version = "1.54", features = ["macros", "rt", "time"] }
+```
+
 Select a different Snowflake implementation with features:
 
 ```toml
@@ -203,6 +213,74 @@ fn create_generator() -> Result<Arc<dyn IdGenerator<Id>>, IdGenerationError> {
 Custom generator types can specify both parameters, for example
 `IdGenerator<String, MyError>`.
 
+### Asynchronous generation with Tokio
+
+`qubit-id` is runtime-neutral. This example creates `TokioTimer` inside the
+Tokio runtime, and `WaitNextSlice` means generation may actually wait for the
+next time slice. The five-second timeout is an application-level budget.
+`generate()` is a blocking API; use `generate_async()` for asynchronous work.
+
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use std::sync::Arc;
+use std::time::Duration;
+use qubit_clock::TokioTimer;
+use qubit_id::{AsyncIdGenerator, Id, RestartPolicy, SnowflakeGenerator, TimestampPrecision};
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let timer = Arc::new(TokioTimer::try_current()?);
+    let generator: Arc<dyn AsyncIdGenerator<Id>> = Arc::new(
+        SnowflakeGenerator::builder(7)
+            .precision(TimestampPrecision::Millisecond)
+            .restart_policy(RestartPolicy::WaitNextSlice)
+            .timer(timer)
+            .build()?,
+    );
+    let id = tokio::time::timeout(Duration::from_secs(5), generator.generate_async()).await??;
+    assert_ne!(id.value(), 0);
+    Ok(())
+}
+```
+
+### Scheduling retries with `try_generate`
+
+Use `Timer` to wait only when the generator returns `RetryAfter`. Other
+generation, timer, and timeout errors propagate to the caller. The timeout is
+the application's total wait budget.
+
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use std::sync::Arc;
+use std::time::Duration;
+use qubit_clock::{Timer, TokioTimer};
+use qubit_id::{GenerationAttempt, Id, RestartPolicy, SnowflakeGenerator, TimestampPrecision};
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let timer = Arc::new(TokioTimer::try_current()?);
+    let generator = SnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Millisecond)
+        .restart_policy(RestartPolicy::WaitNextSlice)
+        .timer(timer.clone())
+        .build()?;
+    let id = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match generator.try_generate()? {
+                GenerationAttempt::Generated(id) => {
+                    return Ok::<Id, Box<dyn std::error::Error>>(id);
+                }
+                GenerationAttempt::RetryAfter { delay } => {
+                    timer.after(delay)?.await?;
+                }
+            }
+        }
+    }).await??;
+    assert_ne!(id.value(), 0);
+    Ok(())
+}
+```
+
 ## Advanced usage
 
 ### Changing Sonyflake capacity
@@ -256,6 +334,19 @@ These conditions return `IdGenerationError`; they are not panic-based control
 flow. Log the selected layout, epoch, identity, and current time slice when
 diagnosing a namespace collision or expiration problem, while avoiding any
 assumption that an ID is a security token.
+
+Blocking and asynchronous APIs wait automatically for retryable slice progress.
+If the clock moves backwards beyond the configured tolerance, keep the original
+generator and let its retained high-water mark recover as the clock catches up;
+replacing it with another generator using the same identity does not safely
+clear that state. A `WaitFailed` error requires recovery appropriate to the
+injected Timer backend. Cancellation is an application control-flow decision
+and should be handled separately from generation errors. Canceling an
+incomplete asynchronous wait preserves the generator's shared allocation
+state; cancellation also cannot revoke IDs already returned to callers.
+`EpochAhead` and
+`GeneratorExpired` require correcting the configuration or deploying a valid
+new namespace; they are not transient retry signals.
 
 ## Troubleshooting
 

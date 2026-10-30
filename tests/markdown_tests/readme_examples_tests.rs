@@ -299,6 +299,7 @@ fn is_rust_fence(language: &str) -> bool {
 /// A Cargo manifest for a private temporary crate.
 fn build_markdown_doctest_manifest(name: &str, manifest_dir: &Path, features: &[String]) -> String {
     let manifest_path = toml_basic_string(&manifest_dir.display().to_string());
+    let uses_qubit_snowflake = features.iter().any(|feature| feature == "qubit-snowflake");
     let features = format!(
         "[{}]",
         features
@@ -307,6 +308,12 @@ fn build_markdown_doctest_manifest(name: &str, manifest_dir: &Path, features: &[
             .collect::<Vec<_>>()
             .join(", ")
     );
+
+    let runtime_dependencies = if uses_qubit_snowflake {
+        "qubit-clock = { version = \"0.13\", features = [\"tokio\"] }\ntokio = { version = \"1.54\", features = [\"macros\", \"rt\", \"time\"] }\n"
+    } else {
+        ""
+    };
 
     format!(
         r#"[package]
@@ -317,7 +324,7 @@ publish = false
 
 [dependencies]
 qubit-id = {{ path = "{manifest_path}", default-features = false, features = {features} }}
-uuid = {{ version = "1", features = ["v4"] }}
+{runtime_dependencies}uuid = {{ version = "1", features = ["v4"] }}
 serde_json = "1"
 "#
     )
@@ -513,6 +520,35 @@ fn test_review_markdown_manifest_enables_only_declared_features() {
 }
 
 #[test]
+fn test_build_markdown_doctest_manifest_adds_tokio_only_for_qubit_snowflake() {
+    let manifest_dir = Path::new("/tmp/qubit-id");
+    let qubit_manifest = build_markdown_doctest_manifest("qubit", manifest_dir, &["qubit-snowflake".to_owned()]);
+    let qubit: Value = from_str(&qubit_manifest).unwrap();
+    assert!(!qubit["dependencies"]["qubit-id"]["default-features"].as_bool().unwrap());
+    assert_eq!(
+        qubit["dependencies"]["qubit-id"]["features"].as_array().unwrap(),
+        &[Value::String("qubit-snowflake".to_owned())]
+    );
+    assert_eq!(
+        qubit["dependencies"]["qubit-clock"]["features"].as_array().unwrap(),
+        &[Value::String("tokio".to_owned())]
+    );
+    assert_eq!(
+        qubit["dependencies"]["tokio"]["features"].as_array().unwrap(),
+        &[
+            Value::String("macros".to_owned()),
+            Value::String("rt".to_owned()),
+            Value::String("time".to_owned()),
+        ]
+    );
+
+    let classic_manifest = build_markdown_doctest_manifest("classic", manifest_dir, &["classic-snowflake".to_owned()]);
+    let classic: Value = from_str(&classic_manifest).unwrap();
+    assert!(classic["dependencies"].get("qubit-clock").is_none());
+    assert!(classic["dependencies"].get("tokio").is_none());
+}
+
+#[test]
 fn test_review_markdown_document_versions_match_package_minor() {
     assert_document_versions_match(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
 }
@@ -596,12 +632,7 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         for fragment in deployment_fragments {
             assert!(content.contains(fragment), "{name} must contain `{fragment}`");
         }
-        for stale_fragment in [
-            "IdGenerator::generate",
-            "start_time",
-            "StartTimeAhead",
-            "UuidV4Generator::new().generate()",
-        ] {
+        for stale_fragment in ["start_time", "StartTimeAhead"] {
             assert!(
                 !content.contains(stale_fragment),
                 "{name} must not contain obsolete API `{stale_fragment}`"

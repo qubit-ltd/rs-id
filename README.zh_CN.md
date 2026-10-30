@@ -65,6 +65,15 @@ serde_json = "1"
 异步 ID 生成器与运行时无关。需要 Tokio Timer 时，应用应直接在自己的
 `qubit-clock` 依赖上启用对应 feature。
 
+使用 Tokio Timer 的异步应用应在应用自身声明这些依赖：
+
+```toml
+[dependencies]
+qubit-id = "0.7"
+qubit-clock = { version = "0.13", features = ["tokio"] }
+tokio = { version = "1.54", features = ["macros", "rt", "time"] }
+```
+
 ## 快速开始
 
 下面的服务内生成器使用 host `7`，返回类型化的 `Id`：
@@ -88,7 +97,9 @@ fn main() -> Result<(), IdGenerationError> {
 每种 Snowflake 生成器都提供 `try_generate()`、`generate()` 和
 `generate_async()`。具体异步方法的外层 Future 不装箱；重试时仍可能创建 Timer 的
 内部 Future。需要异步 object-safe 注入边界时使用
-`Arc<dyn AsyncIdGenerator<Id>>`。
+`Arc<dyn AsyncIdGenerator<Id>>`。关于 Tokio 运行时配置和调用方安排 `RetryAfter`
+重试的完整示例，见[中文用户手册](doc/user_guide.zh_CN.md#使用-tokio-异步生成)和
+[English user guide](doc/user_guide.md#asynchronous-generation-with-tokio)。
 
 ## Snowflake 生成器
 
@@ -201,6 +212,8 @@ fn main() -> Result<(), IdGenerationError> {
         Arc::new(UuidV4Generator::new());
     let uuid = generator.generate()?;
     assert_eq!(uuid.to_string().len(), 36);
+    assert_eq!(UuidV4Generator::new().generate()?.to_string().len(), 36);
+    assert_eq!(IdGenerator::generate(&UuidV4Generator::new())?.to_string().len(), 36);
     Ok(())
 }
 ```

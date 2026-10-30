@@ -99,6 +99,16 @@ Sonyflake 的低位顺序是 sequence 再 machine。因此在 elapsed time 相�
 qubit-id = "0.7"
 ```
 
+使用 `TokioTimer` 的应用应在应用自身依赖中声明 Timer 和运行时；它们不是
+`qubit-id` 的生产 feature：
+
+```toml
+[dependencies]
+qubit-id = "0.7"
+qubit-clock = { version = "0.13", features = ["tokio"] }
+tokio = { version = "1.54", features = ["macros", "rt", "time"] }
+```
+
 通过 feature 选择其他 Snowflake 实现：
 
 ```toml
@@ -175,6 +185,72 @@ fn create_generator() -> Result<Arc<dyn IdGenerator<Id>>, IdGenerationError> {
 
 自定义生成器可以显式指定两个参数，例如 `IdGenerator<String, MyError>`。
 
+### 使用 Tokio 异步生成
+
+`qubit-id` 与运行时无关。示例在 Tokio runtime 内创建 `TokioTimer`；
+`WaitNextSlice` 表示生成操作确实可能等待下一时间片。五秒 timeout 是应用设置的总等待预算。
+`generate()` 是阻塞 API；异步流程应使用 `generate_async()`。
+
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use std::sync::Arc;
+use std::time::Duration;
+use qubit_clock::TokioTimer;
+use qubit_id::{AsyncIdGenerator, Id, RestartPolicy, SnowflakeGenerator, TimestampPrecision};
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let timer = Arc::new(TokioTimer::try_current()?);
+    let generator: Arc<dyn AsyncIdGenerator<Id>> = Arc::new(
+        SnowflakeGenerator::builder(7)
+            .precision(TimestampPrecision::Millisecond)
+            .restart_policy(RestartPolicy::WaitNextSlice)
+            .timer(timer)
+            .build()?,
+    );
+    let id = tokio::time::timeout(Duration::from_secs(5), generator.generate_async()).await??;
+    assert_ne!(id.value(), 0);
+    Ok(())
+}
+```
+
+### 使用 `try_generate` 自行安排重试
+
+只有生成器返回 `RetryAfter` 时才通过 `Timer` 等待；其他生成错误、Timer 错误和 timeout
+错误都会传播给调用方。timeout 是应用设置的总等待预算。
+
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use std::sync::Arc;
+use std::time::Duration;
+use qubit_clock::{Timer, TokioTimer};
+use qubit_id::{GenerationAttempt, Id, RestartPolicy, SnowflakeGenerator, TimestampPrecision};
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let timer = Arc::new(TokioTimer::try_current()?);
+    let generator = SnowflakeGenerator::builder(7)
+        .precision(TimestampPrecision::Millisecond)
+        .restart_policy(RestartPolicy::WaitNextSlice)
+        .timer(timer.clone())
+        .build()?;
+    let id = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match generator.try_generate()? {
+                GenerationAttempt::Generated(id) => {
+                    return Ok::<Id, Box<dyn std::error::Error>>(id);
+                }
+                GenerationAttempt::RetryAfter { delay } => {
+                    timer.after(delay)?.await?;
+                }
+            }
+        }
+    }).await??;
+    assert_ne!(id.value(), 0);
+    Ok(())
+}
+```
+
 ## 进阶用法
 
 ### 调整 Sonyflake 容量
@@ -218,6 +294,12 @@ Builder 会在返回生成器之前校验布局和生命周期。常见错误包
 
 这些情况都会返回 `IdGenerationError`，不依靠 panic 控制流程。排查命名空间冲突或到期
 问题时，应记录所选布局、epoch、身份和当前时间片，同时不要把 ID 当作安全令牌。
+
+阻塞和异步 API 会自动等待可重试的时间片推进。若时钟回拨超过容忍值，应保留原生成器，
+让时钟追上其保留的高水位；使用相同身份重建生成器不能安全地清除该状态。`WaitFailed`
+需要根据注入 Timer 的后端采取恢复措施。取消属于应用控制流，应与生成错误分别处理。
+取消未完成的异步等待会保留生成器的共享分配状态；取消也不能撤销已经返回给调用方的 ID。
+`EpochAhead` 和 `GeneratorExpired` 需要修正配置或部署到有效的新命名空间，它们不是临时重试信号。
 
 ## 排障
 
