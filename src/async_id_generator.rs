@@ -21,6 +21,9 @@ use crate::IdGenerationFuture;
 /// Implementations that mutate allocation state must synchronize that state
 /// internally because generation uses a shared reference and may be called
 /// concurrently.
+/// An implementation may use a synchronous critical section while attempting
+/// an allocation; asynchronous waiting applies to external progress such as a
+/// timer and does not promise lock-free or wait-free allocation.
 ///
 /// A spawned task must return an owned, thread-safe result. Consequently both
 /// `Output` and `Error` are required to be `Send + 'static`.
@@ -88,7 +91,9 @@ where
     /// Generates the next identifier asynchronously.
     ///
     /// Implementations should yield while waiting for time or other external
-    /// progress and must not block an asynchronous executor thread.
+    /// progress and must not block an asynchronous executor thread for that
+    /// wait. An allocation attempt may still include a short synchronous
+    /// critical section.
     ///
     /// # Returns
     ///

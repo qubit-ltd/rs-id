@@ -126,7 +126,9 @@ impl ClassicalSnowflakeGeneratorBuilder {
     ///
     /// # Parameters
     ///
-    /// * `wall_clock` - Wall clock sampled inside the allocation lock.
+    /// * `wall_clock` - Wall clock sampled during validation and inside the
+    ///   allocation lock. Its `now()` method should return quickly, must not
+    ///   perform blocking I/O, and must not re-enter this generator.
     ///
     /// # Returns
     ///

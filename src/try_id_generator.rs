@@ -13,12 +13,16 @@ use crate::GenerationAttempt;
 use crate::Id;
 use crate::IdGenerationError;
 
-/// Attempts to allocate an identifier without sleeping or awaiting.
+/// Attempts to allocate an identifier without sleeping or awaiting for an
+/// external condition to change. An implementation may use a short synchronous
+/// critical section; this trait does not promise lock-free or wait-free calls
+/// or a latency bound.
 ///
 /// A successful [`GenerationAttempt::Generated`] reserves the identifier. A
 /// [`GenerationAttempt::RetryAfter`] result leaves the generator usable and
 /// tells the caller when another attempt can make progress. Implementations
-/// must not block on clocks, timers, or external coordination.
+/// must not wait for clocks, timers, or external coordination to make progress.
+/// Implementations may briefly synchronize access to allocation state.
 ///
 /// # Examples
 ///
@@ -39,7 +43,9 @@ use crate::IdGenerationError;
 /// assert_eq!(attempt, GenerationAttempt::Generated(42));
 /// ```
 pub trait TryIdGenerator<Output = Id, Error = IdGenerationError>: Send + Sync {
-    /// Attempts one non-blocking allocation.
+    /// Attempts one allocation without waiting for time or another external
+    /// condition to progress. The implementation may briefly acquire a
+    /// synchronous lock.
     ///
     /// # Returns
     ///

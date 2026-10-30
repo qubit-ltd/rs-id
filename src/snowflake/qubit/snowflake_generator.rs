@@ -36,17 +36,20 @@ use crate::TryIdGenerator;
 /// The generator is thread-safe. Successful [`IdGenerator::generate`]
 /// calls on one shared live instance never return the same ID. A process should
 /// share one instance for each ID namespace.
-/// Every concurrently running instance across processes and servers must have
-/// an exclusive host identifier when its layout and epoch can produce IDs in
-/// the same namespace.
+/// IDs are equal whenever their encoded mode, precision, timestamp, host, and
+/// sequence fields are equal. The epoch is not encoded as a namespace tag, so
+/// different epochs can still produce the same ID. Every concurrently running
+/// instance across processes and servers therefore needs an exclusive host
+/// identifier whenever its layout can produce IDs in the same namespace.
 ///
 /// The default [`crate::RestartPolicy::Immediate`] starts allocation in the
 /// first observed time slice. [`crate::RestartPolicy::WaitNextSlice`] is an
 /// explicit opt-in that skips that slice. Allocation state is not persisted.
 /// State loss or replacement can repeat an ID only when the
-/// instances use the same effective identity (`host`), layout (`mode` and
-/// `precision`), and reference time (`epoch`), allocate in the same logical
-/// time slice, and use overlapping sequence ranges.
+/// instances use the same effective identity (`host`) and layout (`mode` and
+/// `precision`), encode the same timestamp, and use overlapping sequence
+/// ranges. Different epochs can map different wall-clock instants to the same
+/// encoded timestamp.
 ///
 /// [`crate::RestartPolicy::WaitNextSlice`] waits until after the first observed
 /// time slice. It reduces sequential-replacement risk only when that slice is

@@ -71,6 +71,7 @@ serde_json = "1"
 `SnowflakeGenerator::new` 默认使用 Sequential 模式和秒精度；需要毫秒级时间戳
 时，应通过 Builder 显式选择 `TimestampPrecision::Millisecond`。
 
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
 ```rust
 use std::sync::Arc;
 use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};
@@ -100,6 +101,7 @@ fn main() -> Result<(), IdGenerationError> {
 三种布局的主要边界都使用类型化的 `Id`。只有在与协议、数据库位模式或其他 `u64` API
 互操作时，才使用 raw 方法：
 
+<!-- qubit-id-example features="classic-snowflake" mode="run" -->
 ```rust
 use qubit_id::ClassicalSnowflakeLayout;
 
@@ -116,8 +118,9 @@ fn main() -> Result<(), qubit_id::IdGenerationError> {
 
 “经典 Snowflake”表示 41/10/12 位布局，并不代表存在一个通用的固定 epoch。
 `ClassicalSnowflakeGenerator` 默认使用 `2018-12-02T00:00:00Z`，与 Qubit
-Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作时，应通过 Builder 的
-`epoch(...)` 显式设置时间起点。
+Snowflake 相同。epoch 不会编码为命名空间标记：只要编码字段相同，即使实例采用不同
+epoch，也可能生成相同 ID。与既有命名空间互操作时，应通过 Builder 的 `epoch(...)`
+显式设置时间起点，并在修改前评估与历史 ID 的重叠。
 
 详细的布局对比、选择规则、错误处理和部署限制见[中文用户手册](doc/user_guide.zh_CN.md)
 和[English user guide](doc/user_guide.md)。
@@ -137,6 +140,11 @@ Snowflake 相同。与使用其他时间起点的既有 ID 命名空间互操作
 `IdGenerator` 通过阻塞的 `generate()` 提供同步分配能力。
 `RestartPolicy::Immediate` 是所有 Snowflake Builder 的默认值。
 `try_generate()`、`generate()` 与 `generate_async()` 共享同一分配状态；复制生成器（若支持）也共享该状态。
+
+`TryIdGenerator` 不等待时间推进，但一次分配尝试可能短暂获取同步锁。`AsyncIdGenerator`
+需要推进时会异步等待 Timer，但分配尝试也可能包含同步锁；两种能力都不承诺 lock-free
+或 wait-free。自定义 `WallClock` 会在分配临界区中采样，`now()` 应快速返回、不执行阻塞 I/O，
+也不得重入同一个生成器。
 
 三种 Snowflake 生成器还提供 `layout()`、`epoch()`、`expires_at()`、
 `max_clock_skew()` 和 `compose_at(time, sequence)`。
@@ -182,6 +190,7 @@ Manual Timer observer 可以先确认 deadline 已注册，再推进逻辑时钟
 `UuidV4Generator` 返回 `uuid::Uuid`。应用应直接从 `uuid` 依赖导入 `Uuid`，使用其解析、
 格式化、版本和字节 API。异步应用应使用所选运行时提供的阻塞边界包装同步调用：
 
+<!-- qubit-id-example features="uuid" mode="run" -->
 ```rust
 use std::sync::Arc;
 use qubit_id::{IdGenerationError, IdGenerator, UuidV4Generator};
@@ -214,6 +223,12 @@ cargo bench --no-default-features --features uuid --bench uuid_comparison
 - [API 文档](https://docs.rs/qubit-id)
 
 ## 测试
+
+文档示例也会随普通测试套件运行。若只需验证 README 和用户手册中的示例，可运行：
+
+```bash
+cargo test --locked --test mod --no-default-features test_review_documentation_examples -- --nocapture
+```
 
 ```bash
 # 使用默认 feature 集运行测试

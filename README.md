@@ -84,6 +84,7 @@ The following service-local generator uses host `7` and returns a typed `Id`:
 choose `TimestampPrecision::Millisecond` explicitly when millisecond timestamp
 resolution is required.
 
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
 ```rust
 use std::sync::Arc;
 use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};
@@ -116,6 +117,7 @@ The three layouts use typed `Id` values at their primary boundaries. Use raw
 methods only when interoperating with a protocol, database bit pattern, or
 another `u64` API:
 
+<!-- qubit-id-example features="classic-snowflake" mode="run" -->
 ```rust
 use qubit_id::ClassicalSnowflakeLayout;
 
@@ -132,8 +134,10 @@ fn main() -> Result<(), qubit_id::IdGenerationError> {
 
 “Classic Snowflake” describes the 41/10/12-bit layout, not a universal epoch.
 `ClassicalSnowflakeGenerator` defaults to `2018-12-02T00:00:00Z`, the same epoch
-used by Qubit Snowflake. Set the builder's `epoch(...)` when interoperating with
-an existing ID namespace that uses a different timestamp origin.
+used by Qubit Snowflake. Epoch is not encoded as a namespace tag, so different
+epochs can still produce equal IDs whenever their encoded fields match. Set the
+builder's `epoch(...)` when interoperating with an existing ID namespace, and
+assess overlap with historical values before changing it.
 
 The detailed comparison, selection rules, error handling, and deployment
 limits are in the [English user guide](doc/user_guide.md) and
@@ -158,6 +162,13 @@ All builders expose `epoch(...)`, `max_clock_skew(...)`, and
 `try_generate()`, `generate()`, and `generate_async()` share
 one allocation state; cloning a generator, when supported, also shares that
 state.
+
+`TryIdGenerator` does not wait for time to advance, but an allocation attempt
+may briefly acquire a synchronous lock. `AsyncIdGenerator` awaits timer progress
+when needed, while its allocation attempt may also use a synchronous lock.
+Neither capability promises lock-free or wait-free calls. A custom `WallClock`
+is sampled inside the allocation critical section; its `now()` method should
+return quickly, avoid blocking I/O, and not re-enter the same generator.
 
 All three Snowflake generators also expose `layout()`, `epoch()`,
 `expires_at()`, `max_clock_skew()`, and `compose_at(time, sequence)`.
@@ -210,6 +221,7 @@ dependency to use its parsing, formatting, version, and byte APIs. Async
 applications should place this synchronous call behind the blocking boundary
 provided by their chosen runtime:
 
+<!-- qubit-id-example features="uuid" mode="run" -->
 ```rust
 use std::sync::Arc;
 use qubit_id::{IdGenerationError, IdGenerator, UuidV4Generator};
@@ -242,6 +254,13 @@ cargo bench --no-default-features --features uuid --bench uuid_comparison
 - [API documentation](https://docs.rs/qubit-id)
 
 ## Testing
+
+Documentation examples run as part of the ordinary test suite. To check only
+the README and user guide examples, run:
+
+```bash
+cargo test --locked --test mod --no-default-features test_review_documentation_examples -- --nocapture
+```
 
 ```bash
 # Run tests with the default feature set

@@ -168,8 +168,11 @@ impl ClassicalSnowflakeLayout {
 
     /// Decodes a classic Snowflake ID.
     ///
-    /// Decoding only extracts fields from the fixed layout. It does not
-    /// authenticate the value or prove that a generator produced it.
+    /// The valid encoded range is `0..(1 << 63)`. Decoding only extracts
+    /// fields from the fixed layout; it does not reject values with the high
+    /// bit set, authenticate the value, or prove that a generator produced it.
+    /// Such values can produce a timestamp larger than this layout can
+    /// compose. Use [`Self::compose`] when field-range validation is needed.
     ///
     /// # Parameters
     ///
@@ -184,6 +187,11 @@ impl ClassicalSnowflakeLayout {
     }
 
     /// Decodes a classic Snowflake bit pattern.
+    ///
+    /// The valid encoded range is `0..(1 << 63)`. This method extracts fields
+    /// without validating that range; when the high bit is set, the returned
+    /// timestamp can exceed [`Self::max_timestamp`]. It does not authenticate
+    /// the value or prove that a generator produced it.
     ///
     /// # Parameters
     ///

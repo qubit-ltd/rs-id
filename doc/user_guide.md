@@ -8,8 +8,8 @@ This guide is for service developers choosing an ID generator for a Rust
 application. It focuses on the three Snowflake-family generators in `qubit-id`:
 `ClassicalSnowflakeGenerator`, `SnowflakeGenerator`, and `SonyflakeGenerator`.
 It explains how the layouts affect capacity, ordering, storage compatibility,
-and deployment identity. The examples target `qubit-id` 0.5 and Rust 1.94 or
-later.
+and deployment identity. The examples target the `qubit-id` 0.7 series (with
+0.7.2 as the version checked for this guide) and Rust 1.94 or later.
 
 ## Conceptual model
 
@@ -112,19 +112,20 @@ Enable the default Qubit generator:
 
 ```toml
 [dependencies]
-qubit-id = "0.5"
+qubit-id = "0.7"
 ```
 
 Select a different Snowflake implementation with features:
 
 ```toml
-qubit-id = { version = "0.5", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.5", default-features = false, features = ["sonyflake"] }
+qubit-id = { version = "0.7", default-features = false, features = ["classic-snowflake"] }
+qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
 ```
 
 The required constructor identity is called `host`, `node_id`, or `machine_id`
 according to the selected implementation:
 
+<!-- qubit-id-example features="classic-snowflake" mode="run" -->
 ```rust
 use qubit_id::{ClassicalSnowflakeGenerator, IdGenerationError};
 
@@ -139,8 +140,26 @@ fn main() -> Result<(), IdGenerationError> {
 Use the builder when the epoch, clock tolerance, restart policy, or injected
 clock must be explicit. `ClassicalSnowflakeGenerator` and Qubit Snowflake use
 the documented Qubit epoch by default; Sonyflake has its own default epoch.
-When interoperating with an existing namespace, configure the same epoch and
-layout on every decoder and generator.
+Epoch is not encoded as a namespace tag. At wall time E + 10.5 seconds,
+second-precision generators with the same host and layout but epochs E and
+E + 1 ms both encode timestamp 10 and sequence 0, so they can return the same
+ID. Changing epoch is not an isolation boundary: assess overlap with historical
+values, and use an external partition or storage namespace when isolation is
+required. When interoperating with an existing namespace, configure compatible
+epoch and layout semantics on every decoder and generator.
+
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use qubit_id::IdGenerationError;
+use qubit_id::SnowflakeGenerator;
+
+fn main() {
+    assert!(matches!(
+        SnowflakeGenerator::new(512),
+        Err(IdGenerationError::HostOutOfRange { host: 512, max: 511 })
+    ));
+}
+```
 
 ## Core workflow
 
@@ -160,12 +179,18 @@ All three Snowflake generators expose the same primary methods:
 The concrete asynchronous method has an unboxed outer Future. The object-safe
 `AsyncIdGenerator` trait uses a boxed Future so it can cross a dynamic injection
 boundary. Neither path requires Tokio by itself; the injected `Timer` supplies
-the runtime-specific waiting behavior.
+the runtime-specific waiting behavior. `TryIdGenerator` does not wait for time
+to advance, but allocation may briefly use a synchronous lock. `AsyncIdGenerator`
+awaits timer progress when needed, while its allocation attempt may also use a
+synchronous lock. Neither promises lock-free or wait-free calls. A custom
+`WallClock` is sampled inside the allocation critical section; `now()` should
+return quickly, avoid blocking I/O, and not re-enter the same generator.
 
 The generator traits use generic `Output` and `Error` parameters. They default
 to `Id` and `IdGenerationError`, so the common synchronous injection boundary
 can be written as:
 
+<!-- qubit-id-example features="qubit-snowflake" mode="check" -->
 ```rust
 use std::sync::Arc;
 use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};

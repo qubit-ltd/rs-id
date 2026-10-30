@@ -8,7 +8,7 @@
 `qubit-id` 中的三种 Snowflake 系列生成器：`ClassicalSnowflakeGenerator`、
 `SnowflakeGenerator` 和 `SonyflakeGenerator`。手册解释布局如何影响容量、排序、
 存储兼容性和部署身份，并给出选型、配置、错误处理和部署边界。示例面向
-`qubit-id` 0.5 和 Rust 1.94 及以上版本。
+`qubit-id` 0.7 系列（本手册核对基线为 0.7.2）和 Rust 1.94 及以上版本。
 
 ## 概念模型
 
@@ -96,18 +96,19 @@ Sonyflake 的低位顺序是 sequence 再 machine。因此在 elapsed time 相�
 
 ```toml
 [dependencies]
-qubit-id = "0.5"
+qubit-id = "0.7"
 ```
 
 通过 feature 选择其他 Snowflake 实现：
 
 ```toml
-qubit-id = { version = "0.5", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.5", default-features = false, features = ["sonyflake"] }
+qubit-id = { version = "0.7", default-features = false, features = ["classic-snowflake"] }
+qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
 ```
 
 根据实现不同，必需的构造身份分别称为 `host`、`node_id` 或 `machine_id`：
 
+<!-- qubit-id-example features="classic-snowflake" mode="run" -->
 ```rust
 use qubit_id::{ClassicalSnowflakeGenerator, IdGenerationError};
 
@@ -121,8 +122,24 @@ fn main() -> Result<(), IdGenerationError> {
 
 当需要显式设置 epoch、时钟容忍度、重启策略或注入时钟时，使用 Builder。
 `ClassicalSnowflakeGenerator` 和 Qubit Snowflake 默认使用文档规定的 Qubit epoch；
-Sonyflake 使用自己的默认 epoch。与既有命名空间互操作时，所有生成器和解码器必须使用
-相同的 epoch 与布局配置。
+Sonyflake 使用自己的默认 epoch。epoch 不会编码为命名空间标记。例如在墙上时间
+E + 10.5 秒时，采用相同 host 和布局的秒精度生成器，若 epoch 分别为 E 与 E + 1 毫秒，
+都会编码 timestamp=10、sequence=0，因此可能返回相同 ID。更改 epoch 不能提供隔离；应先
+评估与历史 ID 的重叠。需要隔离时，应由外部分区或存储命名空间承担。与既有命名空间互操作时，
+应让生成器和解码器采用兼容的 epoch 与布局语义。
+
+<!-- qubit-id-example features="qubit-snowflake" mode="run" -->
+```rust
+use qubit_id::IdGenerationError;
+use qubit_id::SnowflakeGenerator;
+
+fn main() {
+    assert!(matches!(
+        SnowflakeGenerator::new(512),
+        Err(IdGenerationError::HostOutOfRange { host: 512, max: 511 })
+    ));
+}
+```
 
 ## 核心工作流
 
@@ -139,10 +156,14 @@ Sonyflake 使用自己的默认 epoch。与既有命名空间互操作时，所�
 
 具体异步方法的外层 Future 不装箱；object-safe 的 `AsyncIdGenerator` trait 为了跨越动态
 注入边界会返回装箱 Future。两种路径本身都不要求 Tokio，具体等待行为由注入的 Timer 提供。
+`TryIdGenerator` 不等待时间推进，但分配过程可能短暂使用同步锁。`AsyncIdGenerator` 需要推进时
+异步等待 Timer，分配尝试也可能使用同步锁；两者都不承诺 lock-free 或 wait-free。自定义
+`WallClock` 在分配临界区中采样，`now()` 应快速返回、不执行阻塞 I/O，也不得重入同一个生成器。
 
 生成器 trait 使用 `Output` 与 `Error` 泛型参数，默认值分别为 `Id` 和
 `IdGenerationError`。因此，常见的同步注入边界可以简写为：
 
+<!-- qubit-id-example features="qubit-snowflake" mode="check" -->
 ```rust
 use std::sync::Arc;
 use qubit_id::{Id, IdGenerationError, IdGenerator, SnowflakeGenerator};

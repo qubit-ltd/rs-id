@@ -270,8 +270,11 @@ impl SonyflakeLayout {
 
     /// Decodes a Sonyflake ID using this layout.
     ///
-    /// Decoding only extracts fields according to this layout. It does not
-    /// authenticate the value or prove that a generator produced it.
+    /// The valid encoded range is `0..(1 << 63)`. Decoding only extracts
+    /// fields according to this layout; it does not reject values with the high
+    /// bit set, authenticate the value, or prove that a generator produced it.
+    /// Such values can produce elapsed-time fields larger than this layout can
+    /// compose. Use [`Self::compose`] when field-range validation is needed.
     ///
     /// # Parameters
     ///
@@ -286,6 +289,11 @@ impl SonyflakeLayout {
     }
 
     /// Decodes a Sonyflake bit pattern using this layout.
+    ///
+    /// The valid encoded range is `0..(1 << 63)`. This method extracts fields
+    /// without validating that range; when the high bit is set, the returned
+    /// elapsed time can exceed [`Self::max_elapsed_time`]. It does not
+    /// authenticate the value or prove that a generator produced it.
     ///
     /// # Parameters
     ///
