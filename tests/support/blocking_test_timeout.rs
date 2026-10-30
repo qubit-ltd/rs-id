@@ -28,13 +28,18 @@ impl<T> BlockingTestResult<T> {
     /// Waits for the worker, propagating its panic or reporting the stage
     /// timeout.
     pub(crate) fn finish(self) -> T {
+        self.finish_with_timeout(COMPLETION_TIMEOUT)
+    }
+
+    /// Waits for the worker using the supplied timeout budget.
+    fn finish_with_timeout(self, timeout: Duration) -> T {
         let Self {
             stage,
             receiver,
             worker,
         } = self;
         let result = receiver
-            .recv_timeout(COMPLETION_TIMEOUT)
+            .recv_timeout(timeout)
             .unwrap_or_else(|error| panic!("blocking test worker timed out during {stage}: {error}"));
         worker.join().expect("completed worker thread should join");
         result.unwrap_or_else(|panic| resume_unwind(panic))
@@ -87,11 +92,25 @@ mod tests {
 
     #[test]
     fn test_blocking_worker_timeout_releases_controlled_worker() {
-        let (release, wait_for_release) = mpsc::channel();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let (completed_tx, completed_rx) = mpsc::channel();
         let worker = spawn_with_timeout("controlled delay", move || {
-            let _ = wait_for_release.recv();
+            started_tx.send(()).expect("start receiver should be alive");
+            let _ = release_rx.recv();
+            let _ = completed_tx.send(());
         });
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker.finish()));
+
+        let started = started_rx.recv_timeout(super::COMPLETION_TIMEOUT);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            worker.finish_with_timeout(Duration::from_millis(20))
+        }));
+        let released = release_tx.send(());
+        let completed = completed_rx.recv_timeout(super::COMPLETION_TIMEOUT);
+
+        assert!(started.is_ok(), "worker should start before timeout verification");
+        assert!(released.is_ok(), "controlled worker should still be waiting");
+        assert!(completed.is_ok(), "controlled worker should complete after release");
         let panic = result.expect_err("unfinished worker should time out");
         let message = panic
             .downcast_ref::<String>()
@@ -99,7 +118,6 @@ mod tests {
             .or_else(|| panic.downcast_ref::<&str>().copied())
             .expect("panic payload should be a string");
         assert!(message.contains("controlled delay"));
-        release.send(()).expect("worker should still be waiting");
-        std::thread::sleep(Duration::from_millis(20));
+        assert!(message.contains("timed out"));
     }
 }
