@@ -132,7 +132,25 @@ impl ClassicalSnowflakeLayout {
         expiration_time(epoch, Duration::from_millis(1), self.max_timestamp())
     }
 
-    /// Composes a classic Snowflake ID from timestamp and sequence parts.
+    /// Composes a typed classic Snowflake ID from timestamp and sequence parts.
+    ///
+    /// The timestamp is milliseconds elapsed from the epoch selected by the
+    /// caller. The layout supplies the configured node identity and does not
+    /// select or retain an epoch or allocation state. This operation is
+    /// stateless, so the same inputs produce the same ID.
+    ///
+    /// Use a generator allocation method to obtain a timestamp and sequence
+    /// suitable for a new ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `timestamp` - Milliseconds elapsed since the caller-selected epoch.
+    /// * `sequence` - Sequence from zero through [`Self::max_sequence`],
+    ///   inclusive.
+    ///
+    /// # Returns
+    ///
+    /// The typed [`Id`] composed with this layout's configured node identity.
     ///
     /// Repeating the same layout and parts repeats the ID, so this method does
     /// not provide a uniqueness guarantee.
@@ -212,7 +230,10 @@ impl ClassicalSnowflakeLayout {
     ///
     /// # Errors
     ///
-    /// Returns the same overflow errors as [`Self::compose_raw`].
+    /// Returns [`IdGenerationError::TimestampOverflow`] when `timestamp` is
+    /// greater than [`Self::max_timestamp`], or
+    /// [`IdGenerationError::SequenceOverflow`] when `sequence` is greater than
+    /// [`Self::max_sequence`].
     #[inline]
     pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(timestamp, sequence).map(Id::from)

@@ -298,11 +298,35 @@ impl SnowflakeLayout {
         SnowflakeParts::new(mode, precision, timestamp, host, sequence)
     }
 
-    /// Composes an ID from timestamp and sequence parts.
+    /// Composes a typed Qubit ID from timestamp and sequence parts.
+    ///
+    /// The timestamp is measured in seconds or milliseconds according to this
+    /// layout's precision. The layout supplies the encoded mode, precision,
+    /// and host identity; it does not select an epoch or retain allocation
+    /// state. This operation is stateless, so the same inputs produce the
+    /// same ID.
+    ///
+    /// Use a generator allocation method to obtain a timestamp and sequence
+    /// suitable for a new ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `timestamp` - Timestamp in the unit selected by this layout's
+    ///   precision.
+    /// * `sequence` - Sequence from zero through [`Self::max_sequence`],
+    ///   inclusive.
+    ///
+    /// # Returns
+    ///
+    /// The typed [`Id`] composed with this layout's configured identity and
+    /// mode.
     ///
     /// # Errors
     ///
-    /// Returns the same overflow errors as [`Self::compose_raw`].
+    /// Returns [`IdGenerationError::TimestampOverflow`] when `timestamp` is
+    /// greater than [`Self::max_timestamp`], or
+    /// [`IdGenerationError::SequenceOverflow`] when `sequence` is greater than
+    /// [`Self::max_sequence`].
     #[inline]
     pub fn compose(&self, timestamp: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(timestamp, sequence).map(Id::from)

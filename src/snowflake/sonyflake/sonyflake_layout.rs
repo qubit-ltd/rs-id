@@ -232,7 +232,28 @@ impl SonyflakeLayout {
         expiration_time(epoch, self.time_unit, self.max_elapsed_time())
     }
 
-    /// Composes a Sonyflake ID from elapsed-time and sequence parts.
+    /// Composes a typed Sonyflake ID from elapsed-time and sequence parts.
+    ///
+    /// `elapsed_time` counts this layout's configured `time_unit`; the default
+    /// unit is 10 milliseconds. The layout supplies the configured machine
+    /// identity and does not select or retain an epoch or allocation state.
+    /// This operation is stateless, so the same inputs produce the same ID.
+    ///
+    /// Use a generator allocation method to obtain an elapsed time and
+    /// sequence suitable for a new ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `elapsed_time` - Elapsed-time units from zero through
+    ///   [`Self::max_elapsed_time`], inclusive; each unit is
+    ///   [`Self::time_unit`].
+    /// * `sequence` - Sequence from zero through [`Self::max_sequence`],
+    ///   inclusive.
+    ///
+    /// # Returns
+    ///
+    /// The typed [`Id`] composed with this layout's configured machine
+    /// identity.
     ///
     /// Repeating the same layout and parts repeats the ID, so this method does
     /// not provide a uniqueness guarantee.
@@ -315,7 +336,10 @@ impl SonyflakeLayout {
     ///
     /// # Errors
     ///
-    /// Returns the same overflow errors as [`Self::compose_raw`].
+    /// Returns [`IdGenerationError::TimestampOverflow`] when `elapsed_time` is
+    /// greater than [`Self::max_elapsed_time`], or
+    /// [`IdGenerationError::SequenceOverflow`] when `sequence` is greater than
+    /// [`Self::max_sequence`].
     #[inline]
     pub fn compose(&self, elapsed_time: u64, sequence: u64) -> Result<Id, IdGenerationError> {
         self.compose_raw(elapsed_time, sequence).map(Id::from)
