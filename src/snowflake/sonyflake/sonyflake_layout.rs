@@ -237,7 +237,8 @@ impl SonyflakeLayout {
     /// `elapsed_time` counts this layout's configured `time_unit`; the default
     /// unit is 10 milliseconds. The layout supplies the configured machine
     /// identity and does not select or retain an epoch or allocation state.
-    /// This operation is stateless, so the same inputs produce the same ID.
+    /// This operation is stateless, so the same inputs produce the same ID and
+    /// this method does not provide a uniqueness guarantee.
     ///
     /// Use a generator allocation method to obtain an elapsed time and
     /// sequence suitable for a new ID.

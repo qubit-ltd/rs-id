@@ -138,7 +138,8 @@ impl ClassicalSnowflakeLayout {
     /// The timestamp is milliseconds elapsed from the epoch selected by the
     /// caller. The layout supplies the configured node identity and does not
     /// select or retain an epoch or allocation state. This operation is
-    /// stateless, so the same inputs produce the same ID.
+    /// stateless, so the same inputs produce the same ID and this method does
+    /// not provide a uniqueness guarantee.
     ///
     /// Use a generator allocation method to obtain a timestamp and sequence
     /// suitable for a new ID.
