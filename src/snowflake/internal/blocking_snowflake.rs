@@ -7,7 +7,9 @@
 // =============================================================================
 //! Blocking driver for the shared Snowflake allocation core.
 
+use std::future::poll_fn;
 use std::sync::Arc;
+use std::task::Poll;
 
 use qubit_clock::BlockingSleeper;
 use qubit_clock::Timer;
@@ -95,6 +97,11 @@ where
 
     /// Generates an ID asynchronously, yielding across retryable outcomes.
     ///
+    /// After a retry timer completes, generation yields once before checking
+    /// the allocation state again. This runtime-independent scheduling point
+    /// permits cancellation but does not guarantee a total duration or strong
+    /// fairness from the executor.
+    ///
     /// # Returns
     ///
     /// The next generated numeric identifier.
@@ -115,6 +122,7 @@ where
                         .map_err(|source| IdGenerationError::WaitFailed { source })?
                         .await
                         .map_err(|source| IdGenerationError::WaitFailed { source })?;
+                    yield_retry_once().await;
                 }
             }
         }
@@ -130,4 +138,24 @@ where
     pub(crate) fn core(&self) -> &SnowflakeCore<L> {
         self.core.as_ref()
     }
+}
+
+/// Yields once by waking the current task and returning `Pending` on its first
+/// poll.
+///
+/// # Returns
+///
+/// Completes on the poll after the task has been woken.
+async fn yield_retry_once() {
+    let mut yielded = false;
+    poll_fn(|context| {
+        if yielded {
+            Poll::Ready(())
+        } else {
+            yielded = true;
+            context.waker().wake_by_ref();
+            Poll::Pending
+        }
+    })
+    .await;
 }
