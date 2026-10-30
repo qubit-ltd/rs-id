@@ -289,7 +289,18 @@ If a deployment needs more IDs per time slice, increase `bits_sequence`. If it
 needs more machines, increase `bits_machine`. Both choices consume time bits or
 each other, so publish the complete layout configuration with the service
 contract. Do not change these settings after IDs have entered a shared namespace
-unless all consumers are versioned for the new layout.
+without a migration plan. Versioning consumers preserves decoding compatibility;
+it does not make old and new numeric IDs disjoint. With the same epoch and time
+unit, machine ID 7 and sequence 0 produce `16777223` both for the old layout
+`(bits_sequence=8, bits_machine=16)` at elapsed time 1 and for the new layout
+`(8, 15)` at elapsed time 2. Replacing the old generator before starting the
+new one can therefore reuse a historical numeric ID even when every consumer
+decodes each layout correctly. A changed epoch is not automatic isolation, and
+recording a version only in decoder configuration does not protect a database
+whose unique key is the bare ID. Keep the existing configuration in a shared
+bare-ID namespace, or migrate to an independent namespace, include an external
+version in the storage key, or prove that the old and new allocation ranges do
+not overlap.
 
 ### Choosing Qubit precision and mode
 
