@@ -362,7 +362,10 @@ Verify that concurrently active processes do not reuse the same host, node, or
 machine identity. Confirm that epoch and layout configuration match the intended
 namespace. `RestartPolicy::WaitNextSlice` can reduce same-slice reuse after a
 replacement, but it does not persist allocation state or coordinate concurrent
-same-identity processes.
+same-identity processes. This policy reduces sequential-replacement risk only
+when the replacement's first observed slice is not earlier than the
+predecessor's last allocated slice. It does not bound the elapsed time of the
+first allocation; clock rollback and scheduling can extend the wait.
 
 ### IDs cannot be stored in a signed database column
 

@@ -11,11 +11,11 @@
 ///
 /// Allocation state is not persisted. Snowflake builders and [`Self::default`]
 /// use [`Self::Immediate`]. [`Self::WaitNextSlice`] is an explicit opt-in that
-/// adds at most one logical-slice wait before the first allocation and reduces
-/// same-slice reuse after a sequential replacement. It can still repeat IDs
-/// after state loss when the old and replacement instances use the same
-/// effective identity, layout, and reference time, and the replacement clock
-/// has moved behind the predecessor's last allocated slice.
+/// waits until the wall clock has passed the first observed logical slice
+/// before the first allocation. Clock rollback, timer behavior, and scheduling
+/// can extend the elapsed wait; this policy does not provide a wall-clock
+/// latency bound. It reduces same-slice reuse after a sequential replacement.
+/// A clock rollback beyond the configured tolerance returns an error.
 ///
 /// [`Self::WaitNextSlice`] reduces that risk for sequential replacement only
 /// when the replacement's first observed slice is not earlier than the
