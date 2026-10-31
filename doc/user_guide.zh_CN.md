@@ -83,7 +83,8 @@ Qubit `Spread` 始终设置第 63 位，因此生成的 ID 超过 `i64::MAX`，�
 
 ### Sonyflake
 
-Sonyflake 默认使用 39 位、10 毫秒单位的 elapsed time、8 位序列号和 16 位 machine。
+Sonyflake 默认使用 39 位、10 毫秒单位的 elapsed time、8 位序列号和 16 位 machine，epoch 为
+`2025-01-01T00:00:00Z`。
 默认布局更偏向机器数量和生命周期，而不是单机器突发吞吐量。Builder 可以调整 sequence
 和 machine 位宽，剩余位数用于时间字段，但必须满足布局校验规则。
 
@@ -138,8 +139,8 @@ fn main() -> Result<(), IdGenerationError> {
 ```
 
 当需要显式设置 epoch、时钟容忍度、重启策略或注入时钟时，使用 Builder。
-`ClassicalSnowflakeGenerator` 和 Qubit Snowflake 默认使用文档规定的 Qubit epoch；
-Sonyflake 使用自己的默认 epoch。epoch 不会编码为命名空间标记。例如在墙上时间
+`ClassicalSnowflakeGenerator` 和 Qubit Snowflake 默认使用 `2018-12-02T00:00:00Z`；
+Sonyflake 默认使用 `2025-01-01T00:00:00Z`。epoch 不会编码为命名空间标记。例如在墙上时间
 E + 10.5 秒时，采用相同 host 和布局的秒精度生成器，若 epoch 分别为 E 与 E + 1 毫秒，
 都会编码 timestamp=10、sequence=0，因此可能返回相同 ID。更改 epoch 不能提供隔离；应先
 评估与历史 ID 的重叠。需要隔离时，应由外部分区或存储命名空间承担。与既有命名空间互操作时，

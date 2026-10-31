@@ -163,7 +163,9 @@ fn main() -> Result<(), qubit_id::IdGenerationError> {
 
 “Classic Snowflake” describes the 41/10/12-bit layout, not a universal epoch.
 `ClassicalSnowflakeGenerator` defaults to `2018-12-02T00:00:00Z`, the same epoch
-used by Qubit Snowflake. Epoch is not encoded as a namespace tag, so different
+used by Qubit Snowflake. Sonyflake defaults to `2025-01-01T00:00:00Z`. These
+epochs are defaults of this crate; existing namespaces must explicitly align
+their configuration. Epoch is not encoded as a namespace tag, so different
 epochs can still produce equal IDs whenever their encoded fields match. Set the
 builder's `epoch(...)` when interoperating with an existing ID namespace, and
 assess overlap with historical values before changing it.

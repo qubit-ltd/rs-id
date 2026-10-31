@@ -31,6 +31,9 @@ pub(super) const DEFAULT_EPOCH_MILLIS: u64 = 1_735_689_600_000;
 /// Generates Sonyflake-style IDs with configurable time, sequence, and
 /// machine fields.
 ///
+/// The default layout uses 39 elapsed-time bits, 8 sequence bits, and 16
+/// machine bits, with a 10 ms time unit and epoch `2025-01-01T00:00:00Z`.
+///
 /// The generator is thread-safe. One shared live instance never returns the
 /// same ID twice, provided its machine identifier is exclusive within the ID
 /// namespace. Retry waits use the timer injected through the builder. A
@@ -69,7 +72,8 @@ pub struct SonyflakeGenerator {
 }
 
 impl SonyflakeGenerator {
-    /// Creates a generator with the default Sonyflake-style layout.
+    /// Creates a generator with the default Sonyflake-style layout and epoch
+    /// `2025-01-01T00:00:00Z`.
     ///
     /// # Parameters
     ///

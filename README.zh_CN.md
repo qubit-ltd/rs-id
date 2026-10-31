@@ -146,9 +146,10 @@ fn main() -> Result<(), qubit_id::IdGenerationError> {
 
 “经典 Snowflake”表示 41/10/12 位布局，并不代表存在一个通用的固定 epoch。
 `ClassicalSnowflakeGenerator` 默认使用 `2018-12-02T00:00:00Z`，与 Qubit
-Snowflake 相同。epoch 不会编码为命名空间标记：只要编码字段相同，即使实例采用不同
-epoch，也可能生成相同 ID。与既有命名空间互操作时，应通过 Builder 的 `epoch(...)`
-显式设置时间起点，并在修改前评估与历史 ID 的重叠。
+Snowflake 相同。Sonyflake 默认使用 `2025-01-01T00:00:00Z`。这些日期是本 crate 的默认配置。
+epoch 不会编码为命名空间标记：只要编码字段相同，
+即使实例采用不同 epoch，也可能生成相同 ID。与既有命名空间互操作时，应通过 Builder 的
+`epoch(...)` 显式设置时间起点，并在修改前评估与历史 ID 的重叠。
 
 详细的布局对比、选择规则、错误处理和部署限制见[中文用户手册](doc/user_guide.zh_CN.md)
 和[English user guide](doc/user_guide.md)。

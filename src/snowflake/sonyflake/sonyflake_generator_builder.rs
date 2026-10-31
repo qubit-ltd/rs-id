@@ -31,6 +31,9 @@ use crate::IdGenerationError;
 
 /// Configures synchronous or asynchronous Sonyflake-style generators.
 ///
+/// The default epoch is `2025-01-01T00:00:00Z`. Set `epoch(...)` when
+/// interoperating with an existing namespace that uses a different origin.
+///
 /// # Examples
 ///
 /// ```

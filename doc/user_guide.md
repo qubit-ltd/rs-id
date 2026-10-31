@@ -96,10 +96,10 @@ binary transport instead.
 ### Sonyflake
 
 Sonyflake defaults to 39 elapsed-time bits in 10-millisecond units, 8 sequence
-bits, and 16 machine bits. Its default favors machine count and lifetime over
-per-machine burst capacity. The builder can change sequence and machine widths;
-the remaining bits become the time field, subject to the layout's validation
-rules.
+bits, and 16 machine bits, with epoch `2025-01-01T00:00:00Z`. Its default favors
+machine count and lifetime over per-machine burst capacity. The builder can
+change sequence and machine widths; the remaining bits become the time field,
+subject to the layout's validation rules.
 
 Sonyflake's low fields are ordered as sequence then machine. Therefore, for the
 same elapsed-time value, numeric order groups by sequence before machine. All
@@ -156,7 +156,8 @@ fn main() -> Result<(), IdGenerationError> {
 
 Use the builder when the epoch, clock tolerance, restart policy, or injected
 clock must be explicit. `ClassicalSnowflakeGenerator` and Qubit Snowflake use
-the documented Qubit epoch by default; Sonyflake has its own default epoch.
+the `2018-12-02T00:00:00Z` Qubit epoch by default; Sonyflake defaults to
+`2025-01-01T00:00:00Z`.
 Epoch is not encoded as a namespace tag. At wall time E + 10.5 seconds,
 second-precision generators with the same host and layout but epochs E and
 E + 1 ms both encode timestamp 10 and sequence 0, so they can return the same
