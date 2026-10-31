@@ -274,6 +274,139 @@ fn test_sonyflake_generator_reports_runtime_expiration() {
     ));
 }
 
+#[test]
+fn test_sonyflake_nanosecond_time_unit_quantizes_elapsed_time() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000) + Duration::from_nanos(123);
+    let unit = Duration::from_nanos(1_500_000);
+    let time = ManualTime::new(epoch + Duration::from_nanos(3_000_000));
+    let generator = SonyflakeGenerator::builder(17)
+        .epoch(epoch)
+        .time_unit(unit)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("nanosecond unit is valid");
+
+    for (offset, expected) in [(2_999_999, 1), (3_000_000, 2), (3_000_001, 2)] {
+        let id = generator
+            .compose_at(epoch + Duration::from_nanos(offset), 3)
+            .expect("elapsed time and sequence should be valid");
+        let parts = generator.layout().decode(id);
+
+        assert_eq!(parts.elapsed_time(), expected);
+        assert_eq!(parts.sequence(), 3);
+        assert_eq!(parts.machine_id(), 17);
+    }
+}
+
+#[test]
+fn test_sonyflake_nanosecond_time_unit_retry_delay_precision() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000) + Duration::from_nanos(123);
+    let unit = Duration::from_nanos(1_500_000);
+
+    for (offset, delay_ns, next_slice) in [(2_999_999, 1, 2), (3_000_000, 1_500_000, 3), (3_000_001, 1_499_999, 3)] {
+        let now = epoch + Duration::from_nanos(offset);
+        let time = ManualTime::new(now);
+        let generator = SonyflakeGenerator::builder(17)
+            .epoch(epoch)
+            .time_unit(unit)
+            .restart_policy(RestartPolicy::WaitNextSlice)
+            .wall_clock(time.wall_clock())
+            .timer(time.timer())
+            .build()
+            .expect("nanosecond unit is valid");
+        let delay = Duration::from_nanos(delay_ns);
+
+        assert_eq!(
+            generator.try_generate().expect("first attempt should retry"),
+            GenerationAttempt::RetryAfter { delay }
+        );
+        time.reanchor(now + delay);
+        let id = match generator.try_generate().expect("boundary attempt should succeed") {
+            GenerationAttempt::Generated(id) => id,
+            other => panic!("boundary should permit generation: {other:?}"),
+        };
+        let parts = generator.layout().decode(id);
+
+        assert_eq!(parts.elapsed_time(), next_slice);
+        assert_eq!(parts.sequence(), 0);
+        assert_eq!(parts.machine_id(), 17);
+    }
+}
+
+#[test]
+fn test_sonyflake_nanosecond_time_unit_expiration_and_builder_boundaries() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000) + Duration::from_nanos(123);
+    let unit = Duration::from_nanos(1_500_000);
+    let lifetime = unit
+        .checked_mul(1 << 30)
+        .expect("lifetime multiplication should fit")
+        .checked_mul(1 << 9)
+        .expect("lifetime multiplication should fit");
+    let expires_at = epoch.checked_add(lifetime).expect("expiration should fit");
+    let time = ManualTime::new(expires_at - Duration::from_nanos(1));
+    let generator = SonyflakeGenerator::builder(17)
+        .epoch(epoch)
+        .time_unit(unit)
+        .restart_policy(RestartPolicy::Immediate)
+        .wall_clock(time.wall_clock())
+        .timer(time.timer())
+        .build()
+        .expect("generator should be valid immediately before expiration");
+
+    assert_eq!(generator.expires_at(), expires_at);
+    let last_valid = generator
+        .compose_at(expires_at - Duration::from_nanos(1), 0)
+        .expect("time immediately before expiration should be valid");
+    assert_eq!(generator.layout().decode(last_valid).elapsed_time(), (1_u64 << 39) - 1);
+    let generated = match generator
+        .try_generate()
+        .expect("time immediately before expiration should generate")
+    {
+        GenerationAttempt::Generated(id) => id,
+        other => panic!("time immediately before expiration should generate: {other:?}"),
+    };
+    assert_eq!(generator.layout().decode(generated).elapsed_time(), (1_u64 << 39) - 1);
+
+    for observed_at in [expires_at, expires_at + Duration::from_nanos(1)] {
+        time.reanchor(observed_at);
+        assert!(matches!(
+            generator.compose_at(observed_at, 0),
+            Err(IdGenerationError::GeneratorExpired { observed_at: actual, expires_at: boundary })
+                if actual == observed_at && boundary == expires_at
+        ));
+        assert!(matches!(
+            generator.try_generate(),
+            Err(IdGenerationError::GeneratorExpired { observed_at: actual, expires_at: boundary })
+                if actual == observed_at && boundary == expires_at
+        ));
+    }
+
+    for (observed_at, should_build) in [
+        (expires_at - Duration::from_nanos(1), true),
+        (expires_at, false),
+        (expires_at + Duration::from_nanos(1), false),
+    ] {
+        let build_time = ManualTime::new(observed_at);
+        let result = SonyflakeGenerator::builder(17)
+            .epoch(epoch)
+            .time_unit(unit)
+            .wall_clock(build_time.wall_clock())
+            .timer(build_time.timer())
+            .build();
+
+        if should_build {
+            assert!(result.is_ok(), "builder should accept {observed_at:?}");
+        } else {
+            assert!(matches!(
+                result,
+                Err(IdGenerationError::GeneratorExpired { observed_at: actual, expires_at: boundary })
+                    if actual == observed_at && boundary == expires_at
+            ));
+        }
+    }
+}
+
 mod async_tests {
     // =============================================================================
     //    Copyright (c) 2026 Haixing Hu.
