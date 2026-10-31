@@ -38,6 +38,19 @@ pub(super) const DEFAULT_EPOCH_MILLIS: u64 = 1_735_689_600_000;
 /// waiting; a larger movement returns
 /// [`IdGenerationError::ClockMovedBackwards`].
 ///
+/// # Restart safety
+///
+/// The default [`crate::RestartPolicy::Immediate`] allocates in the first
+/// observed time slice. Allocation state is not persisted. Replacing an
+/// instance can repeat IDs when the same machine and layout encode the same
+/// timestamp and use overlapping sequence ranges.
+///
+/// [`crate::RestartPolicy::WaitNextSlice`] skips the first observed slice.
+/// It reduces sequential-replacement risk only when that slice is not earlier
+/// than the predecessor's last allocated slice. Clock rollback across a
+/// restart can still repeat IDs. This policy does not coordinate concurrent
+/// same-machine instances; the application must ensure identity exclusivity.
+///
 /// # Examples
 ///
 /// ```
