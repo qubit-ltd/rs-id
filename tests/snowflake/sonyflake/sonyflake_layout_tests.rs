@@ -15,6 +15,29 @@ use qubit_id::SonyflakeLayout;
 
 use crate::support::latest_representable_whole_second;
 
+/// Locks default and custom Sonyflake formats using independent numeric
+/// vectors.
+#[test]
+fn test_sonyflake_layout_matches_fixed_encoding_vectors() {
+    let cases = [
+        (8_u8, 16_u8, 0_u64, 0_u64, 0_u64, 0_u64),
+        (8, 16, 456_789, 23, 31, 7_663_649_751_063),
+        (8, 16, 549_755_813_887, 65_535, 255, 9_223_372_036_854_775_807),
+        (12, 12, 42, 7, 3, 704_655_367),
+    ];
+    for (bits_sequence, bits_machine, elapsed, machine, sequence, raw) in cases {
+        let layout = SonyflakeLayout::new(machine, bits_sequence, bits_machine, Duration::from_millis(10))
+            .expect("valid fixed layout");
+        assert_eq!(layout.compose_raw(elapsed, sequence).unwrap(), raw);
+        assert_eq!(layout.compose(elapsed, sequence).unwrap().value(), raw);
+        for parts in [layout.decode_raw(raw), layout.decode(raw.into())] {
+            assert_eq!(parts.elapsed_time(), elapsed);
+            assert_eq!(parts.machine_id(), machine);
+            assert_eq!(parts.sequence(), sequence);
+        }
+    }
+}
+
 #[test]
 fn test_sonyflake_layout_compose_decode_round_trip() {
     let layout = SonyflakeLayout::new(23, 8, 16, Duration::from_millis(10)).expect("Sonyflake layout must be valid");

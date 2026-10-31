@@ -15,6 +15,29 @@ use qubit_id::IdGenerationError;
 
 use crate::support::latest_representable_whole_second;
 
+/// Locks the classic persisted bit format using independent numeric vectors.
+#[test]
+fn test_classical_layout_matches_fixed_encoding_vectors() {
+    let cases = [
+        (0_u64, 0_u64, 0_u64, 0_u64),
+        (123_456, 17, 789, 517_812_065_045),
+        (2_199_023_255_551, 1_023, 4_095, 9_223_372_036_854_775_807),
+    ];
+    for (timestamp, node, sequence, raw) in cases {
+        let layout = ClassicalSnowflakeLayout::new(node).expect("valid fixed node");
+        assert_eq!(layout.compose_raw(timestamp, sequence).unwrap(), raw);
+        assert_eq!(layout.compose(timestamp, sequence).unwrap().value(), raw);
+        for parts in [
+            ClassicalSnowflakeLayout::decode_raw(raw),
+            ClassicalSnowflakeLayout::decode(raw.into()),
+        ] {
+            assert_eq!(parts.timestamp(), timestamp);
+            assert_eq!(parts.node_id(), node);
+            assert_eq!(parts.sequence(), sequence);
+        }
+    }
+}
+
 #[test]
 fn test_snowflake_layout_compose_decode_round_trip() {
     let layout = ClassicalSnowflakeLayout::new(17).expect("node id must fit the classic layout");
