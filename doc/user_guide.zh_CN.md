@@ -164,6 +164,35 @@ fn main() {
 `epoch()`、`expires_at()`、`max_clock_skew()`、`try_generate()`、`generate()`、
 `generate_async()` 和 `compose_at(time, sequence)`。
 
+三种生成器的默认回拨容忍度不同：
+
+| 生成器 | 默认 `max_clock_skew` |
+| --- | ---: |
+| Qubit Snowflake | 3 秒 |
+| Classical Snowflake | 零 |
+| Sonyflake | 零 |
+
+容忍度按原始墙上时间的回退幅度判断，即使回退前后仍处于同一个编码时间片，也会检查。
+容忍度为零时，只要观测到时间回退就会报错。回退没有超过已配置的容忍度时，
+`try_generate()` 返回重试结果，`generate()` 同步等待，`generate_async()` 异步等待；
+超过容忍度则返回 `ClockMovedBackwards`。如果部署需要明确指定策略，可以这样设置：
+
+<!-- qubit-id-example features="classic-snowflake" mode="run" -->
+```rust
+use std::time::Duration;
+use qubit_id::{ClassicalSnowflakeGenerator, IdGenerationError};
+
+fn main() -> Result<(), IdGenerationError> {
+    let generator = ClassicalSnowflakeGenerator::builder(7)
+        .max_clock_skew(Duration::from_millis(5))
+        .build()?;
+    assert_eq!(generator.max_clock_skew(), Duration::from_millis(5));
+    Ok(())
+}
+```
+
+这个示例只检查配置值，不会模拟时钟回拨；实际回拨行为由已有生成器测试覆盖。
+
 具体异步方法的外层 Future 不装箱；object-safe 的 `AsyncIdGenerator` trait 为了跨越动态
 注入边界会返回装箱 Future。两种路径本身都不要求 Tokio，具体等待行为由注入的 Timer 提供。
 `TryIdGenerator` 不等待时间推进，但分配过程可能短暂使用同步锁。`AsyncIdGenerator` 需要推进时
@@ -265,6 +294,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 如果数据库唯一键只是裸 ID，仅在 decoder 配置中记录版本也无法防止冲突。共享裸 ID
 命名空间应保持现有配置；迁移时应使用独立命名空间、把外部版本纳入存储键，或证明新旧
 分配范围不相交。
+
+使用 `SonyflakeLayout::new` 或 Builder 时，`bits_sequence`、`bits_machine` 设为零表示
+采用默认位宽，分别是 8 位和 16 位。显式指定的非零位宽都必须小于 31；归一化后的
+sequence 与 machine 位宽合计后，至少要为时间字段留下 32 位，即
+`bits_time = 63 - bits_sequence - bits_machine`。时间单位不能短于 1 毫秒，machine ID
+也必须能由 machine 字段表示。即使字段宽度合法，所选 epoch 与时间单位下的生命周期也
+可能无法表示，或生成器已经到期；Builder 返回生成器前会校验这两项。结构化错误见
+[`IdGenerationError`](../src/id_generation_error.rs)。
+
+下面的可运行示例配置新的 Sonyflake 命名空间，并检查布局、编码字段和到期边界：
+
+<!-- qubit-id-example features="sonyflake" mode="run" -->
+```rust
+use std::time::Duration;
+use qubit_id::{IdGenerationError, SonyflakeGenerator, SonyflakeLayout};
+
+fn main() -> Result<(), IdGenerationError> {
+    let generator = SonyflakeGenerator::builder(7)
+        .bits_sequence(12)
+        .bits_machine(12)
+        .time_unit(Duration::from_millis(10))
+        .build()?;
+    let layout = generator.layout();
+    assert_eq!(layout.bits_time(), 39);
+    assert_eq!(layout.bits_sequence(), 12);
+    assert_eq!(layout.bits_machine(), 12);
+    assert_eq!(layout.time_unit(), Duration::from_millis(10));
+    assert_eq!(layout.max_sequence(), 4095);
+    assert_eq!(layout.max_machine_id(), 4095);
+    let id = layout.compose(42, 3)?;
+    let parts = layout.decode(id);
+    assert_eq!(parts.elapsed_time(), 42);
+    assert_eq!(parts.sequence(), 3);
+    assert_eq!(parts.machine_id(), 7);
+    assert_eq!(generator.expires_at(), layout.expires_at(generator.epoch())?);
+    assert!(generator.expires_at() > generator.epoch());
+    assert!(matches!(
+        SonyflakeLayout::new(7, 16, 16, Duration::from_millis(10)),
+        Err(IdGenerationError::InvalidBitLength { name: "time", .. })
+    ));
+    Ok(())
+}
+```
+
+12 位 sequence 和 12 位 machine 各自可表示 4,096 个值。39 位时间字段配合 10 毫秒单位，
+可表示约 174.8 年；这些容量不代表实际生成吞吐量。`layout.compose(...)` 只按给定字段
+组合 ID，供本例检查使用，不会分配或预留唯一 ID。此配置属于新的命名空间，不能直接替换
+已有共享命名空间的配置；迁移时应按上文选择隔离方案，避免复用数值 ID。
 
 ### 选择 Qubit 精度和模式
 

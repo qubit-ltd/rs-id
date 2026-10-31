@@ -186,6 +186,39 @@ All three Snowflake generators expose the same primary methods:
 `max_clock_skew()`, `try_generate()`, `generate()`, `generate_async()`, and
 `compose_at(time, sequence)`.
 
+The default rollback tolerance differs by generator:
+
+| Generator | Default `max_clock_skew` |
+| --- | ---: |
+| Qubit Snowflake | 3 seconds |
+| Classical Snowflake | zero |
+| Sonyflake | zero |
+
+The tolerance is measured against raw wall-clock rollback, even when both
+observations fall in the same encoded time slice. With zero tolerance, any
+observed rollback is an error. A rollback within the configured tolerance makes
+`try_generate()` return a retry result; `generate()` waits synchronously and
+`generate_async()` waits asynchronously. A rollback beyond the tolerance
+returns `ClockMovedBackwards`. Set the tolerance explicitly when this policy
+needs to be part of the deployment configuration:
+
+<!-- qubit-id-example features="classic-snowflake" mode="run" -->
+```rust
+use std::time::Duration;
+use qubit_id::{ClassicalSnowflakeGenerator, IdGenerationError};
+
+fn main() -> Result<(), IdGenerationError> {
+    let generator = ClassicalSnowflakeGenerator::builder(7)
+        .max_clock_skew(Duration::from_millis(5))
+        .build()?;
+    assert_eq!(generator.max_clock_skew(), Duration::from_millis(5));
+    Ok(())
+}
+```
+
+This example checks the configured value; it does not simulate a rollback.
+Existing generator tests cover rollback behavior.
+
 The concrete asynchronous method has an unboxed outer Future. The object-safe
 `AsyncIdGenerator` trait uses a boxed Future so it can cross a dynamic injection
 boundary. Neither path requires Tokio by itself; the injected `Timer` supplies
@@ -301,6 +334,59 @@ whose unique key is the bare ID. Keep the existing configuration in a shared
 bare-ID namespace, or migrate to an independent namespace, include an external
 version in the storage key, or prove that the old and new allocation ranges do
 not overlap.
+
+For `SonyflakeLayout::new` and the builder, a zero `bits_sequence` or
+`bits_machine` selects its default width (8 and 16 bits respectively). Each
+explicit nonzero width must be less than 31, and the normalized sequence and
+machine widths must leave at least 32 time bits (`bits_time = 63 - bits_sequence
+- bits_machine`). The time unit must be at least 1 ms, and the machine ID must
+fit its field. A layout can pass these checks while its lifetime is still
+unrepresentable or already expired for the selected epoch and current time;
+the builder validates both before returning a generator. See
+[`IdGenerationError`](../src/id_generation_error.rs) for structured errors.
+
+This runnable example configures the new Sonyflake namespace and checks its
+layout, encoded fields, and expiration boundary:
+
+<!-- qubit-id-example features="sonyflake" mode="run" -->
+```rust
+use std::time::Duration;
+use qubit_id::{IdGenerationError, SonyflakeGenerator, SonyflakeLayout};
+
+fn main() -> Result<(), IdGenerationError> {
+    let generator = SonyflakeGenerator::builder(7)
+        .bits_sequence(12)
+        .bits_machine(12)
+        .time_unit(Duration::from_millis(10))
+        .build()?;
+    let layout = generator.layout();
+    assert_eq!(layout.bits_time(), 39);
+    assert_eq!(layout.bits_sequence(), 12);
+    assert_eq!(layout.bits_machine(), 12);
+    assert_eq!(layout.time_unit(), Duration::from_millis(10));
+    assert_eq!(layout.max_sequence(), 4095);
+    assert_eq!(layout.max_machine_id(), 4095);
+    let id = layout.compose(42, 3)?;
+    let parts = layout.decode(id);
+    assert_eq!(parts.elapsed_time(), 42);
+    assert_eq!(parts.sequence(), 3);
+    assert_eq!(parts.machine_id(), 7);
+    assert_eq!(generator.expires_at(), layout.expires_at(generator.epoch())?);
+    assert!(generator.expires_at() > generator.epoch());
+    assert!(matches!(
+        SonyflakeLayout::new(7, 16, 16, Duration::from_millis(10)),
+        Err(IdGenerationError::InvalidBitLength { name: "time", .. })
+    ));
+    Ok(())
+}
+```
+
+Twelve sequence bits and twelve machine bits each represent 4,096 values. The
+39 time bits with a 10 ms unit span about 174.8 years; these capacities do not
+promise generation throughput. `layout.compose(...)` combines supplied fields
+for this check and does not allocate or reserve a unique ID. This configuration
+belongs to a new namespace and must not be substituted directly for a shared
+old namespace; follow the migration choices above to avoid reusing numeric IDs.
 
 ### Choosing Qubit precision and mode
 
