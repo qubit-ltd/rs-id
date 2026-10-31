@@ -151,6 +151,24 @@ reported `completed=200000` in every full run, and each run exited successfully.
 The three-run spread is wide, especially for numeric cases; these data do not
 support a general concrete versus dynamic dispatch performance claim.
 
+### Provenance of the October measurements
+
+The exact source revision and working-tree differences for the 2026-10-30
+measurements were not recorded in this report and cannot be recovered from
+the measurement information currently available. The July base revision
+listed in Environment does not identify the source used for these October
+runs. The current HEAD is not evidence of the measured revision.
+
+The report entry was added in documentation record revision
+`41a257d670815d066ef3e1e1182aa02e1ce8deed`; this identifies the report change,
+not the source revision used for the measurements.
+
+The tables above retain the recorded per-run results. A separate original
+measurement log is not available in the retained material; these tables
+must not be treated as a replacement for that log. The missing source
+snapshot limits exact reproduction of this historical batch. No new
+measurements were substituted for the recorded results.
+
 ## Sustained Throughput Results
 
 | Precision | Threads | Samples | Slices/sample | Capacity/sample | Median IDs | Median utilization | Median elapsed | Min IDs/s | Median IDs/s | Max IDs/s |

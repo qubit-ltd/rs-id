@@ -63,6 +63,9 @@ impl Serialize for Id {
 impl<'de> Deserialize<'de> for Id {
     /// Deserializes decimal text or an unsigned integer for human-readable
     /// formats and an unsigned 64-bit value for compact formats.
+    /// String inputs follow [`Id`]'s standard `u64` decimal parsing rules,
+    /// including an optional leading plus sign and leading zeroes.
+    /// Human-readable serialization emits the normalized decimal string.
     ///
     /// # Type Parameters
     ///

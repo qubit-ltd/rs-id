@@ -129,7 +129,10 @@ impl FromStr for Id {
     /// Error returned when decimal text cannot be parsed as a `u64`.
     type Err = ParseIntError;
 
-    /// Parses an unsigned decimal identifier.
+    /// Parses an identifier using the standard `u64` decimal parsing rules.
+    ///
+    /// A single leading `+` and leading zeroes are accepted. Display formatting
+    /// produces an unpadded decimal value without a plus sign.
     ///
     /// # Parameters
     ///
@@ -141,8 +144,9 @@ impl FromStr for Id {
     ///
     /// # Errors
     ///
-    /// Returns the standard integer parsing error when `value` is empty,
-    /// contains non-decimal characters, or exceeds the `u64` range.
+    /// Returns the standard integer parsing error for empty text, a sign
+    /// without digits, whitespace, invalid digits, or a value exceeding the
+    /// `u64` range.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         value.parse().map(Self::new)
     }
