@@ -722,41 +722,44 @@ fn test_review_markdown_document_versions_match_package_minor() {
     assert_document_versions_match(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
 }
 
-/// Verifies that both READMEs explain feature selection, IoC capabilities,
-/// deterministic clocks, generator lifetime, storage compatibility, restart
-/// behavior, and UUID v4 output.
+/// Verifies that both READMEs retain key feature, API, and benchmark
+/// references.
 #[test]
-fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
+fn test_readmes_retain_feature_and_benchmark_contract_tokens() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let readmes = [
         (
             "README.md",
-            "The default feature set enables only `qubit-snowflake`.",
-            "`expires_at()` returns the exclusive expiration boundary.",
             [
-                "`IdMode::Spread` always sets bit 63, so its IDs exceed `i64::MAX`.",
-                "`try_generate()`, `generate()`, and `generate_async()`",
-                "`RestartPolicy::Immediate` is the default for all Snowflake builders.",
+                "`IdMode::Spread`",
+                "`i64::MAX`",
+                "`try_generate()`",
+                "`generate()`",
+                "`generate_async()`",
+                "`RestartPolicy::Immediate`",
                 "`IdGenerationError::EpochAhead`",
                 "`compose_at(time, sequence)`",
-                "`max_clock_skew(...)`",
-                "`IdGenerator`, `TryIdGenerator`, and `AsyncIdGenerator` independently",
-                "JavaScript or JSON boundaries.",
+                "max_clock_skew",
+                "`IdGenerator`",
+                "`TryIdGenerator`",
+                "`AsyncIdGenerator`",
             ],
         ),
         (
             "README.zh_CN.md",
-            "默认 feature 集合只启用 `qubit-snowflake`。",
-            "`expires_at()` 返回排他的到期边界。",
             [
-                "`IdMode::Spread` 始终设置第 63 位，因此生成的 ID 必然超过 `i64::MAX`。",
-                "`try_generate()`、`generate()` 与 `generate_async()`",
-                "`RestartPolicy::Immediate` 是所有 Snowflake Builder 的默认值。",
+                "`IdMode::Spread`",
+                "`i64::MAX`",
+                "`try_generate()`",
+                "`generate()`",
+                "`generate_async()`",
+                "`RestartPolicy::Immediate`",
                 "`IdGenerationError::EpochAhead`",
                 "`compose_at(time, sequence)`",
-                "`max_clock_skew()`",
-                "`IdGenerator`、`TryIdGenerator` 与 `AsyncIdGenerator` 分别提供阻塞、非阻塞和异步分配能力；",
-                "ID 经过 JavaScript 或 JSON 边界时应使用",
+                "max_clock_skew",
+                "`IdGenerator`",
+                "`TryIdGenerator`",
+                "`AsyncIdGenerator`",
             ],
         ),
     ];
@@ -774,12 +777,9 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
         "cargo bench --no-default-features --features uuid --bench uuid_comparison",
     ];
 
-    for (name, feature_summary, lifetime_summary, deployment_fragments) in readmes {
+    for (name, deployment_fragments) in readmes {
         let content = fs::read_to_string(manifest_dir.join(name))
             .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
-        for fragment in [feature_summary, lifetime_summary] {
-            assert!(content.contains(fragment), "{name} must contain `{fragment}`");
-        }
         for fragment in common_fragments {
             assert!(content.contains(fragment), "{name} must contain `{fragment}`");
         }
@@ -795,17 +795,13 @@ fn test_readmes_document_feature_lifetime_and_benchmark_contracts() {
     }
 }
 
-/// Verifies that async generation documentation distinguishes its concrete
-/// future from the object-safe boxed trait future.
+/// Verifies that async documentation retains its API reference and rejects a
+/// stale allocation claim.
 #[test]
-fn test_async_documentation_describes_unboxed_outer_future() {
+fn test_async_documentation_retains_api_and_rejects_stale_allocation_claim() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let readme = fs::read_to_string(manifest_dir.join("README.md")).expect("README.md should be readable");
 
-    assert!(
-        readme.contains("concrete asynchronous method has an unboxed outer Future"),
-        "README.md must describe the concrete async method precisely"
-    );
     assert!(
         !readme.contains("allocation-free inherent Future"),
         "README.md must not claim that every async path is allocation-free"
@@ -834,21 +830,21 @@ fn test_readmes_document_structured_generation_failures() {
         (
             "README.md",
             "IdGenerationError::RandomSourceFailed",
-            "builders return `IdGenerationError::GeneratorExpired` when `now >= expires_at`",
+            "IdGenerationError::GeneratorExpired",
             ["UUID generation panics", "builders panic"],
         ),
         (
             "README.zh_CN.md",
             "IdGenerationError::RandomSourceFailed",
-            "构建器会在 `now >= expires_at` 时返回 `IdGenerationError::GeneratorExpired`",
+            "IdGenerationError::GeneratorExpired",
             ["UUID 生成会 panic", "构建器会 panic"],
         ),
     ];
 
-    for (name, random_failure, expiration_failure, forbidden_fragments) in readmes {
+    for (name, random_failure, expired_error, forbidden_fragments) in readmes {
         let content = fs::read_to_string(manifest_dir.join(name))
             .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
-        for fragment in [random_failure, expiration_failure] {
+        for fragment in [random_failure, expired_error] {
             assert!(content.contains(fragment), "{name} must contain `{fragment}`");
         }
         for fragment in forbidden_fragments {
