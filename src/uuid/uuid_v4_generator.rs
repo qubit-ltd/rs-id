@@ -7,6 +7,8 @@
 // =============================================================================
 //! Standards-compliant UUID v4 numeric generator.
 
+use ::uuid::Uuid;
+
 use super::internal::generate_uuid_v4;
 use crate::IdGenerationError;
 use crate::IdGenerator;
@@ -67,12 +69,12 @@ impl UuidV4Generator {
     /// Returns [`IdGenerationError::RandomSourceFailed`] when the
     /// operating-system random source cannot provide UUID bytes.
     #[inline]
-    pub fn generate(&self) -> Result<uuid::Uuid, IdGenerationError> {
+    pub fn generate(&self) -> Result<Uuid, IdGenerationError> {
         generate_uuid_v4()
     }
 }
 
-impl IdGenerator<uuid::Uuid> for UuidV4Generator {
+impl IdGenerator<Uuid> for UuidV4Generator {
     /// Generates a UUID v4 as a [`uuid::Uuid`].
     ///
     /// # Returns
@@ -83,7 +85,8 @@ impl IdGenerator<uuid::Uuid> for UuidV4Generator {
     ///
     /// Returns [`IdGenerationError::RandomSourceFailed`] when the
     /// operating-system random source cannot provide UUID bytes.
-    fn generate(&self) -> Result<uuid::Uuid, IdGenerationError> {
+    #[inline]
+    fn generate(&self) -> Result<Uuid, IdGenerationError> {
         UuidV4Generator::generate(self)
     }
 }

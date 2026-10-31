@@ -263,6 +263,7 @@ impl IdGenerator for ClassicalSnowflakeGenerator {
     /// wall-clock rollback exceeds the configured tolerance, or
     /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
     /// registered or completed.
+    #[inline]
     fn generate(&self) -> Result<Id, IdGenerationError> {
         ClassicalSnowflakeGenerator::generate(self)
     }

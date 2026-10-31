@@ -295,6 +295,7 @@ impl IdGenerator for SnowflakeGenerator {
     /// rollback exceeds the configured tolerance, or
     /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
     /// registered or completed.
+    #[inline]
     fn generate(&self) -> Result<Id, IdGenerationError> {
         SnowflakeGenerator::generate(self)
     }

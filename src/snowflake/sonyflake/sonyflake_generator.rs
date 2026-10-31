@@ -264,6 +264,7 @@ impl IdGenerator for SonyflakeGenerator {
     /// a wall-clock rollback exceeds the configured tolerance, or
     /// [`IdGenerationError::WaitFailed`] when a retry wait cannot be
     /// registered or completed.
+    #[inline]
     fn generate(&self) -> Result<Id, IdGenerationError> {
         SonyflakeGenerator::generate(self)
     }
