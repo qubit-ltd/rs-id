@@ -75,16 +75,9 @@ fn test_snowflake_generator_builder_rejects_invalid_host() {
     ));
 }
 
-#[tokio::test]
-async fn test_snowflake_generator_builder_async_propagates_layout_error() {
-    assert!(matches!(
-        SnowflakeGenerator::builder(512).build(),
-        Err(IdGenerationError::HostOutOfRange { host: 512, max: 511 })
-    ));
-}
-
-#[tokio::test]
-async fn test_snowflake_generator_builder_async_propagates_expiration_error() {
+/// Verifies that an unrepresentable expiration boundary is rejected.
+#[test]
+fn test_snowflake_generator_builder_rejects_expiration_time_overflow() {
     let epoch = latest_representable_whole_second();
 
     assert!(matches!(

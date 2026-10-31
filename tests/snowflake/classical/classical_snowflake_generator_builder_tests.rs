@@ -71,19 +71,9 @@ fn test_classical_snowflake_generator_builder_rejects_invalid_node() {
     ));
 }
 
-#[tokio::test]
-async fn test_classical_snowflake_generator_builder_async_propagates_layout_error() {
-    assert!(matches!(
-        ClassicalSnowflakeGenerator::builder(1_024).build(),
-        Err(IdGenerationError::NodeOutOfRange {
-            node_id: 1_024,
-            max: 1_023,
-        })
-    ));
-}
-
-#[tokio::test]
-async fn test_classical_snowflake_generator_builder_async_propagates_expiration_error() {
+/// Verifies that an unrepresentable expiration boundary is rejected.
+#[test]
+fn test_classical_snowflake_generator_builder_rejects_expiration_time_overflow() {
     let epoch = latest_representable_whole_second();
 
     assert!(matches!(

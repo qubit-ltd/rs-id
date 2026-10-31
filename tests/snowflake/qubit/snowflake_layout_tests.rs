@@ -8,7 +8,6 @@
 //! Tests for the Qubit snowflake layout.
 
 use std::time::Duration;
-use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use qubit_id::HOST_MAX;
@@ -17,6 +16,8 @@ use qubit_id::IdGenerationError;
 use qubit_id::IdMode;
 use qubit_id::SnowflakeLayout;
 use qubit_id::TimestampPrecision;
+
+use crate::support::latest_representable_whole_second;
 
 const PROPERTY_CASES: usize = 10_000;
 const BOUNDARY_IDS: [u64; 8] = [
@@ -29,29 +30,6 @@ const BOUNDARY_IDS: [u64; 8] = [
     1_u64 << 63,
     u64::MAX,
 ];
-
-/// Finds the latest whole-second time representable by [`SystemTime`].
-///
-/// # Returns
-///
-/// The latest representable time on or after [`UNIX_EPOCH`] whose subsecond
-/// component is zero.
-fn latest_representable_whole_second() -> SystemTime {
-    let mut low = 0_u64;
-    let mut high = u64::MAX;
-    while low < high {
-        let difference = high - low;
-        let middle = low + difference / 2 + difference % 2;
-        if UNIX_EPOCH.checked_add(Duration::from_secs(middle)).is_some() {
-            low = middle;
-        } else {
-            high = middle - 1;
-        }
-    }
-    UNIX_EPOCH
-        .checked_add(Duration::from_secs(low))
-        .expect("binary search must retain a representable time")
-}
 
 /// Produces a deterministic pseudo-random value with the SplitMix64 mixer.
 ///
