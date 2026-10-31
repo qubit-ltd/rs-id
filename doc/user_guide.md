@@ -128,7 +128,14 @@ tokio = { version = "1.54", features = ["macros", "rt", "time"] }
 Select a different Snowflake implementation with features:
 
 ```toml
+[dependencies]
 qubit-id = { version = "0.7", default-features = false, features = ["classic-snowflake"] }
+```
+
+Or choose Sonyflake:
+
+```toml
+[dependencies]
 qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
 ```
 

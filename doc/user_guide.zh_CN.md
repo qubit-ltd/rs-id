@@ -112,7 +112,14 @@ tokio = { version = "1.54", features = ["macros", "rt", "time"] }
 通过 feature 选择其他 Snowflake 实现：
 
 ```toml
+[dependencies]
 qubit-id = { version = "0.7", default-features = false, features = ["classic-snowflake"] }
+```
+
+也可以选择 Sonyflake：
+
+```toml
+[dependencies]
 qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
 ```
 

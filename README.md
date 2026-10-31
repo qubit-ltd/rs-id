@@ -62,13 +62,30 @@ qubit-id = "0.7"
 Select another algorithm independently:
 
 ```toml
+[dependencies]
 qubit-id = { version = "0.7", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
-qubit-id = { version = "0.7", default-features = false, features = ["uuid"] }
-qubit-id = { version = "0.7", default-features = false, features = ["serde"] }
+```
 
-# UUID applications should depend on the upstream type directly.
+For Sonyflake:
+
+```toml
+[dependencies]
+qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
+```
+
+For UUID applications, depend on the upstream type directly:
+
+```toml
+[dependencies]
+qubit-id = { version = "0.7", default-features = false, features = ["uuid"] }
 uuid = { version = "1", features = ["v4"] }
+```
+
+For serialization with Serde:
+
+```toml
+[dependencies]
+qubit-id = { version = "0.7", default-features = false, features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ```

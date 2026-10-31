@@ -51,13 +51,30 @@ qubit-id = "0.7"
 可以独立选择其他算法：
 
 ```toml
+[dependencies]
 qubit-id = { version = "0.7", default-features = false, features = ["classic-snowflake"] }
-qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
-qubit-id = { version = "0.7", default-features = false, features = ["uuid"] }
-qubit-id = { version = "0.7", default-features = false, features = ["serde"] }
+```
 
-# 使用 UUID 的应用应直接依赖上游类型。
+选择 Sonyflake：
+
+```toml
+[dependencies]
+qubit-id = { version = "0.7", default-features = false, features = ["sonyflake"] }
+```
+
+使用 UUID 的应用应直接依赖上游类型：
+
+```toml
+[dependencies]
+qubit-id = { version = "0.7", default-features = false, features = ["uuid"] }
 uuid = { version = "1", features = ["v4"] }
+```
+
+使用 Serde 序列化时：
+
+```toml
+[dependencies]
+qubit-id = { version = "0.7", default-features = false, features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ```
