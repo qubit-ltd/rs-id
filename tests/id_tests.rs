@@ -46,9 +46,21 @@ fn test_id_parses_decimal_text() {
 
 #[test]
 fn test_id_rejects_invalid_text() {
-    assert!(Id::from_str("").is_err());
-    assert!(Id::from_str("-1").is_err());
-    assert!(Id::from_str("18446744073709551616").is_err());
+    for input in ["", "+", "++42", "-1", " 42", "42 ", "4_2", "18446744073709551616"] {
+        assert!(Id::from_str(input).is_err(), "accepted {input:?}");
+        assert!(Id::try_from(input).is_err(), "accepted borrowed {input:?}");
+    }
+}
+
+#[test]
+fn test_id_text_normalizes_accepted_decimal_forms() {
+    for (input, expected) in [("+42", 42), ("00042", 42), ("+00042", 42), ("+0", 0)] {
+        let parsed = Id::from_str(input).expect("standard u64 form parses");
+        assert_eq!(parsed, Id::from(expected));
+        assert_eq!(Id::try_from(input).expect("borrowed form parses"), parsed);
+        assert_eq!(parsed.to_string(), expected.to_string());
+        assert_eq!(parsed.to_padded_decimal(), format!("{expected:020}"));
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -71,6 +83,19 @@ mod serde_tests {
             serde_json::from_str::<Id>("\"18446744073709551615\"").expect("deserialize max ID"),
             Id::from(u64::MAX)
         );
+    }
+
+    #[test]
+    fn test_id_json_normalizes_accepted_decimal_strings() {
+        for (input, expected) in [("+42", 42), ("00042", 42), ("+00042", 42), ("+0", 0)] {
+            let encoded_input = serde_json::to_string(input).expect("encode input string");
+            let parsed: Id = serde_json::from_str(&encoded_input).expect("decode accepted form");
+            assert_eq!(parsed, Id::from(expected));
+            assert_eq!(
+                serde_json::to_string(&parsed).expect("serialize normalized ID"),
+                serde_json::to_string(&expected.to_string()).expect("encode expected string")
+            );
+        }
     }
 
     #[test]

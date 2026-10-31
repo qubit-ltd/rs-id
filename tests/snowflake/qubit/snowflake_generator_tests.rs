@@ -28,8 +28,46 @@ use qubit_id::SnowflakeGenerator;
 use qubit_id::SnowflakeLayout;
 use qubit_id::TimestampPrecision;
 use qubit_id::TryIdGenerator;
+use tokio::sync::oneshot;
 
 use crate::support::ManualTime;
+use crate::support::complete_with_timeout;
+use crate::support::spawn_with_timeout;
+
+struct MixedWaiterCleanup<'a> {
+    time: &'a ManualTime,
+    async_workers: Vec<tokio::task::AbortHandle>,
+    armed: bool,
+}
+
+impl MixedWaiterCleanup<'_> {
+    fn new(time: &ManualTime) -> MixedWaiterCleanup<'_> {
+        MixedWaiterCleanup {
+            time,
+            async_workers: Vec::new(),
+            armed: true,
+        }
+    }
+
+    fn track<T>(&mut self, worker: &tokio::task::JoinHandle<T>) {
+        self.async_workers.push(worker.abort_handle());
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for MixedWaiterCleanup<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            for worker in &self.async_workers {
+                worker.abort();
+            }
+            self.time.advance(Duration::from_millis(1));
+        }
+    }
+}
 
 /// Builds a deterministic Qubit generator and its shared manual timeline.
 ///
@@ -1051,4 +1089,172 @@ mod async_tests {
                 if observed == epoch - Duration::from_secs(1) && actual == epoch
         ));
     }
+}
+
+#[tokio::test]
+async fn test_mixed_call_paths_cross_sequence_boundary() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let (generator, time) = build_generator(
+        TimestampPrecision::Millisecond,
+        7,
+        epoch,
+        epoch + Duration::from_millis(10),
+        DEFAULT_MAX_CLOCK_SKEW,
+    );
+    let generator = Arc::new(generator);
+    let capacity = generator.layout().max_sequence() + 1;
+    assert_eq!(capacity, 4096);
+    let mut ids = Vec::new();
+    for _ in 0..capacity - 1 {
+        match generator.try_generate().expect("prefill succeeds") {
+            GenerationAttempt::Generated(id) => ids.push(id),
+            GenerationAttempt::RetryAfter { .. } => panic!("prefill has capacity"),
+        }
+    }
+    let mut cleanup = MixedWaiterCleanup::new(&time);
+    let (sender, receiver) = oneshot::channel();
+    let sync_generator = Arc::clone(&generator);
+    let sync_worker = spawn_with_timeout("mixed sync allocation", move || {
+        let result = sync_generator.generate();
+        let _ = sender.send(result);
+    });
+    let async_generator = Arc::clone(&generator);
+    let mut async_worker = tokio::spawn(async move { async_generator.generate_async().await });
+    cleanup.track(&async_worker);
+    let try_generator = Arc::clone(&generator);
+    let try_worker = tokio::spawn(async move { try_generator.try_generate() });
+    let attempt = complete_with_timeout("mixed try completion", try_worker)
+        .await
+        .expect("try task joins")
+        .expect("try attempt succeeds");
+    let try_won = match attempt {
+        GenerationAttempt::Generated(id) => {
+            ids.push(id);
+            true
+        }
+        GenerationAttempt::RetryAfter { delay } => {
+            assert_eq!(delay, Duration::from_millis(1));
+            false
+        }
+    };
+    time.wait_for_waiters_async(if try_won { 2 } else { 1 }).await;
+    assert!(matches!(
+        generator.try_generate().expect("exhausted probe"),
+        GenerationAttempt::RetryAfter { delay } if delay == Duration::from_millis(1)
+    ));
+    time.advance(Duration::from_millis(1));
+    let joined = tokio::time::timeout(Duration::from_secs(10), &mut async_worker).await;
+    if joined.is_err() {
+        async_worker.abort();
+        let _ = complete_with_timeout("cancel timed out async task", async_worker).await;
+        panic!("mixed async completion timed out");
+    }
+    ids.push(
+        joined
+            .expect("checked timeout")
+            .expect("async task joins")
+            .expect("async allocation succeeds"),
+    );
+    ids.push(
+        complete_with_timeout("mixed sync result", receiver)
+            .await
+            .expect("sync sender completes")
+            .expect("sync allocation succeeds"),
+    );
+    sync_worker.finish();
+    cleanup.disarm();
+    assert_eq!(ids.iter().copied().collect::<HashSet<_>>().len(), ids.len());
+    let mut first = Vec::new();
+    let mut next = Vec::new();
+    for id in ids {
+        let parts = SnowflakeLayout::decode(id);
+        assert_eq!(parts.host(), 7);
+        match parts.timestamp() {
+            10 => first.push(parts.sequence()),
+            11 => next.push(parts.sequence()),
+            other => panic!("unexpected timestamp {other}"),
+        }
+    }
+    first.sort_unstable();
+    next.sort_unstable();
+    assert_eq!(first, (0..capacity).collect::<Vec<_>>());
+    assert_eq!(next, (0..if try_won { 2 } else { 1 }).collect::<Vec<_>>());
+    assert_eq!(time.pending_waiters(), 0);
+}
+
+#[tokio::test]
+async fn test_mixed_waiters_survive_async_cancellation() {
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let (generator, time) = build_generator(
+        TimestampPrecision::Millisecond,
+        7,
+        epoch,
+        epoch + Duration::from_millis(10),
+        DEFAULT_MAX_CLOCK_SKEW,
+    );
+    let generator = Arc::new(generator);
+    for _ in 0..=generator.layout().max_sequence() {
+        assert!(matches!(
+            generator.try_generate().expect("prefill succeeds"),
+            GenerationAttempt::Generated(_)
+        ));
+    }
+    let mut cleanup = MixedWaiterCleanup::new(&time);
+    let (sender, receiver) = oneshot::channel();
+    let sync_generator = Arc::clone(&generator);
+    let sync_worker = spawn_with_timeout("surviving sync waiter", move || {
+        let _ = sender.send(sync_generator.generate());
+    });
+    let surviving_generator = Arc::clone(&generator);
+    let mut survivor = tokio::spawn(async move { surviving_generator.generate_async().await });
+    cleanup.track(&survivor);
+    let cancelled_generator = Arc::clone(&generator);
+    let cancelled = tokio::spawn(async move { cancelled_generator.generate_async().await });
+    cleanup.track(&cancelled);
+    time.wait_for_waiters_async(3).await;
+    assert_eq!(time.pending_waiters(), 3);
+    assert!(matches!(
+        generator.try_generate().expect("exhausted probe"),
+        GenerationAttempt::RetryAfter { delay } if delay == Duration::from_millis(1)
+    ));
+    cancelled.abort();
+    let error = complete_with_timeout("confirm cancelled waiter", cancelled)
+        .await
+        .expect_err("task was aborted");
+    assert!(error.is_cancelled());
+    assert_eq!(time.pending_waiters(), 2);
+    time.advance(Duration::from_millis(1));
+    let joined = tokio::time::timeout(Duration::from_secs(10), &mut survivor).await;
+    if joined.is_err() {
+        survivor.abort();
+        let _ = complete_with_timeout("cancel timed out survivor", survivor).await;
+        panic!("surviving async completion timed out");
+    }
+    let async_id = joined
+        .expect("checked timeout")
+        .expect("survivor joins")
+        .expect("survivor allocates");
+    let sync_id = complete_with_timeout("surviving sync result", receiver)
+        .await
+        .expect("sync sender completes")
+        .expect("sync waiter allocates");
+    sync_worker.finish();
+    cleanup.disarm();
+    assert_ne!(async_id, sync_id);
+    let mut sequences = Vec::new();
+    for id in [sync_id, async_id] {
+        let parts = SnowflakeLayout::decode(id);
+        assert_eq!(parts.timestamp(), 11);
+        assert_eq!(parts.host(), 7);
+        sequences.push(parts.sequence());
+    }
+    sequences.sort_unstable();
+    assert_eq!(sequences, vec![0, 1]);
+    let next = match generator.try_generate().expect("post cancellation try") {
+        GenerationAttempt::Generated(id) => id,
+        GenerationAttempt::RetryAfter { .. } => panic!("new slice has capacity"),
+    };
+    assert_eq!(SnowflakeLayout::decode(next).sequence(), 2);
+    assert_eq!(SnowflakeLayout::decode(next).timestamp(), 11);
+    assert_eq!(time.pending_waiters(), 0);
 }
