@@ -12,6 +12,10 @@ use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::fs::TryLockError;
+use std::io::Read;
+use std::io::Write;
+use std::net::TcpListener;
+use std::net::TcpStream;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -251,11 +255,55 @@ fn test_markdown_process_child() {
         Ok("wait") => loop {
             thread::park_timeout(Duration::from_secs(1));
         },
+        Ok("tree-parent") => {
+            let address = std::env::var("QUBIT_ID_MARKDOWN_CHILD_ADDRESS").unwrap();
+            let ready_path = PathBuf::from(std::env::var("QUBIT_ID_MARKDOWN_READY_PATH").unwrap());
+            let mut parent = TcpStream::connect(&address).unwrap();
+            parent.write_all(b"P").unwrap();
+
+            let executable = std::env::current_exe().unwrap();
+            let mut descendant = Command::new(executable)
+                .arg("--exact")
+                .arg("markdown_tests::readme_examples_tests::test_markdown_process_child")
+                .arg("--nocapture")
+                .env("QUBIT_ID_MARKDOWN_CHILD_MODE", "tree-descendant")
+                .env("QUBIT_ID_MARKDOWN_CHILD_ADDRESS", address)
+                .env("QUBIT_ID_MARKDOWN_READY_PATH", &ready_path)
+                .spawn()
+                .unwrap();
+            let started = Instant::now();
+            while !ready_path.exists() && started.elapsed() < Duration::from_secs(2) {
+                thread::sleep(Duration::from_millis(10));
+            }
+            assert!(ready_path.exists(), "descendant did not report readiness");
+            thread::sleep(Duration::from_secs(10));
+            let _ = descendant.kill();
+            let _ = descendant.wait();
+        }
+        Ok("tree-descendant") => {
+            let address = std::env::var("QUBIT_ID_MARKDOWN_CHILD_ADDRESS").unwrap();
+            let ready_path = PathBuf::from(std::env::var("QUBIT_ID_MARKDOWN_READY_PATH").unwrap());
+            let mut descendant = TcpStream::connect(address).unwrap();
+            descendant.write_all(b"D").unwrap();
+            File::create(ready_path).unwrap();
+            thread::sleep(Duration::from_secs(10));
+        }
+        Ok("control") => {
+            let address = std::env::var("QUBIT_ID_MARKDOWN_CHILD_ADDRESS").unwrap();
+            let mut control = TcpStream::connect(address).unwrap();
+            control.set_read_timeout(Some(Duration::from_secs(15))).unwrap();
+            control.write_all(b"C").unwrap();
+            let mut stop = [0];
+            control.read_exact(&mut stop).unwrap();
+            assert_eq!(stop, *b"q");
+            control.write_all(b"Q").unwrap();
+        }
         _ => {}
     }
 }
 
 #[test]
+#[cfg(any(unix, windows))]
 fn test_markdown_process_timeout_helper_handles_success_failure_and_hang() {
     let temp = std::env::temp_dir().join(format!("qubit-markdown-process-{}", timestamp_nonce()));
     fs::create_dir_all(&temp).unwrap();
@@ -268,6 +316,100 @@ fn test_markdown_process_timeout_helper_handles_success_failure_and_hang() {
     let _ = fs::remove_dir_all(temp);
 }
 
+#[test]
+#[cfg(any(unix, windows))]
+fn test_markdown_process_timeout_terminates_descendants() {
+    let temp = std::env::temp_dir().join(format!("qubit-markdown-tree-{}", timestamp_nonce()));
+    fs::create_dir_all(&temp).unwrap();
+    let ready_path = temp.join("descendant.ready");
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap().to_string();
+
+    let executable = std::env::current_exe().unwrap();
+    let mut control = Command::new(&executable)
+        .arg("--exact")
+        .arg("markdown_tests::readme_examples_tests::test_markdown_process_child")
+        .arg("--nocapture")
+        .env("QUBIT_ID_MARKDOWN_CHILD_MODE", "control")
+        .env("QUBIT_ID_MARKDOWN_CHILD_ADDRESS", &address)
+        .spawn()
+        .unwrap();
+
+    let child_address = address.clone();
+    let child_ready_path = ready_path.clone();
+    let log_path = temp.join("tree.log");
+    let worker = thread::spawn(move || {
+        let executable = std::env::current_exe().unwrap();
+        let mut command = Command::new(executable);
+        command
+            .arg("--exact")
+            .arg("markdown_tests::readme_examples_tests::test_markdown_process_child")
+            .arg("--nocapture")
+            .env("QUBIT_ID_MARKDOWN_CHILD_MODE", "tree-parent")
+            .env("QUBIT_ID_MARKDOWN_CHILD_ADDRESS", child_address)
+            .env("QUBIT_ID_MARKDOWN_READY_PATH", child_ready_path);
+        run_with_timeout(command, Duration::from_secs(5), "controlled tree", &log_path)
+    });
+
+    let mut roles = Vec::new();
+    let mut accepted = Vec::new();
+    let started = Instant::now();
+    while roles.len() < 3 && started.elapsed() < Duration::from_secs(2) {
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                let mut role = [0];
+                stream.read_exact(&mut role).unwrap();
+                roles.push(role[0]);
+                accepted.push(stream);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => panic!("accept process handshake: {error}"),
+        }
+    }
+    assert!(roles.contains(&b'P'), "parent process did not handshake: {roles:?}");
+    assert!(roles.contains(&b'D'), "descendant process did not handshake: {roles:?}");
+    assert!(roles.contains(&b'C'), "control process did not handshake: {roles:?}");
+    assert!(ready_path.exists(), "descendant did not write its readiness file");
+
+    let error = worker.join().unwrap().unwrap_err();
+    assert!(error.contains("controlled tree"), "{error}");
+    let mut parent_eof = false;
+    let mut descendant_eof = false;
+    let mut control_stream = None;
+    for (role, stream) in roles.iter().copied().zip(accepted.iter_mut()) {
+        match role {
+            b'P' => parent_eof = wait_for_eof(stream, Duration::from_secs(2)),
+            b'D' => descendant_eof = wait_for_eof(stream, Duration::from_secs(2)),
+            b'C' => control_stream = Some(stream),
+            _ => unreachable!(),
+        }
+    }
+    let control_stream = control_stream.expect("control handshake was accepted");
+    control_stream.write_all(b"q").unwrap();
+    let mut stopped = [0];
+    control_stream.read_exact(&mut stopped).unwrap();
+    assert_eq!(stopped, *b"Q");
+    assert!(
+        control.wait().unwrap().success(),
+        "control process exited unsuccessfully"
+    );
+    let _ = fs::remove_dir_all(temp);
+    assert!(parent_eof, "timed-out parent connection stayed open");
+    assert!(descendant_eof, "timed-out descendant connection stayed open");
+}
+
+#[cfg(any(unix, windows))]
+fn wait_for_eof(stream: &mut TcpStream, budget: Duration) -> bool {
+    stream.set_read_timeout(Some(budget)).unwrap();
+    let mut byte = [0];
+    matches!(stream.read(&mut byte), Ok(0))
+}
+
+#[cfg(any(unix, windows))]
 fn controlled_child(mode: &str, log: &Path, budget: Duration) -> Result<ProcessOutcome, String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let mut command = Command::new(executable);

@@ -8,12 +8,22 @@
 
 use std::fs::File;
 use std::io::Read;
-use std::process::Child;
 use std::process::Command;
 use std::process::ExitStatus;
+#[cfg(any(unix, windows))]
 use std::thread;
 use std::time::Duration;
+#[cfg(any(unix, windows))]
 use std::time::Instant;
+
+#[cfg(any(unix, windows))]
+use process_wrap::std::ChildWrapper;
+#[cfg(any(unix, windows))]
+use process_wrap::std::CommandWrap;
+#[cfg(windows)]
+use process_wrap::std::JobObject;
+#[cfg(unix)]
+use process_wrap::std::ProcessGroup;
 
 #[derive(Debug)]
 pub(super) struct ProcessOutcome {
@@ -32,45 +42,78 @@ pub(super) fn run_with_timeout(
         .try_clone()
         .map_err(|error| format!("{stage}: clone log handle {}: {error}", log_path.display()))?;
     command.stdout(log).stderr(stderr);
-    let mut child = command
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = command;
+        return Err(format!(
+            "{stage}: process tree isolation is unsupported on this platform; log: {}",
+            log_path.display()
+        ));
+    }
+
+    #[cfg(any(unix, windows))]
+    let mut wrapped = CommandWrap::from(command);
+    #[cfg(unix)]
+    wrapped.wrap(ProcessGroup::leader());
+    #[cfg(windows)]
+    wrapped.wrap(JobObject);
+
+    #[cfg(any(unix, windows))]
+    let mut child = wrapped
         .spawn()
         .map_err(|error| format!("{stage}: spawn failed: {error}; log: {}", log_path.display()))?;
-    let started = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                return Ok(ProcessOutcome {
-                    status,
-                    log_path: log_path.to_owned(),
-                });
-            }
-            Ok(None) if started.elapsed() < budget => thread::sleep(Duration::from_millis(10)),
-            Ok(None) => return terminate_timed_out_child(&mut child, stage, log_path),
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(format!("{stage}: wait failed: {error}; log: {}", log_path.display()));
+
+    #[cfg(any(unix, windows))]
+    {
+        let started = Instant::now();
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    return Ok(ProcessOutcome {
+                        status,
+                        log_path: log_path.to_owned(),
+                    });
+                }
+                Ok(None) if started.elapsed() < budget => thread::sleep(Duration::from_millis(10)),
+                Ok(None) => {
+                    return Err(cleanup_child(
+                        &mut *child,
+                        &format!("timed out after {budget:?}"),
+                        stage,
+                        log_path,
+                    ));
+                }
+                Err(error) => {
+                    return Err(cleanup_child(
+                        &mut *child,
+                        &format!("wait failed: {error}"),
+                        stage,
+                        log_path,
+                    ));
+                }
             }
         }
     }
 }
 
-fn terminate_timed_out_child(
-    child: &mut Child,
-    stage: &str,
-    log_path: &std::path::Path,
-) -> Result<ProcessOutcome, String> {
-    child
-        .kill()
-        .map_err(|error| format!("{stage}: timeout kill failed: {error}; log: {}", log_path.display()))?;
-    let status = child
-        .wait()
-        .map_err(|error| format!("{stage}: timeout reap failed: {error}; log: {}", log_path.display()))?;
+#[cfg(any(unix, windows))]
+fn cleanup_child(child: &mut dyn ChildWrapper, cause: &str, stage: &str, log_path: &std::path::Path) -> String {
+    let termination = child.start_kill();
+    let reaped = child.wait();
     let tail = read_log_tail(log_path);
-    Err(format!(
-        "{stage}: timed out and direct child was reaped ({status}); log: {}\n{tail}",
+    let termination = match termination {
+        Ok(()) => "start_kill succeeded".to_owned(),
+        Err(error) => format!("start_kill failed: {error}"),
+    };
+    let reaped = match reaped {
+        Ok(status) => format!("wait succeeded with status {status}"),
+        Err(error) => format!("wait failed: {error}"),
+    };
+    format!(
+        "{stage}: {cause}; cleanup {termination}; {reaped}; log: {}\n{tail}",
         log_path.display()
-    ))
+    )
 }
 
 fn read_log_tail(path: &std::path::Path) -> String {
