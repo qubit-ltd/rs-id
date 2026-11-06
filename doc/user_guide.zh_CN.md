@@ -8,7 +8,7 @@
 `qubit-id` 中的三种 Snowflake 系列生成器：`ClassicalSnowflakeGenerator`、
 `SnowflakeGenerator` 和 `SonyflakeGenerator`。手册解释布局如何影响容量、排序、
 存储兼容性和部署身份，并给出选型、配置、错误处理和部署边界。示例面向
-`qubit-id` 0.7 系列（本手册核对基线为 0.7.2）和 Rust 1.94 及以上版本。
+`qubit-id` 0.7 系列（本手册核对基线为 0.7）和 Rust 1.94 及以上版本。
 
 ## 概念模型
 

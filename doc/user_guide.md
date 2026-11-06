@@ -9,7 +9,7 @@ application. It focuses on the three Snowflake-family generators in `qubit-id`:
 `ClassicalSnowflakeGenerator`, `SnowflakeGenerator`, and `SonyflakeGenerator`.
 It explains how the layouts affect capacity, ordering, storage compatibility,
 and deployment identity. The examples target the `qubit-id` 0.7 series (with
-0.7.2 as the version checked for this guide) and Rust 1.94 or later.
+0.7 as the version checked for this guide) and Rust 1.94 or later.
 
 ## Conceptual model
 

@@ -24,6 +24,11 @@ use crate::IdGenerationError;
 /// must not wait for clocks, timers, or external coordination to make progress.
 /// Implementations may briefly synchronize access to allocation state.
 ///
+/// # Type Parameters
+///
+/// - `Output` is the identifier value produced by a successful allocation.
+/// - `Error` is the error returned when an allocation attempt fails.
+///
 /// # Examples
 ///
 /// ```
