@@ -203,7 +203,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-id"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "getrandom",
  "parking_lot",

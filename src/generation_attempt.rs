@@ -27,7 +27,10 @@ use std::time::Duration;
 #[must_use = "generation attempts must be handled"]
 pub enum GenerationAttempt<T> {
     /// Allocation completed with a generated value.
-    Generated(T),
+    Generated(
+        /// Identifier value produced by the successful allocation attempt.
+        T,
+    ),
     /// Allocation can continue after the specified duration.
     RetryAfter {
         /// Minimum duration before another allocation attempt.
