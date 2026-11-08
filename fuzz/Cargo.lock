@@ -16,9 +16,9 @@ checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
 name = "cc"
-version = "1.10.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
+checksum = "4ff2a8126fff0f8c839080d619675a585e61720bb12d2baceae45769fd66f155"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -124,9 +124,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-clock"
-version = "0.13.4"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8c595aaaff328771103f3efa10a142ef78720a06567e7c6d3ed53f2cfbb4ca"
+checksum = "c840e581856bfaf2093ce10956a3bbc7d29347e4f226f814da71dc8508b91575"
 dependencies = [
  "qubit-collections",
  "thiserror",
@@ -134,9 +134,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-collections"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b35d268dde323d67cc884be0e986bdf1786766f3eb7fb7323d6636cbd632a901"
+checksum = "c8c9532c5454a601da6bd2ec81419a82421d190aa77b09e068f2898dc498519a"
 dependencies = [
  "hashbrown",
 ]
@@ -197,9 +197,9 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "smallvec"
-version = "1.16.4"
+version = "1.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0d5d4b1981b8bbbb7aed204cae5726d683d5d6ac7e74ec54122ea28f315e7c8"
+checksum = "149309498a5f7334b12ddae0cad8aba81ce785fe91755068867e017cf98fee46"
 
 [[package]]
 name = "syn"
