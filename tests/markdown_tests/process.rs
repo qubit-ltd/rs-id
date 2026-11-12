@@ -26,12 +26,12 @@ use process_wrap::std::JobObject;
 use process_wrap::std::ProcessGroup;
 
 #[derive(Debug)]
-pub(super) struct ProcessOutcome {
-    pub(super) status: ExitStatus,
-    pub(super) log_path: std::path::PathBuf,
+pub(crate) struct ProcessOutcome {
+    pub(crate) status: ExitStatus,
+    pub(crate) log_path: std::path::PathBuf,
 }
 
-pub(super) fn run_with_timeout(
+pub(crate) fn run_with_timeout(
     mut command: Command,
     budget: Duration,
     stage: &str,

@@ -80,18 +80,26 @@ Run only the startup configuration check with:
 cargo bench --locked --bench qubit_snowflake_throughput -- --check-startup
 ```
 
-Execute every dispatch case with a short sample and verify its completion count:
+Execute every dispatch case with a short sample and verify its result:
 
 ```bash
-cargo bench --locked --bench qubit_snowflake_throughput -- --check-dispatch
+cargo bench --locked --bench qubit_snowflake_throughput --no-default-features \
+    --features qubit-snowflake -- --check-dispatch
 ```
 
 The startup short path prints `startup-check passed` and exits before dispatch,
 throughput, or startup latency measurements. The dispatch short path executes
 all sync, `bridge_per_call`, and `async_task` cases with 128 measured operations
-and 16 warm-up operations, prints the completed count for each case, then exits
-before sustained throughput or startup latency measurements. Normal benchmark
-runs use the same dispatch cases with the full sample size.
+and 16 warm-up operations. Before timing each path, it probes the operation's
+actual result: numeric paths validate the decoded host, precision, and mode;
+string paths also parse the generated value and require its decimal form to be
+canonical. The probe is outside the timed loop and does not count toward the
+128 operations. The short path prints all 12 completed counts and
+`dispatch-check passed`, then exits before sustained throughput or startup
+latency measurements. The project hook checks that exact case set and count.
+Normal benchmark runs use the same dispatch operations with the full sample
+size and do not perform the extra result probes. This short check is a
+correctness check, not a performance acceptance test.
 
 The run reported this configuration:
 

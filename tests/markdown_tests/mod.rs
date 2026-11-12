@@ -7,6 +7,6 @@
 // =============================================================================
 //! Tests for Markdown documentation.
 
-mod process;
+pub(crate) mod process;
 mod readme_examples_tests;
 mod toml_configuration_tests;

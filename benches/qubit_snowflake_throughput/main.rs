@@ -67,7 +67,7 @@ fn main() {
         return;
     }
     if std::env::args().any(|argument| argument == "--check-dispatch") {
-        measure_dispatch_paths(DISPATCH_CHECK_ITERATIONS, DISPATCH_CHECK_WARM_UP_ITERATIONS);
+        measure_dispatch_paths(DISPATCH_CHECK_ITERATIONS, DISPATCH_CHECK_WARM_UP_ITERATIONS, true);
         println!("dispatch-check passed");
         return;
     }
@@ -77,7 +77,7 @@ fn main() {
          startup_samples={STARTUP_SAMPLE_COUNT} warm_up_ids={WARM_UP_IDS}"
     );
 
-    measure_dispatch_paths(DISPATCH_ITERATIONS, DISPATCH_WARM_UP_ITERATIONS);
+    measure_dispatch_paths(DISPATCH_ITERATIONS, DISPATCH_WARM_UP_ITERATIONS, false);
 
     for precision in [TimestampPrecision::Millisecond, TimestampPrecision::Second] {
         for worker_count in WORKER_COUNTS {
@@ -126,13 +126,13 @@ fn main() {
 ///
 /// Panics when a generator cannot be constructed, ID generation fails, or the
 /// Tokio current-thread runtime cannot be built.
-fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
+fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize, check_results: bool) {
     let concrete = SnowflakeGenerator::builder(HOST)
         .precision(TimestampPrecision::Second)
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("concrete benchmark generator must be valid");
-    run_dispatch_case("sync_concrete", iterations, warm_up_iterations, || {
+    run_dispatch_case("sync_concrete", iterations, warm_up_iterations, check_results, || {
         concrete.generate().expect("concrete generation must succeed")
     });
 
@@ -143,7 +143,7 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
             .build()
             .expect("dynamic benchmark generator must be valid"),
     );
-    run_dispatch_case("sync_arc_dyn", iterations, warm_up_iterations, || {
+    run_dispatch_case("sync_arc_dyn", iterations, warm_up_iterations, check_results, || {
         dynamic.generate().expect("dynamic generation must succeed")
     });
 
@@ -152,12 +152,18 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("concrete string benchmark generator must be valid");
-    run_dispatch_case("sync_string_concrete", iterations, warm_up_iterations, || {
-        string_concrete
-            .generate()
-            .expect("concrete string generation must succeed")
-            .to_string()
-    });
+    run_dispatch_case::<String, _>(
+        "sync_string_concrete",
+        iterations,
+        warm_up_iterations,
+        check_results,
+        || {
+            string_concrete
+                .generate()
+                .expect("concrete string generation must succeed")
+                .to_string()
+        },
+    );
 
     let string_dynamic: Arc<dyn IdGenerator<Id, IdGenerationError>> = Arc::new(
         SnowflakeGenerator::builder(HOST)
@@ -166,12 +172,18 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
             .build()
             .expect("dynamic string benchmark generator must be valid"),
     );
-    run_dispatch_case("sync_string_arc_dyn", iterations, warm_up_iterations, || {
-        string_dynamic
-            .generate()
-            .expect("dynamic string generation must succeed")
-            .to_string()
-    });
+    run_dispatch_case::<String, _>(
+        "sync_string_arc_dyn",
+        iterations,
+        warm_up_iterations,
+        check_results,
+        || {
+            string_dynamic
+                .generate()
+                .expect("dynamic string generation must succeed")
+                .to_string()
+        },
+    );
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()
@@ -185,6 +197,7 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
         "async_bridge_per_call_concrete_numeric",
         iterations,
         warm_up_iterations,
+        check_results,
         || {
             runtime
                 .block_on(async_concrete.generate_async())
@@ -203,6 +216,7 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
         "async_bridge_per_call_dyn_numeric",
         iterations,
         warm_up_iterations,
+        check_results,
         || {
             runtime
                 .block_on(async_dynamic.generate_async())
@@ -215,10 +229,11 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("async concrete string benchmark generator must be valid");
-    run_dispatch_case(
+    run_dispatch_case::<String, _>(
         "async_bridge_per_call_concrete_string",
         iterations,
         warm_up_iterations,
+        check_results,
         || {
             runtime
                 .block_on(async_string_concrete.generate_async())
@@ -234,10 +249,11 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
             .build()
             .expect("async dynamic string benchmark generator must be valid"),
     );
-    run_dispatch_case(
+    run_dispatch_case::<String, _>(
         "async_bridge_per_call_dyn_string",
         iterations,
         warm_up_iterations,
+        check_results,
         || {
             runtime
                 .block_on(async_string_dynamic.generate_async())
@@ -251,19 +267,23 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("async task concrete numeric generator must be valid");
+    let task_concrete_numeric_operation = || async {
+        task_concrete_numeric
+            .generate_async()
+            .await
+            .expect("async task generation must succeed")
+    };
     runtime.block_on(async {
+        if check_results {
+            probe_numeric_id(task_concrete_numeric_operation().await);
+        }
         for _ in 0..warm_up_iterations {
-            let _ = black_box(task_concrete_numeric.generate_async().await.expect("warm-up"));
+            let _ = black_box(task_concrete_numeric_operation().await);
         }
         let started = Instant::now();
         let mut completed = 0;
         for _ in 0..iterations {
-            let _ = black_box(
-                task_concrete_numeric
-                    .generate_async()
-                    .await
-                    .expect("measured allocation"),
-            );
+            let _ = black_box(task_concrete_numeric_operation().await);
             completed += 1;
         }
         print_dispatch_result("async_task_concrete_numeric", completed, started.elapsed());
@@ -276,14 +296,23 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
             .build()
             .expect("async task dynamic numeric generator must be valid"),
     );
+    let task_dyn_numeric_operation = || async {
+        task_dyn_numeric
+            .generate_async()
+            .await
+            .expect("async task generation must succeed")
+    };
     runtime.block_on(async {
+        if check_results {
+            probe_numeric_id(task_dyn_numeric_operation().await);
+        }
         for _ in 0..warm_up_iterations {
-            let _ = black_box(task_dyn_numeric.generate_async().await.expect("warm-up"));
+            let _ = black_box(task_dyn_numeric_operation().await);
         }
         let started = Instant::now();
         let mut completed = 0;
         for _ in 0..iterations {
-            let _ = black_box(task_dyn_numeric.generate_async().await.expect("measured allocation"));
+            let _ = black_box(task_dyn_numeric_operation().await);
             completed += 1;
         }
         print_dispatch_result("async_task_dyn_numeric", completed, started.elapsed());
@@ -294,26 +323,24 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("async task concrete string generator must be valid");
+    let task_concrete_string_operation = || async {
+        task_concrete_string
+            .generate_async()
+            .await
+            .expect("async task string generation must succeed")
+            .to_string()
+    };
     runtime.block_on(async {
+        if check_results {
+            probe_string_id(task_concrete_string_operation().await);
+        }
         for _ in 0..warm_up_iterations {
-            black_box(
-                task_concrete_string
-                    .generate_async()
-                    .await
-                    .expect("warm-up")
-                    .to_string(),
-            );
+            black_box(task_concrete_string_operation().await);
         }
         let started = Instant::now();
         let mut completed = 0;
         for _ in 0..iterations {
-            black_box(
-                task_concrete_string
-                    .generate_async()
-                    .await
-                    .expect("measured allocation")
-                    .to_string(),
-            );
+            black_box(task_concrete_string_operation().await);
             completed += 1;
         }
         print_dispatch_result("async_task_concrete_string", completed, started.elapsed());
@@ -326,24 +353,61 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
             .build()
             .expect("async task dynamic string generator must be valid"),
     );
+    let task_dyn_string_operation = || async {
+        task_dyn_string
+            .generate_async()
+            .await
+            .expect("async task string generation must succeed")
+            .to_string()
+    };
     runtime.block_on(async {
+        if check_results {
+            probe_string_id(task_dyn_string_operation().await);
+        }
         for _ in 0..warm_up_iterations {
-            black_box(task_dyn_string.generate_async().await.expect("warm-up").to_string());
+            black_box(task_dyn_string_operation().await);
         }
         let started = Instant::now();
         let mut completed = 0;
         for _ in 0..iterations {
-            black_box(
-                task_dyn_string
-                    .generate_async()
-                    .await
-                    .expect("measured allocation")
-                    .to_string(),
-            );
+            black_box(task_dyn_string_operation().await);
             completed += 1;
         }
         print_dispatch_result("async_task_dyn_string", completed, started.elapsed());
     });
+}
+
+trait DispatchResult {
+    fn probe(self);
+}
+
+impl DispatchResult for Id {
+    fn probe(self) {
+        probe_numeric_id(self);
+    }
+}
+
+impl DispatchResult for String {
+    fn probe(self) {
+        probe_string_id(self);
+    }
+}
+
+fn probe_numeric_id(id: Id) {
+    let parts = SnowflakeLayout::decode(id);
+    assert_eq!(parts.host(), HOST, "probe must preserve the configured host");
+    assert_eq!(
+        parts.precision(),
+        TimestampPrecision::Second,
+        "probe must preserve second precision"
+    );
+    assert_eq!(parts.mode(), IdMode::Sequential, "probe must preserve sequential mode");
+}
+
+fn probe_string_id(value: String) {
+    let id = value.parse::<Id>().expect("generated ID string must parse");
+    assert_eq!(id.to_string(), value, "generated ID string must be canonical");
+    probe_numeric_id(id);
 }
 
 /// Warms and measures one fixed-size generator call path.
@@ -352,10 +416,19 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize) {
 ///
 /// * `name` - Stable case name printed with the result.
 /// * `operation` - One ID generation operation.
-fn run_dispatch_case<T, F>(name: &str, iterations: usize, warm_up_iterations: usize, mut operation: F)
-where
+fn run_dispatch_case<T, F>(
+    name: &str,
+    iterations: usize,
+    warm_up_iterations: usize,
+    check_results: bool,
+    mut operation: F,
+) where
     F: FnMut() -> T,
+    T: DispatchResult,
 {
+    if check_results {
+        operation().probe();
+    }
     for _ in 0..warm_up_iterations {
         black_box(operation());
     }

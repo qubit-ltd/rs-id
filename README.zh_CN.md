@@ -256,7 +256,7 @@ cargo bench --no-default-features --features uuid --bench uuid_comparison
 
 ## 测试
 
-普通测试会检查 Markdown 元数据与文档版本。README 和用户手册中的完整示例由项目 hook 执行一次：
+普通测试会检查 Markdown 元数据与文档版本。项目 hook 会执行一次 README 和用户手册中的完整示例、以全部 feature 编译所有 benchmark，并运行一次短程 Qubit 分发行为检查。该检查验证 12 个分发路径各完成 128 次操作；这是正确性检查，不是性能验收：
 
 ```bash
 ./.infra/project-ci-check.local.sh

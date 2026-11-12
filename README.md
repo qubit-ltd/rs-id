@@ -289,8 +289,11 @@ cargo bench --no-default-features --features uuid --bench uuid_comparison
 
 ## Testing
 
-Ordinary tests validate Markdown metadata and document versions. The complete
-README and user guide examples run once through the project hook:
+Ordinary tests validate Markdown metadata and document versions. The project
+hook runs the complete README and user guide examples once, compiles all
+benchmarks with every feature, and runs one short Qubit dispatch behavior check.
+That check verifies all 12 dispatch cases complete 128 operations; it is a
+correctness check, not a performance acceptance test:
 
 ```bash
 ./.infra/project-ci-check.local.sh
