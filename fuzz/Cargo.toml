@@ -10,7 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "^0.4"
-qubit-id = { path = "..", default-features = false, features = ["qubit-snowflake", "classic-snowflake", "sonyflake"] }
+qubit-id = { path = "../", default-features = false, features = ["qubit-snowflake", "classic-snowflake", "sonyflake"] , version = "^0.7" }
 qubit-clock = { version = "^0.13", features = ["test-util"] }
 
 [[bin]]

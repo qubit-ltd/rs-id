@@ -1,6 +1,6 @@
 [package]
 name = "qubit-id"
-version = "0.7.5"
+version = "0.7.6"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -63,7 +63,7 @@ uuid = { version = "^1.29", optional = true }
 qubit-clock = { version = "^0.13", features = ["test-util"] }
 serde_json = "^1.0"
 serde_test = "^1.0"
-toml = "^1.1"
+toml = "^1.2"
 tokio = { version = "^1.54", features = ["macros", "rt", "sync", "test-util", "time"] }
 uuid = { version = "^1.29", features = ["v4"] }
 
