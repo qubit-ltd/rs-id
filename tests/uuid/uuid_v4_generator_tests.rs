@@ -33,7 +33,9 @@ mod inherent_api_tests {
     #[test]
     fn test_uuid_v4_generator_supports_inherent_generate() {
         let generator = UuidV4Generator::new();
-        let value = generator.generate().expect("inherent generation should succeed");
+        let value = generator
+            .generate()
+            .expect("inherent generation should succeed");
 
         assert_ne!(value, Uuid::nil());
     }
@@ -43,7 +45,9 @@ mod inherent_api_tests {
 fn test_uuid_v4_generator_supports_sync_trait_object() {
     let generator: Arc<dyn IdGenerator<Uuid>> = Arc::new(UuidV4Generator::new());
 
-    generator.generate().expect("shared UUID generator should generate");
+    generator
+        .generate()
+        .expect("shared UUID generator should generate");
 }
 
 #[test]

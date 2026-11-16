@@ -41,7 +41,9 @@ fn test_classical_layout_matches_fixed_encoding_vectors() {
 #[test]
 fn test_snowflake_layout_compose_decode_round_trip() {
     let layout = ClassicalSnowflakeLayout::new(17).expect("node id must fit the classic layout");
-    let id = layout.compose(123_456, 789).expect("parts must fit the classic layout");
+    let id = layout
+        .compose(123_456, 789)
+        .expect("parts must fit the classic layout");
     let parts = ClassicalSnowflakeLayout::decode(id);
 
     assert_eq!(parts.timestamp(), 123_456);
@@ -59,7 +61,11 @@ fn test_review_decode_accepts_only_the_63_bit_layout_as_round_trip_input() {
         let typed_parts = ClassicalSnowflakeLayout::decode(raw.into());
 
         assert_eq!(typed_parts, raw_parts);
-        assert!(layout.compose(raw_parts.timestamp(), raw_parts.sequence()).is_ok());
+        assert!(
+            layout
+                .compose(raw_parts.timestamp(), raw_parts.sequence())
+                .is_ok()
+        );
     }
 
     let high_bit_parts = ClassicalSnowflakeLayout::decode_raw(1_u64 << 63);
@@ -74,7 +80,10 @@ fn test_review_decode_accepts_only_the_63_bit_layout_as_round_trip_input() {
     let all_bits_parts = ClassicalSnowflakeLayout::decode_raw(u64::MAX);
     let typed_all_bits_parts = ClassicalSnowflakeLayout::decode(u64::MAX.into());
     assert_eq!(typed_all_bits_parts, all_bits_parts);
-    assert_eq!(all_bits_parts.timestamp(), (1_u64 << 41) - 1 + (1_u64 << 41));
+    assert_eq!(
+        all_bits_parts.timestamp(),
+        (1_u64 << 41) - 1 + (1_u64 << 41)
+    );
     assert!(matches!(
         layout.compose(all_bits_parts.timestamp(), all_bits_parts.sequence()),
         Err(IdGenerationError::TimestampOverflow { .. })
@@ -92,7 +101,8 @@ fn test_snowflake_layout_getters_return_configuration_and_limits() {
 
 #[test]
 fn test_snowflake_layout_rejects_out_of_range_node() {
-    let error = ClassicalSnowflakeLayout::new(1_u64 << 10).expect_err("node id above 10 bits must fail");
+    let error =
+        ClassicalSnowflakeLayout::new(1_u64 << 10).expect_err("node id above 10 bits must fail");
 
     assert!(matches!(
         error,
@@ -119,7 +129,8 @@ fn test_snowflake_layout_rejects_out_of_range_parts() {
 
 #[test]
 fn test_snowflake_layout_accepts_maximum_parts() {
-    let layout = ClassicalSnowflakeLayout::new((1_u64 << 10) - 1).expect("maximum node id must fit the classic layout");
+    let layout = ClassicalSnowflakeLayout::new((1_u64 << 10) - 1)
+        .expect("maximum node id must fit the classic layout");
     let id = layout
         .compose(layout.max_timestamp(), layout.max_sequence())
         .expect("maximum parts must fit the classic layout");

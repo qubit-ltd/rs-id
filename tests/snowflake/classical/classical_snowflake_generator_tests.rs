@@ -26,7 +26,8 @@ use crate::support::ManualTime;
 
 #[test]
 fn test_classical_snowflake_generator_new_uses_defaults() {
-    let generator = ClassicalSnowflakeGenerator::new(17).expect("default configuration should be valid");
+    let generator =
+        ClassicalSnowflakeGenerator::new(17).expect("default configuration should be valid");
 
     assert_eq!(generator.layout().node_id(), 17);
 }
@@ -102,10 +103,16 @@ fn test_classical_snowflake_generator_supports_nonblocking_trait_object_and_inhe
         .build()
         .expect("configuration should be valid");
 
-    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
 
     let generator: Arc<dyn TryIdGenerator<Id>> = Arc::new(generator);
-    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
 }
 
 mod inherent_api_tests {
@@ -129,7 +136,9 @@ mod inherent_api_tests {
             .build()
             .expect("configuration should be valid");
 
-        let _id = generator.generate().expect("inherent generation should succeed");
+        let _id = generator
+            .generate()
+            .expect("inherent generation should succeed");
     }
 }
 
@@ -172,9 +181,10 @@ async fn test_classical_clone_shares_allocation_state() {
         GenerationAttempt::Generated(id) => id,
         GenerationAttempt::RetryAfter { .. } => panic!("fixed slice has capacity"),
     };
-    let fourth = crate::support::complete_with_timeout("allocation through clone", cloned.generate_async())
-        .await
-        .expect("async allocation");
+    let fourth =
+        crate::support::complete_with_timeout("allocation through clone", cloned.generate_async())
+            .await
+            .expect("async allocation");
     let parts = [first, second, third, fourth].map(ClassicalSnowflakeLayout::decode);
 
     assert_eq!(parts.map(|part| part.timestamp()), [10; 4]);
@@ -197,9 +207,10 @@ fn test_classical_snowflake_generator_waits_with_injected_timer() {
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker = crate::support::spawn_with_timeout("classical injected timer allocation", move || {
-        worker_generator.generate()
-    });
+    let worker =
+        crate::support::spawn_with_timeout("classical injected timer allocation", move || {
+            worker_generator.generate()
+        });
 
     time.advance_to_next_deadline();
     let id = worker.finish().expect("next millisecond should allocate");
@@ -249,14 +260,19 @@ fn test_classical_snowflake_generator_retries_configured_clock_rollback() {
     ));
 
     time.reanchor(epoch + Duration::from_millis(10));
-    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
+    assert!(matches!(
+        generator.try_generate(),
+        Ok(GenerationAttempt::Generated(_))
+    ));
 }
 
 #[test]
 fn test_classical_snowflake_generator_reports_runtime_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let layout = ClassicalSnowflakeLayout::new(17).expect("layout should be valid");
-    let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
+    let expires_at = layout
+        .expires_at(epoch)
+        .expect("expiration should be representable");
     let time = ManualTime::new(expires_at - Duration::from_nanos(1));
     let generator = ClassicalSnowflakeGenerator::builder(17)
         .epoch(epoch)
@@ -296,7 +312,8 @@ mod async_tests {
 
     #[test]
     fn test_classical_snowflake_generator_convenience_api() {
-        let generator = ClassicalSnowflakeGenerator::new(17).expect("default configuration should be valid");
+        let generator =
+            ClassicalSnowflakeGenerator::new(17).expect("default configuration should be valid");
 
         assert_eq!(generator.layout().node_id(), 17);
         assert_eq!(
@@ -337,8 +354,14 @@ mod async_tests {
             .build()
             .expect("configuration should be valid");
 
-        let first = generator.generate_async().await.expect("first ID should generate");
-        let second = generator.generate_async().await.expect("second ID should generate");
+        let first = generator
+            .generate_async()
+            .await
+            .expect("first ID should generate");
+        let second = generator
+            .generate_async()
+            .await
+            .expect("second ID should generate");
 
         assert_eq!(ClassicalSnowflakeLayout::decode(first).sequence(), 0);
         assert_eq!(ClassicalSnowflakeLayout::decode(second).sequence(), 1);
@@ -361,7 +384,9 @@ mod async_tests {
         let mut worker = spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
-            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
+            time.advance_to_next_deadline_async()
+                .await
+                .elapsed_since_origin(),
             Duration::from_micros(750)
         );
         let joined = match tokio::time::timeout(Duration::from_secs(10), &mut worker).await {
@@ -381,7 +406,9 @@ mod async_tests {
     async fn test_async_classical_snowflake_generator_reports_runtime_expiration() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let layout = ClassicalSnowflakeLayout::new(17).expect("layout should be valid");
-        let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
+        let expires_at = layout
+            .expires_at(epoch)
+            .expect("expiration should be representable");
         let time = ManualTime::new(expires_at - Duration::from_nanos(1));
         let generator = ClassicalSnowflakeGenerator::builder(17)
             .epoch(epoch)

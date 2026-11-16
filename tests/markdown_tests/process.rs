@@ -37,7 +37,8 @@ pub(crate) fn run_with_timeout(
     stage: &str,
     log_path: &std::path::Path,
 ) -> Result<ProcessOutcome, String> {
-    let log = File::create(log_path).map_err(|error| format!("{stage}: create log {}: {error}", log_path.display()))?;
+    let log = File::create(log_path)
+        .map_err(|error| format!("{stage}: create log {}: {error}", log_path.display()))?;
     let stderr = log
         .try_clone()
         .map_err(|error| format!("{stage}: clone log handle {}: {error}", log_path.display()))?;
@@ -60,9 +61,12 @@ pub(crate) fn run_with_timeout(
     wrapped.wrap(JobObject);
 
     #[cfg(any(unix, windows))]
-    let mut child = wrapped
-        .spawn()
-        .map_err(|error| format!("{stage}: spawn failed: {error}; log: {}", log_path.display()))?;
+    let mut child = wrapped.spawn().map_err(|error| {
+        format!(
+            "{stage}: spawn failed: {error}; log: {}",
+            log_path.display()
+        )
+    })?;
 
     #[cfg(any(unix, windows))]
     {
@@ -98,7 +102,12 @@ pub(crate) fn run_with_timeout(
 }
 
 #[cfg(any(unix, windows))]
-fn cleanup_child(child: &mut dyn ChildWrapper, cause: &str, stage: &str, log_path: &std::path::Path) -> String {
+fn cleanup_child(
+    child: &mut dyn ChildWrapper,
+    cause: &str,
+    stage: &str,
+    log_path: &std::path::Path,
+) -> String {
     let termination = child.start_kill();
     let reaped = child.wait();
     let tail = read_log_tail(log_path);

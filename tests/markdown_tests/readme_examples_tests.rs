@@ -45,7 +45,13 @@ struct MarkdownExample {
     mode: ExampleMode,
 }
 
-const ALLOWED_FEATURES: &[&str] = &["qubit-snowflake", "classic-snowflake", "sonyflake", "uuid", "serde"];
+const ALLOWED_FEATURES: &[&str] = &[
+    "qubit-snowflake",
+    "classic-snowflake",
+    "sonyflake",
+    "uuid",
+    "serde",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum DocumentSource {
@@ -76,7 +82,8 @@ fn test_review_documentation_examples() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let output_root = manifest_dir.join("target/markdown-doctest");
     fs::create_dir_all(&output_root).expect("failed to create markdown output directory");
-    let _run_lock = acquire_run_lock(&output_root, Duration::from_secs(10)).unwrap_or_else(|error| panic!("{error}"));
+    let _run_lock = acquire_run_lock(&output_root, Duration::from_secs(10))
+        .unwrap_or_else(|error| panic!("{error}"));
     let run_id = format!("run-{}-{}", std::process::id(), timestamp_nonce());
     let run_dir = output_root.join(&run_id);
     fs::create_dir_all(run_dir.join("src")).expect("failed to create markdown run directory");
@@ -86,17 +93,26 @@ fn test_review_documentation_examples() {
     for (_, relative) in DocumentSource::ALL {
         let path = manifest_dir.join(relative);
         let content = fs::read_to_string(&path).expect("failed to read markdown document");
-        let examples = parse_markdown_examples(&path.display().to_string(), &content).unwrap_or_else(|e| panic!("{e}"));
-        assert!(!examples.is_empty(), "{} should contain Rust snippets", path.display());
+        let examples = parse_markdown_examples(&path.display().to_string(), &content)
+            .unwrap_or_else(|e| panic!("{e}"));
+        assert!(
+            !examples.is_empty(),
+            "{} should contain Rust snippets",
+            path.display()
+        );
         for example in examples {
-            groups.entry(example.features.clone()).or_default().push(example);
+            groups
+                .entry(example.features.clone())
+                .or_default()
+                .push(example);
         }
     }
     let mut executed = 0;
     for (features, examples) in groups {
         for example in examples {
             executed += 1;
-            run_example(&run_dir, &target_dir, &features, &example).unwrap_or_else(|error| panic!("{error}"));
+            run_example(&run_dir, &target_dir, &features, &example)
+                .unwrap_or_else(|error| panic!("{error}"));
         }
     }
     let failure = MarkdownExample {
@@ -111,8 +127,12 @@ fn test_review_documentation_examples() {
         "executed {executed} documentation snippets; shared target: {}",
         target_dir.display()
     );
-    fs::remove_dir_all(&run_dir)
-        .unwrap_or_else(|error| panic!("remove successful run directory {}: {error}", run_dir.display()));
+    fs::remove_dir_all(&run_dir).unwrap_or_else(|error| {
+        panic!(
+            "remove successful run directory {}: {error}",
+            run_dir.display()
+        )
+    });
 }
 
 fn run_example(
@@ -121,9 +141,20 @@ fn run_example(
     features: &[String],
     example: &MarkdownExample,
 ) -> Result<(), String> {
-    fs::write(run_dir.join("src/main.rs"), normalize_snippet(&example.source))
-        .map_err(|error| format!("{}:{} write source: {error}", example.source_path, example.line))?;
-    let label = format!("{}:{} features={features:?}", example.source_path, example.line);
+    fs::write(
+        run_dir.join("src/main.rs"),
+        normalize_snippet(&example.source),
+    )
+    .map_err(|error| {
+        format!(
+            "{}:{} write source: {error}",
+            example.source_path, example.line
+        )
+    })?;
+    let label = format!(
+        "{}:{} features={features:?}",
+        example.source_path, example.line
+    );
     let offline = std::env::var_os("QUBIT_ID_MARKDOWN_OFFLINE").is_some_and(|value| value == "1");
     let cargo_stage = if example.mode == ExampleMode::Check {
         "check"
@@ -142,10 +173,17 @@ fn run_example(
     if offline {
         cargo.arg("--offline");
     }
-    cargo.current_dir(run_dir).env("CARGO_TARGET_DIR", target_dir);
+    cargo
+        .current_dir(run_dir)
+        .env("CARGO_TARGET_DIR", target_dir);
     let build_budget = Duration::from_secs(600);
     let build_log = run_dir.join(format!("{cargo_stage}.log"));
-    let build = run_with_timeout(cargo, build_budget, &format!("{label} {cargo_stage}"), &build_log)?;
+    let build = run_with_timeout(
+        cargo,
+        build_budget,
+        &format!("{label} {cargo_stage}"),
+        &build_log,
+    )?;
     ensure_success(&build, &format!("{label} {cargo_stage}"))?;
     if example.mode == ExampleMode::Run {
         let executable = target_dir
@@ -154,7 +192,12 @@ fn run_example(
         let mut command = Command::new(executable);
         command.current_dir(run_dir);
         let log = run_dir.join("run.log");
-        let outcome = run_with_timeout(command, Duration::from_secs(15), &format!("{label} run"), &log)?;
+        let outcome = run_with_timeout(
+            command,
+            Duration::from_secs(15),
+            &format!("{label} run"),
+            &log,
+        )?;
         if example.source.contains("expected failure") {
             if outcome.status.success() {
                 return Err(format!("{label} controlled failure unexpectedly succeeded"));
@@ -196,17 +239,23 @@ fn executable_name(name: &str) -> String {
 
 fn copy_fixture(manifest_dir: &Path, run_dir: &Path) -> Result<(), String> {
     let fixture = manifest_dir.join("tests/fixtures/markdown_examples");
-    fs::copy(fixture.join("Cargo.toml"), run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
-    fs::copy(fixture.join("Cargo.lock"), run_dir.join("Cargo.lock")).map_err(|error| error.to_string())?;
-    let source = fs::read_to_string(run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
-    let dependency_root = manifest_dir.canonicalize().map_err(|error| error.to_string())?;
+    fs::copy(fixture.join("Cargo.toml"), run_dir.join("Cargo.toml"))
+        .map_err(|error| error.to_string())?;
+    fs::copy(fixture.join("Cargo.lock"), run_dir.join("Cargo.lock"))
+        .map_err(|error| error.to_string())?;
+    let source =
+        fs::read_to_string(run_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
+    let dependency_root = manifest_dir
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
     let rewritten = rewrite_fixture_manifest(&source, &dependency_root)?;
     fs::write(run_dir.join("Cargo.toml"), rewritten).map_err(|error| error.to_string())
 }
 
 fn rewrite_fixture_manifest(source: &str, dependency_root: &Path) -> Result<String, String> {
     let mut manifest: Table = from_str(source).map_err(|error| error.to_string())?;
-    manifest["dependencies"]["qubit-id"]["path"] = Value::String(dependency_root.to_string_lossy().into_owned());
+    manifest["dependencies"]["qubit-id"]["path"] =
+        Value::String(dependency_root.to_string_lossy().into_owned());
     toml::to_string(&manifest).map_err(|error| error.to_string())
 }
 
@@ -232,10 +281,16 @@ fn acquire_run_lock(output_root: &Path, budget: Duration) -> Result<RunLock, Str
                 thread::sleep(Duration::from_millis(10));
             }
             Err(TryLockError::WouldBlock) => {
-                return Err(format!("timed out acquiring documentation run lock {}", path.display()));
+                return Err(format!(
+                    "timed out acquiring documentation run lock {}",
+                    path.display()
+                ));
             }
             Err(TryLockError::Error(error)) => {
-                return Err(format!("lock documentation run lock {}: {error}", path.display()));
+                return Err(format!(
+                    "lock documentation run lock {}: {error}",
+                    path.display()
+                ));
             }
         }
     }
@@ -291,7 +346,9 @@ fn test_markdown_process_child() {
         Ok("control") => {
             let address = std::env::var("QUBIT_ID_MARKDOWN_CHILD_ADDRESS").unwrap();
             let mut control = TcpStream::connect(address).unwrap();
-            control.set_read_timeout(Some(Duration::from_secs(15))).unwrap();
+            control
+                .set_read_timeout(Some(Duration::from_secs(15)))
+                .unwrap();
             control.write_all(b"C").unwrap();
             let mut stop = [0];
             control.read_exact(&mut stop).unwrap();
@@ -307,11 +364,14 @@ fn test_markdown_process_child() {
 fn test_markdown_process_timeout_helper_handles_success_failure_and_hang() {
     let temp = std::env::temp_dir().join(format!("qubit-markdown-process-{}", timestamp_nonce()));
     fs::create_dir_all(&temp).unwrap();
-    let success = controlled_child("success", &temp.join("success.log"), Duration::from_secs(2)).unwrap();
+    let success =
+        controlled_child("success", &temp.join("success.log"), Duration::from_secs(2)).unwrap();
     assert!(success.status.success());
-    let failure = controlled_child("fail", &temp.join("failure.log"), Duration::from_secs(2)).unwrap();
+    let failure =
+        controlled_child("fail", &temp.join("failure.log"), Duration::from_secs(2)).unwrap();
     assert!(!failure.status.success());
-    let error = controlled_child("wait", &temp.join("wait.log"), Duration::from_millis(50)).unwrap_err();
+    let error =
+        controlled_child("wait", &temp.join("wait.log"), Duration::from_millis(50)).unwrap_err();
     assert!(error.contains("controlled wait"), "{error}");
     let _ = fs::remove_dir_all(temp);
 }
@@ -349,7 +409,12 @@ fn test_markdown_process_timeout_terminates_descendants() {
             .env("QUBIT_ID_MARKDOWN_CHILD_MODE", "tree-parent")
             .env("QUBIT_ID_MARKDOWN_CHILD_ADDRESS", child_address)
             .env("QUBIT_ID_MARKDOWN_READY_PATH", child_ready_path);
-        run_with_timeout(command, Duration::from_secs(5), "controlled tree", &log_path)
+        run_with_timeout(
+            command,
+            Duration::from_secs(5),
+            "controlled tree",
+            &log_path,
+        )
     });
 
     let mut roles = Vec::new();
@@ -358,7 +423,9 @@ fn test_markdown_process_timeout_terminates_descendants() {
     while roles.len() < 3 && started.elapsed() < Duration::from_secs(2) {
         match listener.accept() {
             Ok((mut stream, _)) => {
-                stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
                 let mut role = [0];
                 stream.read_exact(&mut role).unwrap();
                 roles.push(role[0]);
@@ -370,10 +437,22 @@ fn test_markdown_process_timeout_terminates_descendants() {
             Err(error) => panic!("accept process handshake: {error}"),
         }
     }
-    assert!(roles.contains(&b'P'), "parent process did not handshake: {roles:?}");
-    assert!(roles.contains(&b'D'), "descendant process did not handshake: {roles:?}");
-    assert!(roles.contains(&b'C'), "control process did not handshake: {roles:?}");
-    assert!(ready_path.exists(), "descendant did not write its readiness file");
+    assert!(
+        roles.contains(&b'P'),
+        "parent process did not handshake: {roles:?}"
+    );
+    assert!(
+        roles.contains(&b'D'),
+        "descendant process did not handshake: {roles:?}"
+    );
+    assert!(
+        roles.contains(&b'C'),
+        "control process did not handshake: {roles:?}"
+    );
+    assert!(
+        ready_path.exists(),
+        "descendant did not write its readiness file"
+    );
 
     let error = worker.join().unwrap().unwrap_err();
     assert!(error.contains("controlled tree"), "{error}");
@@ -399,7 +478,10 @@ fn test_markdown_process_timeout_terminates_descendants() {
     );
     let _ = fs::remove_dir_all(temp);
     assert!(parent_eof, "timed-out parent connection stayed open");
-    assert!(descendant_eof, "timed-out descendant connection stayed open");
+    assert!(
+        descendant_eof,
+        "timed-out descendant connection stayed open"
+    );
 }
 
 #[cfg(any(unix, windows))]
@@ -470,7 +552,9 @@ fn parse_markdown_examples(path: &str, content: &str) -> Result<Vec<MarkdownExam
         }
         if let Some(rest) = trimmed.strip_prefix("<!-- qubit-id-example") {
             if pending.is_some() {
-                return Err(format!("{path}:{number}: previous metadata was not consumed"));
+                return Err(format!(
+                    "{path}:{number}: previous metadata was not consumed"
+                ));
             }
             let body = rest
                 .strip_suffix("-->")
@@ -526,7 +610,9 @@ fn parse_markdown_examples(path: &str, content: &str) -> Result<Vec<MarkdownExam
             continue;
         }
         if let Some((line, _, _)) = pending.as_ref().filter(|_| !trimmed.is_empty()) {
-            return Err(format!("{path}:{line}: metadata was not followed by a Rust fence"));
+            return Err(format!(
+                "{path}:{line}: metadata was not followed by a Rust fence"
+            ));
         }
     }
     if in_rust {
@@ -578,12 +664,17 @@ fn normalize_snippet(snippet: &str) -> String {
 }
 
 fn assert_document_versions_match(manifest_dir: &Path) -> Result<(), String> {
-    let cargo: Value = from_str(&fs::read_to_string(manifest_dir.join("Cargo.toml")).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    let cargo: Value =
+        from_str(&fs::read_to_string(manifest_dir.join("Cargo.toml")).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
     let package_version = cargo["package"]["version"]
         .as_str()
         .ok_or("Cargo package.version missing")?;
-    let expected = package_version.split('.').take(2).collect::<Vec<_>>().join(".");
+    let expected = package_version
+        .split('.')
+        .take(2)
+        .collect::<Vec<_>>()
+        .join(".");
     for relative in [
         "README.md",
         "README.zh_CN.md",
@@ -597,7 +688,8 @@ fn assert_document_versions_match(manifest_dir: &Path) -> Result<(), String> {
             .map(str::trim)
             .filter(|line| line.starts_with("qubit-id ="))
         {
-            let parsed: Table = from_str(line).map_err(|e| format!("{relative}: invalid qubit-id dependency: {e}"))?;
+            let parsed: Table = from_str(line)
+                .map_err(|e| format!("{relative}: invalid qubit-id dependency: {e}"))?;
             let dependency = &parsed["qubit-id"];
             let version = dependency
                 .as_str()
@@ -627,7 +719,8 @@ fn assert_document_versions_match(manifest_dir: &Path) -> Result<(), String> {
 
 #[test]
 fn test_markdown_fixture_feature_mapping() {
-    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/markdown_examples/Cargo.toml");
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/markdown_examples/Cargo.toml");
     let source = fs::read_to_string(fixture).unwrap();
     let parsed: Table = from_str(&source).unwrap();
     let features = parsed["features"].as_table().unwrap();
@@ -649,8 +742,14 @@ fn test_markdown_fixture_feature_mapping() {
         );
     }
     let dependencies = parsed["dependencies"].as_table().unwrap();
-    assert_eq!(dependencies["qubit-id"]["default-features"].as_bool(), Some(false));
-    assert_eq!(dependencies["qubit-clock"]["optional"].as_bool(), Some(true));
+    assert_eq!(
+        dependencies["qubit-id"]["default-features"].as_bool(),
+        Some(false)
+    );
+    assert_eq!(
+        dependencies["qubit-clock"]["optional"].as_bool(),
+        Some(true)
+    );
     assert_eq!(dependencies["tokio"]["optional"].as_bool(), Some(true));
 }
 
@@ -669,21 +768,34 @@ fn test_markdown_fixture_path_round_trip() {
     for root in roots {
         let rewritten = rewrite_fixture_manifest(&source, Path::new(&root)).unwrap();
         let mut parsed: Table = from_str(&rewritten).unwrap();
-        assert_eq!(parsed["dependencies"]["qubit-id"]["path"].as_str(), Some(root.as_str()));
-        parsed["dependencies"]["qubit-id"]["path"] = original["dependencies"]["qubit-id"]["path"].clone();
+        assert_eq!(
+            parsed["dependencies"]["qubit-id"]["path"].as_str(),
+            Some(root.as_str())
+        );
+        parsed["dependencies"]["qubit-id"]["path"] =
+            original["dependencies"]["qubit-id"]["path"].clone();
         assert_eq!(parsed, original);
     }
 
-    let output_root = std::env::temp_dir().join(format!("qubit-markdown-fixture-{}", timestamp_nonce()));
+    let output_root =
+        std::env::temp_dir().join(format!("qubit-markdown-fixture-{}", timestamp_nonce()));
     fs::create_dir_all(&output_root).unwrap();
     let result = copy_fixture(&manifest_dir, &output_root);
     assert!(result.is_ok(), "copy_fixture failed: {result:?}");
-    let mut output_manifest: Table = from_str(&fs::read_to_string(output_root.join("Cargo.toml")).unwrap()).unwrap();
+    let mut output_manifest: Table =
+        from_str(&fs::read_to_string(output_root.join("Cargo.toml")).unwrap()).unwrap();
     assert_eq!(
         output_manifest["dependencies"]["qubit-id"]["path"].as_str(),
-        Some(manifest_dir.canonicalize().unwrap().to_string_lossy().as_ref())
+        Some(
+            manifest_dir
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .as_ref()
+        )
     );
-    output_manifest["dependencies"]["qubit-id"]["path"] = original["dependencies"]["qubit-id"]["path"].clone();
+    output_manifest["dependencies"]["qubit-id"]["path"] =
+        original["dependencies"]["qubit-id"]["path"].clone();
     assert_eq!(output_manifest, original);
     assert_eq!(
         fs::read(output_root.join("Cargo.lock")).unwrap(),
@@ -694,7 +806,8 @@ fn test_markdown_fixture_path_round_trip() {
 
 #[test]
 fn test_markdown_run_lock_normal_release_and_stale_text() {
-    let root = std::env::temp_dir().join(format!("qubit-markdown-lock-normal-{}", timestamp_nonce()));
+    let root =
+        std::env::temp_dir().join(format!("qubit-markdown-lock-normal-{}", timestamp_nonce()));
     fs::create_dir_all(&root).unwrap();
     let lock_path = root.join(".markdown-run.lock");
     fs::write(&lock_path, "stale pid=12345\n").unwrap();
@@ -711,7 +824,8 @@ fn test_markdown_run_lock_normal_release_and_stale_text() {
 
 #[test]
 fn test_markdown_run_lock_reports_io_error() {
-    let parent = std::env::temp_dir().join(format!("qubit-markdown-lock-error-{}", timestamp_nonce()));
+    let parent =
+        std::env::temp_dir().join(format!("qubit-markdown-lock-error-{}", timestamp_nonce()));
     fs::create_dir_all(&parent).unwrap();
     let lock_path = parent.join(".markdown-run.lock");
     fs::create_dir(&lock_path).unwrap();
@@ -746,7 +860,8 @@ fn test_markdown_run_lock_child() {
 
 #[test]
 fn test_markdown_run_lock_recovers_after_child_exit() {
-    let root = std::env::temp_dir().join(format!("qubit-markdown-lock-child-{}", timestamp_nonce()));
+    let root =
+        std::env::temp_dir().join(format!("qubit-markdown-lock-child-{}", timestamp_nonce()));
     fs::create_dir_all(&root).unwrap();
     let ready = root.join("ready");
     let executable = std::env::current_exe().unwrap();
@@ -923,10 +1038,16 @@ fn test_readmes_retain_feature_and_benchmark_contract_tokens() {
         let content = fs::read_to_string(manifest_dir.join(name))
             .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
         for fragment in common_fragments {
-            assert!(content.contains(fragment), "{name} must contain `{fragment}`");
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
         }
         for fragment in deployment_fragments {
-            assert!(content.contains(fragment), "{name} must contain `{fragment}`");
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
         }
         for stale_fragment in ["start_time", "StartTimeAhead"] {
             assert!(
@@ -942,7 +1063,8 @@ fn test_readmes_retain_feature_and_benchmark_contract_tokens() {
 #[test]
 fn test_async_documentation_retains_api_and_rejects_stale_allocation_claim() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let readme = fs::read_to_string(manifest_dir.join("README.md")).expect("README.md should be readable");
+    let readme =
+        fs::read_to_string(manifest_dir.join("README.md")).expect("README.md should be readable");
 
     assert!(
         !readme.contains("allocation-free inherent Future"),
@@ -987,7 +1109,10 @@ fn test_readmes_document_structured_generation_failures() {
         let content = fs::read_to_string(manifest_dir.join(name))
             .unwrap_or_else(|error| panic!("failed to read {name}: {error}"));
         for fragment in [random_failure, expired_error] {
-            assert!(content.contains(fragment), "{name} must contain `{fragment}`");
+            assert!(
+                content.contains(fragment),
+                "{name} must contain `{fragment}`"
+            );
         }
         for fragment in forbidden_fragments {
             assert!(
@@ -1002,7 +1127,8 @@ fn test_readmes_document_structured_generation_failures() {
 #[test]
 fn test_docs_rs_build_enables_all_features() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let manifest = fs::read_to_string(manifest_dir.join("Cargo.toml")).expect("Cargo.toml should be readable");
+    let manifest =
+        fs::read_to_string(manifest_dir.join("Cargo.toml")).expect("Cargo.toml should be readable");
     let manifest_value = from_str::<Table>(&manifest).expect("Cargo.toml should be valid TOML");
     let package = manifest_value
         .get("package")
@@ -1030,7 +1156,10 @@ fn test_docs_rs_build_enables_all_features() {
         .and_then(Value::as_array)
         .expect("Cargo.toml must define docs.rs rustdoc arguments");
     assert!(
-        rustdoc_args.iter().filter_map(Value::as_str).eq(["--cfg", "docsrs"]),
+        rustdoc_args
+            .iter()
+            .filter_map(Value::as_str)
+            .eq(["--cfg", "docsrs"]),
         "Cargo.toml must enable docsrs cfg for feature annotations"
     );
 
@@ -1046,7 +1175,8 @@ fn test_docs_rs_build_enables_all_features() {
         "Cargo.toml must include the user guide directory in packages"
     );
 
-    let crate_root = fs::read_to_string(manifest_dir.join("src/lib.rs")).expect("src/lib.rs should be readable");
+    let crate_root =
+        fs::read_to_string(manifest_dir.join("src/lib.rs")).expect("src/lib.rs should be readable");
     for fragment in [
         "#![cfg_attr(docsrs, feature(doc_cfg))]",
         "doc(cfg(feature = \"qubit-snowflake\"))",

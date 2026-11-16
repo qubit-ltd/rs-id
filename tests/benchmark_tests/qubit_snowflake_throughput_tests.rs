@@ -64,7 +64,9 @@ fn assert_dispatch_output(output: &str) -> Result<(), String> {
     }
     let expected = EXPECTED_CASES.into_iter().collect::<BTreeSet<_>>();
     if cases != expected {
-        return Err(format!("dispatch cases differ: expected {expected:?}, got {cases:?}"));
+        return Err(format!(
+            "dispatch cases differ: expected {expected:?}, got {cases:?}"
+        ));
     }
     if !marker_found {
         return Err("missing `dispatch-check passed` marker".to_owned());
@@ -75,7 +77,9 @@ fn assert_dispatch_output(output: &str) -> Result<(), String> {
 fn valid_dispatch_output() -> String {
     let results = EXPECTED_CASES
         .iter()
-        .map(|case| format!("dispatch case={case} completed=128 elapsed_s=0.1 throughput=1280 operations/s"))
+        .map(|case| {
+            format!("dispatch case={case} completed=128 elapsed_s=0.1 throughput=1280 operations/s")
+        })
         .collect::<Vec<_>>()
         .join("\n");
     format!("{results}\ndispatch-check passed\n")
@@ -131,12 +135,15 @@ fn test_review_benchmark_dispatch() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("system clock must be after Unix epoch")
         .as_nanos();
-    let log_dir = std::env::temp_dir().join(format!("qubit-dispatch-{}-{run_id}", std::process::id()));
+    let log_dir =
+        std::env::temp_dir().join(format!("qubit-dispatch-{}-{run_id}", std::process::id()));
     std::fs::create_dir_all(&log_dir).expect("benchmark log directory must be created");
     let log_path = log_dir.join("dispatch.log");
     let result = run_review_benchmark(manifest_dir, &log_path);
     match result {
-        Ok(()) => std::fs::remove_dir_all(&log_dir).expect("successful benchmark logs must be cleaned up"),
+        Ok(()) => {
+            std::fs::remove_dir_all(&log_dir).expect("successful benchmark logs must be cleaned up")
+        }
         Err(error) => panic!("{error}; log retained at {}", log_path.display()),
     }
 }
@@ -154,7 +161,12 @@ fn run_review_benchmark(manifest_dir: &str, log_path: &std::path::Path) -> Resul
         "--",
         "--check-dispatch",
     ]);
-    let outcome = run_with_timeout(command, Duration::from_secs(600), "benchmark dispatch", log_path)?;
+    let outcome = run_with_timeout(
+        command,
+        Duration::from_secs(600),
+        "benchmark dispatch",
+        log_path,
+    )?;
     if !outcome.status.success() {
         return Err(format!(
             "benchmark dispatch exited with {}; log: {}",
@@ -162,7 +174,11 @@ fn run_review_benchmark(manifest_dir: &str, log_path: &std::path::Path) -> Resul
             outcome.log_path.display()
         ));
     }
-    let output = std::fs::read_to_string(log_path)
-        .map_err(|error| format!("failed to read benchmark log {}: {error}", log_path.display()))?;
+    let output = std::fs::read_to_string(log_path).map_err(|error| {
+        format!(
+            "failed to read benchmark log {}: {error}",
+            log_path.display()
+        )
+    })?;
     assert_dispatch_output(&output).map_err(|error| format!("{error}; log: {}", log_path.display()))
 }

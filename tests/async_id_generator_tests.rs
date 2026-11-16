@@ -39,7 +39,10 @@ fn test_async_id_generator_can_be_used_without_blocking_capability() {
     let waker = Waker::noop();
     let mut context = Context::from_waker(waker);
 
-    assert!(matches!(future.as_mut().poll(&mut context), Poll::Ready(Ok(42))));
+    assert!(matches!(
+        future.as_mut().poll(&mut context),
+        Poll::Ready(Ok(42))
+    ));
 }
 
 #[test]
@@ -57,7 +60,8 @@ fn test_async_id_generator_is_object_safe_for_one_output_type() {
 
 #[test]
 fn test_async_id_generator_supports_custom_error_type() {
-    let generator: Arc<dyn AsyncIdGenerator<u64, IoError>> = Arc::new(IoCounterGenerator::default());
+    let generator: Arc<dyn AsyncIdGenerator<u64, IoError>> =
+        Arc::new(IoCounterGenerator::default());
     let mut future = generator.generate_async();
     let waker = Waker::noop();
     let mut context = Context::from_waker(waker);
@@ -70,7 +74,8 @@ fn test_async_id_generator_supports_custom_error_type() {
 
 #[test]
 fn test_async_id_generator_send_error_can_run_in_spawned_task() {
-    let generator: Arc<dyn AsyncIdGenerator<u64, IoError>> = Arc::new(IoCounterGenerator::default());
+    let generator: Arc<dyn AsyncIdGenerator<u64, IoError>> =
+        Arc::new(IoCounterGenerator::default());
     let runtime = Builder::new_current_thread()
         .enable_all()
         .build()
