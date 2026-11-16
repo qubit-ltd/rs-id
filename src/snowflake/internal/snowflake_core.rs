@@ -147,11 +147,7 @@ where
     /// has reached the exclusive expiration boundary, or
     /// [`IdGenerationError::SequenceOverflow`] when `sequence` does not fit
     /// the layout.
-    pub(crate) fn compose_at(
-        &self,
-        time: SystemTime,
-        sequence: u64,
-    ) -> Result<u64, IdGenerationError> {
+    pub(crate) fn compose_at(&self, time: SystemTime, sequence: u64) -> Result<u64, IdGenerationError> {
         self.ensure_active(time)?;
         let observation = self.observation_for(time)?;
         self.layout.compose(observation.timestamp, sequence)
@@ -216,12 +212,7 @@ where
     /// Returns [`IdGenerationError::TimeBeforeEpoch`] when `time` precedes the
     /// configured epoch.
     fn observation_for(&self, time: SystemTime) -> Result<ClockObservation, IdGenerationError> {
-        ClockObservation::from_time(
-            time,
-            self.epoch,
-            self.layout.time_unit(),
-            self.layout.max_timestamp(),
-        )
+        ClockObservation::from_time(time, self.epoch, self.layout.time_unit(), self.layout.max_timestamp())
     }
 
     /// Rejects wall times at or beyond the exclusive expiration boundary.

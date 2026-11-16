@@ -11,10 +11,7 @@ use super::complete_with_timeout;
 
 #[tokio::test]
 async fn test_async_coordination_timeout_preserves_output() {
-    assert_eq!(
-        complete_with_timeout("ready result", async { 42 }).await,
-        42
-    );
+    assert_eq!(complete_with_timeout("ready result", async { 42 }).await, 42);
 }
 
 #[tokio::test(start_paused = true)]

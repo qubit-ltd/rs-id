@@ -67,11 +67,7 @@ fn main() {
         return;
     }
     if std::env::args().any(|argument| argument == "--check-dispatch") {
-        measure_dispatch_paths(
-            DISPATCH_CHECK_ITERATIONS,
-            DISPATCH_CHECK_WARM_UP_ITERATIONS,
-            true,
-        );
+        measure_dispatch_paths(DISPATCH_CHECK_ITERATIONS, DISPATCH_CHECK_WARM_UP_ITERATIONS, true);
         println!("dispatch-check passed");
         return;
     }
@@ -136,17 +132,9 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize, check_re
         .restart_policy(RestartPolicy::Immediate)
         .build()
         .expect("concrete benchmark generator must be valid");
-    run_dispatch_case(
-        "sync_concrete",
-        iterations,
-        warm_up_iterations,
-        check_results,
-        || {
-            concrete
-                .generate()
-                .expect("concrete generation must succeed")
-        },
-    );
+    run_dispatch_case("sync_concrete", iterations, warm_up_iterations, check_results, || {
+        concrete.generate().expect("concrete generation must succeed")
+    });
 
     let dynamic: Arc<dyn IdGenerator<Id, IdGenerationError>> = Arc::new(
         SnowflakeGenerator::builder(HOST)
@@ -155,13 +143,9 @@ fn measure_dispatch_paths(iterations: usize, warm_up_iterations: usize, check_re
             .build()
             .expect("dynamic benchmark generator must be valid"),
     );
-    run_dispatch_case(
-        "sync_arc_dyn",
-        iterations,
-        warm_up_iterations,
-        check_results,
-        || dynamic.generate().expect("dynamic generation must succeed"),
-    );
+    run_dispatch_case("sync_arc_dyn", iterations, warm_up_iterations, check_results, || {
+        dynamic.generate().expect("dynamic generation must succeed")
+    });
 
     let string_concrete = SnowflakeGenerator::builder(HOST)
         .precision(TimestampPrecision::Second)
@@ -411,30 +395,18 @@ impl DispatchResult for String {
 
 fn probe_numeric_id(id: Id) {
     let parts = SnowflakeLayout::decode(id);
-    assert_eq!(
-        parts.host(),
-        HOST,
-        "probe must preserve the configured host"
-    );
+    assert_eq!(parts.host(), HOST, "probe must preserve the configured host");
     assert_eq!(
         parts.precision(),
         TimestampPrecision::Second,
         "probe must preserve second precision"
     );
-    assert_eq!(
-        parts.mode(),
-        IdMode::Sequential,
-        "probe must preserve sequential mode"
-    );
+    assert_eq!(parts.mode(), IdMode::Sequential, "probe must preserve sequential mode");
 }
 
 fn probe_string_id(value: String) {
     let id = value.parse::<Id>().expect("generated ID string must parse");
-    assert_eq!(
-        id.to_string(),
-        value,
-        "generated ID string must be canonical"
-    );
+    assert_eq!(id.to_string(), value, "generated ID string must be canonical");
     probe_numeric_id(id);
 }
 
@@ -547,13 +519,7 @@ fn measure_throughput(precision: TimestampPrecision, worker_count: usize) -> Thr
         workers.push(thread::spawn(move || {
             barrier.wait();
             let start_timestamp = start_timestamp.load(Ordering::Acquire);
-            generate_until_target(
-                &generator,
-                epoch,
-                precision,
-                start_timestamp,
-                measured_slices,
-            )
+            generate_until_target(&generator, epoch, precision, start_timestamp, measured_slices)
         }));
     }
 
@@ -572,10 +538,7 @@ fn measure_throughput(precision: TimestampPrecision, worker_count: usize) -> Thr
         generated <= capacity,
         "generated count {generated} exceeds capacity {capacity}"
     );
-    assert!(
-        generated > 0,
-        "benchmark sample must generate at least one ID"
-    );
+    assert!(generated > 0, "benchmark sample must generate at least one ID");
 
     ThroughputSample {
         generated,
@@ -595,11 +558,7 @@ fn measure_throughput(precision: TimestampPrecision, worker_count: usize) -> Thr
 /// Panics when warm-up ID generation fails.
 fn warm_up(generator: &SnowflakeGenerator) {
     for _ in 0..WARM_UP_IDS {
-        let _ = black_box(
-            generator
-                .generate()
-                .expect("warm-up ID generation must succeed"),
-        );
+        let _ = black_box(generator.generate().expect("warm-up ID generation must succeed"));
     }
 }
 
@@ -623,11 +582,7 @@ fn measure_startup_latency(precision: TimestampPrecision) -> StartupLatencySumma
         let generator = startup_builder(precision)
             .build()
             .expect("benchmark generator configuration must be valid");
-        let _ = black_box(
-            generator
-                .generate()
-                .expect("first ID generation must succeed"),
-        );
+        let _ = black_box(generator.generate().expect("first ID generation must succeed"));
         samples.push(started.elapsed().as_nanos());
     }
     samples.sort_unstable();
@@ -693,10 +648,7 @@ fn check_startup_configuration() {
             .build()
             .expect("wait-policy check generator configuration must be valid");
         assert!(
-            matches!(
-                generator.try_generate(),
-                Ok(GenerationAttempt::RetryAfter { .. })
-            ),
+            matches!(generator.try_generate(), Ok(GenerationAttempt::RetryAfter { .. })),
             "explicit wait policy must request a retry on first allocation"
         );
     }

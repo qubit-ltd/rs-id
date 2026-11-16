@@ -24,8 +24,5 @@ impl TryIdGenerator<u64> for Counter {
 #[test]
 fn test_try_id_generator_arc_delegates() {
     let generator: Arc<dyn TryIdGenerator<u64>> = Arc::new(Counter);
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(1))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(1))));
 }

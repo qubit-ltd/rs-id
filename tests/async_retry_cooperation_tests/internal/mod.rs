@@ -20,10 +20,7 @@ use qubit_clock::TimerFuture;
 
 pub(crate) const REGISTRATION_LIMIT: usize = 64;
 
-pub(crate) fn manual_wall_clock(
-    now: std::time::SystemTime,
-    clock: Arc<ManualMonotonicClock>,
-) -> Arc<ManualWallClock> {
+pub(crate) fn manual_wall_clock(now: std::time::SystemTime, clock: Arc<ManualMonotonicClock>) -> Arc<ManualWallClock> {
     Arc::new(ManualWallClock::from_clock(now, clock))
 }
 
@@ -35,11 +32,7 @@ pub(crate) struct AdvancingFuseTimer {
 }
 
 impl AdvancingFuseTimer {
-    pub(crate) fn new(
-        clock: Arc<ManualMonotonicClock>,
-        registration_limit: usize,
-        completion_error: bool,
-    ) -> Self {
+    pub(crate) fn new(clock: Arc<ManualMonotonicClock>, registration_limit: usize, completion_error: bool) -> Self {
         Self {
             clock,
             registrations: AtomicUsize::new(0),

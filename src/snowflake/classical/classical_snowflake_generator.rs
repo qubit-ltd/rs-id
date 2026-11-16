@@ -118,10 +118,7 @@ impl ClassicalSnowflakeGenerator {
     ///
     /// A generator backed by `core` and `timer`.
     #[inline]
-    pub(super) fn from_core(
-        core: SnowflakeCore<ClassicalSnowflakeLayout>,
-        timer: Arc<dyn Timer>,
-    ) -> Self {
+    pub(super) fn from_core(core: SnowflakeCore<ClassicalSnowflakeLayout>, timer: Arc<dyn Timer>) -> Self {
         Self {
             inner: BlockingSnowflake::new(core, timer),
         }
@@ -210,9 +207,7 @@ impl ClassicalSnowflakeGenerator {
     /// Returns the non-retryable allocation errors described by
     /// [`IdGenerator::generate`].
     pub fn try_generate(&self) -> Result<GenerationAttempt<Id>, IdGenerationError> {
-        self.inner
-            .try_generate()
-            .map(|attempt| attempt.map(Id::from))
+        self.inner.try_generate().map(|attempt| attempt.map(Id::from))
     }
 
     /// Generates the next classic Snowflake ID asynchronously.

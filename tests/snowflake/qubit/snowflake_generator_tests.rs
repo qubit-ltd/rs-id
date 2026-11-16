@@ -129,10 +129,7 @@ fn test_snowflake_wait_next_slice_retries_without_blocking() {
             if delay == Duration::from_millis(1)
     ));
     time.advance(Duration::from_millis(1));
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 #[test]
@@ -150,10 +147,7 @@ fn test_snowflake_supports_nonblocking_trait_object() {
             .expect("configuration should be valid"),
     );
 
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 #[test]
@@ -168,9 +162,7 @@ fn test_snowflake_supports_sync_trait_object() {
     );
     let generator: Box<dyn IdGenerator<Id>> = Box::new(generator);
 
-    let _ = generator
-        .generate()
-        .expect("trait-object generation should succeed");
+    let _ = generator.generate().expect("trait-object generation should succeed");
 }
 
 mod inherent_api_tests {
@@ -191,9 +183,7 @@ mod inherent_api_tests {
             Duration::from_millis(5),
         );
 
-        let _id = generator
-            .generate()
-            .expect("inherent generation should succeed");
+        let _id = generator.generate().expect("inherent generation should succeed");
     }
 }
 
@@ -253,8 +243,8 @@ fn test_snowflake_generator_accessors_return_configuration() {
         .timer(time.timer())
         .build()
         .expect("configuration should be valid");
-    let expected_layout = SnowflakeLayout::new(IdMode::Spread, TimestampPrecision::Millisecond, 17)
-        .expect("layout should be valid");
+    let expected_layout =
+        SnowflakeLayout::new(IdMode::Spread, TimestampPrecision::Millisecond, 17).expect("layout should be valid");
 
     assert_eq!(generator.layout(), &expected_layout);
     assert_eq!(generator.epoch(), epoch);
@@ -351,11 +341,9 @@ fn test_snowflake_generator_reports_large_clock_rollback() {
 #[test]
 fn test_snowflake_generator_reports_runtime_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
-        .expect("layout should be valid");
-    let expires_at = layout
-        .expires_at(epoch)
-        .expect("expiration should be representable");
+    let layout =
+        SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7).expect("layout should be valid");
+    let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
     let (generator, time) = build_generator(
         TimestampPrecision::Second,
         7,
@@ -378,11 +366,9 @@ fn test_snowflake_generator_reports_runtime_expiration() {
 #[test]
 fn test_snowflake_generator_rejects_expired_explicit_time() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    let layout = SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
-        .expect("layout should be valid");
-    let expires_at = layout
-        .expires_at(epoch)
-        .expect("expiration should be representable");
+    let layout =
+        SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7).expect("layout should be valid");
+    let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
     let (generator, _time) = build_generator(
         TimestampPrecision::Second,
         7,
@@ -415,9 +401,8 @@ fn test_snowflake_generator_waits_with_injected_timer() {
             .expect("configuration should be valid"),
     );
     let worker_generator = Arc::clone(&generator);
-    let worker = crate::support::spawn_with_timeout("qubit injected timer allocation", move || {
-        worker_generator.generate()
-    });
+    let worker =
+        crate::support::spawn_with_timeout("qubit injected timer allocation", move || worker_generator.generate());
 
     time.advance_to_next_deadline();
     let id = worker.finish().expect("next slice should allocate");
@@ -455,8 +440,7 @@ fn test_snowflake_generator_preserves_wait_failure_source() {
 fn test_review_distinct_epochs_can_generate_equal_ids() {
     let epoch = UNIX_EPOCH;
     let now = epoch + Duration::from_micros(10_500_000);
-    let (first_generator, _first_time) =
-        build_generator(TimestampPrecision::Second, 7, epoch, now, Duration::ZERO);
+    let (first_generator, _first_time) = build_generator(TimestampPrecision::Second, 7, epoch, now, Duration::ZERO);
     let (second_generator, _second_time) = build_generator(
         TimestampPrecision::Second,
         7,
@@ -465,17 +449,11 @@ fn test_review_distinct_epochs_can_generate_equal_ids() {
         Duration::ZERO,
     );
 
-    let first = match first_generator
-        .try_generate()
-        .expect("first attempt should succeed")
-    {
+    let first = match first_generator.try_generate().expect("first attempt should succeed") {
         GenerationAttempt::Generated(id) => id,
         GenerationAttempt::RetryAfter { .. } => panic!("immediate generation should allocate"),
     };
-    let second = match second_generator
-        .try_generate()
-        .expect("second attempt should succeed")
-    {
+    let second = match second_generator.try_generate().expect("second attempt should succeed") {
         GenerationAttempt::Generated(id) => id,
         GenerationAttempt::RetryAfter { .. } => panic!("immediate generation should allocate"),
     };
@@ -550,10 +528,7 @@ fn test_review_subslice_rollback_retains_high_water() {
             epoch + Duration::from_micros(10_900),
             Duration::from_micros(100),
         );
-        let first = match tolerant
-            .try_generate()
-            .expect("initial allocation should succeed")
-        {
+        let first = match tolerant.try_generate().expect("initial allocation should succeed") {
             GenerationAttempt::Generated(id) => id,
             GenerationAttempt::RetryAfter { .. } => {
                 panic!("initial allocation should be immediate")
@@ -562,27 +537,20 @@ fn test_review_subslice_rollback_retains_high_water() {
         let first_parts = SnowflakeLayout::decode(first);
         time.reanchor(epoch + Duration::from_micros(10_800));
         assert_eq!(
-            tolerant
-                .try_generate()
-                .expect("rollback at tolerance should retry"),
+            tolerant.try_generate().expect("rollback at tolerance should retry"),
             GenerationAttempt::RetryAfter {
                 delay: Duration::from_micros(100)
             },
         );
         time.reanchor(epoch + Duration::from_micros(10_850));
         assert_eq!(
-            tolerant
-                .try_generate()
-                .expect("partial recovery should retry"),
+            tolerant.try_generate().expect("partial recovery should retry"),
             GenerationAttempt::RetryAfter {
                 delay: Duration::from_micros(50)
             },
         );
         time.reanchor(epoch + Duration::from_micros(10_900));
-        let recovered = match tolerant
-            .try_generate()
-            .expect("recovery at high-water should succeed")
-        {
+        let recovered = match tolerant.try_generate().expect("recovery at high-water should succeed") {
             GenerationAttempt::Generated(id) => id,
             GenerationAttempt::RetryAfter { .. } => {
                 panic!("recovery at high-water should allocate")
@@ -606,10 +574,7 @@ fn test_review_exhaustion_rollback_recovery() {
     );
     let mut generated = HashSet::new();
     for _ in 0..=generator.layout().max_sequence() {
-        match generator
-            .try_generate()
-            .expect("available sequence should generate")
-        {
+        match generator.try_generate().expect("available sequence should generate") {
             GenerationAttempt::Generated(id) => {
                 assert!(generated.insert(id), "generated IDs must be unique")
             }
@@ -620,19 +585,14 @@ fn test_review_exhaustion_rollback_recovery() {
     }
     assert_eq!(generated.len(), 4096);
     assert_eq!(
-        generator
-            .try_generate()
-            .expect("exhaustion should request retry"),
+        generator.try_generate().expect("exhaustion should request retry"),
         GenerationAttempt::RetryAfter {
             delay: Duration::from_millis(1)
         },
     );
 
     time.reanchor(epoch + Duration::from_millis(101));
-    let next_slice = match generator
-        .try_generate()
-        .expect("next slice should generate")
-    {
+    let next_slice = match generator.try_generate().expect("next slice should generate") {
         GenerationAttempt::Generated(id) => id,
         GenerationAttempt::RetryAfter { .. } => panic!("new slice should have sequence capacity"),
     };
@@ -641,9 +601,7 @@ fn test_review_exhaustion_rollback_recovery() {
 
     time.reanchor(epoch + Duration::from_millis(100));
     assert_eq!(
-        generator
-            .try_generate()
-            .expect("rollback should request retry"),
+        generator.try_generate().expect("rollback should request retry"),
         GenerationAttempt::RetryAfter {
             delay: Duration::from_millis(1)
         },
@@ -772,14 +730,8 @@ mod async_tests {
             DEFAULT_MAX_CLOCK_SKEW,
         );
 
-        let first = generator
-            .generate_async()
-            .await
-            .expect("first ID should generate");
-        let second = generator
-            .generate_async()
-            .await
-            .expect("second ID should generate");
+        let first = generator.generate_async().await.expect("first ID should generate");
+        let second = generator.generate_async().await.expect("second ID should generate");
 
         assert_eq!(SnowflakeLayout::decode(first).sequence(), 0);
         assert_eq!(SnowflakeLayout::decode(second).sequence(), 1);
@@ -806,12 +758,9 @@ mod async_tests {
                 GenerationAttempt::Generated(id) => id,
                 GenerationAttempt::RetryAfter { .. } => panic!("fixed slice has capacity"),
             };
-            let fourth = crate::support::complete_with_timeout(
-                "allocation through clone",
-                cloned.generate_async(),
-            )
-            .await
-            .expect("async allocation");
+            let fourth = crate::support::complete_with_timeout("allocation through clone", cloned.generate_async())
+                .await
+                .expect("async allocation");
             let parts = [first, second, third, fourth].map(SnowflakeLayout::decode);
             let timestamp = if precision == TimestampPrecision::Millisecond {
                 10_000
@@ -849,9 +798,7 @@ mod async_tests {
         ));
 
         time.reanchor(epoch + Duration::from_micros(10_900));
-        let third = cloned
-            .generate()
-            .expect("allocation should resume at high water");
+        let third = cloned.generate().expect("allocation should resume at high water");
         assert_eq!(SnowflakeLayout::decode(third).sequence(), 2);
     }
 
@@ -868,9 +815,7 @@ mod async_tests {
             .build()
             .expect("configuration should be valid");
 
-        let first = generator
-            .try_generate()
-            .expect("try allocation should succeed");
+        let first = generator.try_generate().expect("try allocation should succeed");
         let first = match first {
             GenerationAttempt::Generated(id) => id,
             GenerationAttempt::RetryAfter { .. } => {
@@ -941,20 +886,13 @@ mod async_tests {
         let waiter_observer = time.wait_for_waiters_async(1);
         let worker_generator = Arc::clone(&generator);
         let worker = tokio::spawn(async move { worker_generator.generate_async().await });
-        crate::support::complete_with_timeout(
-            "waiting for timer waiter registration",
-            waiter_observer,
-        )
-        .await;
+        crate::support::complete_with_timeout("waiting for timer waiter registration", waiter_observer).await;
         assert_eq!(time.pending_waiters(), 1);
 
         worker.abort();
-        let join_error = crate::support::complete_with_timeout(
-            "confirming generator worker cancellation",
-            worker,
-        )
-        .await
-        .expect_err("aborted generation should be cancelled");
+        let join_error = crate::support::complete_with_timeout("confirming generator worker cancellation", worker)
+            .await
+            .expect_err("aborted generation should be cancelled");
         assert!(join_error.is_cancelled());
         assert_eq!(time.pending_waiters(), 0);
 
@@ -976,18 +914,13 @@ mod async_tests {
             Duration::from_millis(1),
         );
         let generator = Arc::new(generator);
-        let _ = generator
-            .generate_async()
-            .await
-            .expect("first ID should generate");
+        let _ = generator.generate_async().await.expect("first ID should generate");
         time.reanchor(epoch + Duration::from_millis(9));
         let worker_generator = Arc::clone(&generator);
         let mut worker = tokio::spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
-            time.advance_to_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_millis(1)
         );
         let joined = match tokio::time::timeout(Duration::from_secs(10), &mut worker).await {
@@ -1021,25 +954,19 @@ mod async_tests {
         let mut worker = tokio::spawn(async move { worker_generator.generate_async().await });
 
         assert_eq!(
-            time.wait_for_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.wait_for_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_micros(750)
         );
         time.reanchor(epoch + Duration::from_millis(9));
         time.advance_to_next_deadline();
 
         assert_eq!(
-            time.advance_to_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_micros(1_250)
         );
 
         assert_eq!(
-            time.advance_to_next_deadline_async()
-                .await
-                .elapsed_since_origin(),
+            time.advance_to_next_deadline_async().await.elapsed_since_origin(),
             Duration::from_millis(2)
         );
 
@@ -1065,10 +992,7 @@ mod async_tests {
             epoch + Duration::from_millis(10),
             Duration::ZERO,
         );
-        let _ = generator
-            .generate_async()
-            .await
-            .expect("first ID should generate");
+        let _ = generator.generate_async().await.expect("first ID should generate");
         time.reanchor(epoch + Duration::from_millis(9));
 
         assert!(matches!(
@@ -1128,11 +1052,9 @@ mod async_tests {
     #[tokio::test]
     async fn test_async_snowflake_generator_reports_runtime_expiration() {
         let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-        let layout = SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7)
-            .expect("layout should be valid");
-        let expires_at = layout
-            .expires_at(epoch)
-            .expect("expiration should be representable");
+        let layout =
+            SnowflakeLayout::new(IdMode::Sequential, TimestampPrecision::Second, 7).expect("layout should be valid");
+        let expires_at = layout.expires_at(epoch).expect("expiration should be representable");
         let (generator, time) = build_generator(
             TimestampPrecision::Second,
             epoch,
@@ -1215,8 +1137,7 @@ async fn test_mixed_call_paths_cross_sequence_boundary() {
             false
         }
     };
-    time.wait_for_waiters_async(if try_won { 2 } else { 1 })
-        .await;
+    time.wait_for_waiters_async(if try_won { 2 } else { 1 }).await;
     assert!(matches!(
         generator.try_generate().expect("exhausted probe"),
         GenerationAttempt::RetryAfter { delay } if delay == Duration::from_millis(1)

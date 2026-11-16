@@ -37,9 +37,7 @@ fn test_classical_snowflake_generator_builder_builds_configuration() {
     assert_eq!(generator.layout().node_id(), 17);
     assert_eq!(generator.epoch(), epoch);
     assert_eq!(generator.max_clock_skew(), Duration::from_millis(37));
-    let id = generator
-        .generate()
-        .expect("default immediate policy should allocate");
+    let id = generator.generate().expect("default immediate policy should allocate");
     let parts = ClassicalSnowflakeLayout::decode(id);
     assert_eq!(parts.timestamp(), 100);
     assert_eq!(parts.sequence(), 0);
@@ -59,10 +57,7 @@ fn test_classical_snowflake_generator_builder_defaults_to_immediate_allocation()
 
     assert_eq!(generator.max_clock_skew(), Duration::ZERO);
 
-    assert!(matches!(
-        generator.try_generate(),
-        Ok(GenerationAttempt::Generated(_))
-    ));
+    assert!(matches!(generator.try_generate(), Ok(GenerationAttempt::Generated(_))));
 }
 
 #[test]
@@ -92,8 +87,7 @@ fn test_classical_snowflake_generator_builder_rejects_expiration_time_overflow()
 }
 
 #[test]
-fn test_classical_snowflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow()
- {
+fn test_classical_snowflake_generator_builder_rejects_extreme_future_epoch_before_expiration_overflow() {
     let epoch = latest_representable_whole_second();
     let current_time = epoch - Duration::from_nanos(1);
 

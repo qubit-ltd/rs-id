@@ -46,16 +46,7 @@ fn test_id_parses_decimal_text() {
 
 #[test]
 fn test_id_rejects_invalid_text() {
-    for input in [
-        "",
-        "+",
-        "++42",
-        "-1",
-        " 42",
-        "42 ",
-        "4_2",
-        "18446744073709551616",
-    ] {
+    for input in ["", "+", "++42", "-1", " 42", "42 ", "4_2", "18446744073709551616"] {
         assert!(Id::from_str(input).is_err(), "accepted {input:?}");
         assert!(Id::try_from(input).is_err(), "accepted borrowed {input:?}");
     }
@@ -83,10 +74,7 @@ mod serde_tests {
 
     #[test]
     fn test_id_json_uses_decimal_string() {
-        assert_eq!(
-            serde_json::to_string(&Id::from(42)).expect("serialize ID"),
-            "\"42\""
-        );
+        assert_eq!(serde_json::to_string(&Id::from(42)).expect("serialize ID"), "\"42\"");
         assert_eq!(
             serde_json::from_str::<Id>("\"42\"").expect("deserialize ID"),
             Id::from(42)
@@ -125,10 +113,7 @@ mod serde_tests {
     #[test]
     fn test_id_json_rejects_invalid_values() {
         for input in ["-1", "1.5", "true", "null", "[42]"] {
-            assert!(
-                serde_json::from_str::<Id>(input).is_err(),
-                "accepted {input}"
-            );
+            assert!(serde_json::from_str::<Id>(input).is_err(), "accepted {input}");
         }
         assert!(serde_json::from_str::<Id>("\"18446744073709551616\"").is_err());
     }
@@ -136,9 +121,6 @@ mod serde_tests {
     #[test]
     fn test_id_binary_tokens_use_u64() {
         assert_tokens(&Id::from(u64::MAX).compact(), &[Token::U64(u64::MAX)]);
-        assert_de_tokens_error::<Compact<Id>>(
-            &[Token::String("42")],
-            "invalid type: string \"42\", expected u64",
-        );
+        assert_de_tokens_error::<Compact<Id>>(&[Token::String("42")], "invalid type: string \"42\", expected u64");
     }
 }

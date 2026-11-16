@@ -371,11 +371,7 @@ impl SonyflakeLayout {
     /// Returns [`IdGenerationError::InvalidBitLength`] when the normalized
     /// width is 31 or greater.
     #[inline]
-    fn normalize_bits(
-        name: &'static str,
-        bits: u8,
-        default_bits: u8,
-    ) -> Result<u8, IdGenerationError> {
+    fn normalize_bits(name: &'static str, bits: u8, default_bits: u8) -> Result<u8, IdGenerationError> {
         let normalized = if bits == 0 { default_bits } else { bits };
         if normalized >= 31 {
             return Err(IdGenerationError::InvalidBitLength {

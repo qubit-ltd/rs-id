@@ -91,23 +91,11 @@ mod async_retry_cooperation_tests {
         drop(dynamic);
 
         assert!(matches!(concrete_result, Poll::Pending));
-        assert_eq!(
-            concrete_registrations, 1,
-            "one outer poll may register one wait"
-        );
-        assert_eq!(
-            concrete_wakes, 1,
-            "a pending retry must schedule another poll"
-        );
+        assert_eq!(concrete_registrations, 1, "one outer poll may register one wait");
+        assert_eq!(concrete_wakes, 1, "a pending retry must schedule another poll");
         assert!(matches!(dynamic_result, Poll::Pending));
-        assert_eq!(
-            dynamic_registrations, 1,
-            "one outer poll may register one wait"
-        );
-        assert_eq!(
-            dynamic_wakes, 1,
-            "a pending retry must schedule another poll"
-        );
+        assert_eq!(dynamic_registrations, 1, "one outer poll may register one wait");
+        assert_eq!(dynamic_wakes, 1, "a pending retry must schedule another poll");
     }
 
     #[test]

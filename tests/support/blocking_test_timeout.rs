@@ -38,9 +38,9 @@ impl<T> BlockingTestResult<T> {
             receiver,
             worker,
         } = self;
-        let result = receiver.recv_timeout(timeout).unwrap_or_else(|error| {
-            panic!("blocking test worker timed out during {stage}: {error}")
-        });
+        let result = receiver
+            .recv_timeout(timeout)
+            .unwrap_or_else(|error| panic!("blocking test worker timed out during {stage}: {error}"));
         worker.join().expect("completed worker thread should join");
         result.unwrap_or_else(|panic| resume_unwind(panic))
     }
@@ -79,9 +79,8 @@ mod tests {
 
     #[test]
     fn test_blocking_worker_propagates_panic() {
-        let result = std::panic::catch_unwind(|| {
-            spawn_with_timeout("panic propagation", || panic!("worker panic")).finish()
-        });
+        let result =
+            std::panic::catch_unwind(|| spawn_with_timeout("panic propagation", || panic!("worker panic")).finish());
         let panic = result.expect_err("worker panic should propagate");
         let message = panic
             .downcast_ref::<String>()
@@ -109,18 +108,9 @@ mod tests {
         let released = release_tx.send(());
         let completed = completed_rx.recv_timeout(super::COMPLETION_TIMEOUT);
 
-        assert!(
-            started.is_ok(),
-            "worker should start before timeout verification"
-        );
-        assert!(
-            released.is_ok(),
-            "controlled worker should still be waiting"
-        );
-        assert!(
-            completed.is_ok(),
-            "controlled worker should complete after release"
-        );
+        assert!(started.is_ok(), "worker should start before timeout verification");
+        assert!(released.is_ok(), "controlled worker should still be waiting");
+        assert!(completed.is_ok(), "controlled worker should complete after release");
         let panic = result.expect_err("unfinished worker should time out");
         let message = panic
             .downcast_ref::<String>()

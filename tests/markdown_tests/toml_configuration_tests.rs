@@ -56,8 +56,8 @@ fn test_toml_configuration_documents_parse() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for relative_path in DOCUMENTS {
         let path = manifest_dir.join(relative_path);
-        let source = fs::read_to_string(&path)
-            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+        let source =
+            fs::read_to_string(&path).unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
         validate_toml_fences(relative_path, &source).unwrap_or_else(|error| panic!("{error}"));
     }
 }
@@ -65,8 +65,7 @@ fn test_toml_configuration_documents_parse() {
 #[test]
 fn test_toml_configuration_rejects_duplicate_dependency_keys() {
     let source = "```toml\n[dependencies]\nqubit-id = \"0.7\"\nqubit-id = \"0.7\"\n```\n";
-    let error =
-        validate_toml_fences("duplicate.md", source).expect_err("duplicate key is invalid TOML");
+    let error = validate_toml_fences("duplicate.md", source).expect_err("duplicate key is invalid TOML");
     assert!(
         error.contains("duplicate.md:1"),
         "error should identify fence location: {error}"
@@ -79,8 +78,7 @@ fn test_toml_configuration_rejects_duplicate_dependency_keys() {
 
 #[test]
 fn test_toml_configuration_rejects_unclosed_fence() {
-    let error =
-        validate_toml_fences("unclosed.md", "```toml\nx = 1\n").expect_err("fence is unclosed");
+    let error = validate_toml_fences("unclosed.md", "```toml\nx = 1\n").expect_err("fence is unclosed");
     assert!(
         error.contains("unclosed.md:1"),
         "error should identify fence location: {error}"
@@ -93,6 +91,7 @@ fn test_toml_configuration_rejects_unclosed_fence() {
 
 #[test]
 fn test_toml_configuration_accepts_independent_dependency_blocks() {
-    let source = "```toml\n[dependencies]\nqubit-id = \"0.7\"\n```\n\n```toml\n[dependencies]\nqubit-id = \"0.7\"\n```\n";
+    let source =
+        "```toml\n[dependencies]\nqubit-id = \"0.7\"\n```\n\n```toml\n[dependencies]\nqubit-id = \"0.7\"\n```\n";
     validate_toml_fences("valid.md", source).expect("each dependency block is independent");
 }

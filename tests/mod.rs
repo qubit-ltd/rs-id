@@ -9,17 +9,9 @@
 
 mod benchmark_tests;
 mod markdown_tests;
-#[cfg(any(
-    feature = "qubit-snowflake",
-    feature = "classic-snowflake",
-    feature = "sonyflake",
-))]
+#[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
 mod snowflake;
-#[cfg(any(
-    feature = "qubit-snowflake",
-    feature = "classic-snowflake",
-    feature = "sonyflake",
-))]
+#[cfg(any(feature = "qubit-snowflake", feature = "classic-snowflake", feature = "sonyflake",))]
 mod support;
 #[cfg(feature = "uuid")]
 mod uuid;

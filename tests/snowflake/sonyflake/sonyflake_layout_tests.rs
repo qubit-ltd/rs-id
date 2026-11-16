@@ -22,24 +22,12 @@ fn test_sonyflake_layout_matches_fixed_encoding_vectors() {
     let cases = [
         (8_u8, 16_u8, 0_u64, 0_u64, 0_u64, 0_u64),
         (8, 16, 456_789, 23, 31, 7_663_649_751_063),
-        (
-            8,
-            16,
-            549_755_813_887,
-            65_535,
-            255,
-            9_223_372_036_854_775_807,
-        ),
+        (8, 16, 549_755_813_887, 65_535, 255, 9_223_372_036_854_775_807),
         (12, 12, 42, 7, 3, 704_655_367),
     ];
     for (bits_sequence, bits_machine, elapsed, machine, sequence, raw) in cases {
-        let layout = SonyflakeLayout::new(
-            machine,
-            bits_sequence,
-            bits_machine,
-            Duration::from_millis(10),
-        )
-        .expect("valid fixed layout");
+        let layout = SonyflakeLayout::new(machine, bits_sequence, bits_machine, Duration::from_millis(10))
+            .expect("valid fixed layout");
         assert_eq!(layout.compose_raw(elapsed, sequence).unwrap(), raw);
         assert_eq!(layout.compose(elapsed, sequence).unwrap().value(), raw);
         for parts in [layout.decode_raw(raw), layout.decode(raw.into())] {
@@ -52,8 +40,7 @@ fn test_sonyflake_layout_matches_fixed_encoding_vectors() {
 
 #[test]
 fn test_sonyflake_layout_compose_decode_round_trip() {
-    let layout = SonyflakeLayout::new(23, 8, 16, Duration::from_millis(10))
-        .expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, Duration::from_millis(10)).expect("Sonyflake layout must be valid");
     let id = layout
         .compose(456_789, 31)
         .expect("parts must fit the Sonyflake layout");
@@ -66,10 +53,9 @@ fn test_sonyflake_layout_compose_decode_round_trip() {
 
 #[test]
 fn test_review_decode_extracts_default_and_custom_layout_fields() {
-    let default_layout = SonyflakeLayout::new(0, 0, 0, Duration::from_millis(10))
-        .expect("default layout must be valid");
-    let custom_layout = SonyflakeLayout::new(1, 4, 8, Duration::from_millis(1))
-        .expect("custom layout must be valid");
+    let default_layout =
+        SonyflakeLayout::new(0, 0, 0, Duration::from_millis(10)).expect("default layout must be valid");
+    let custom_layout = SonyflakeLayout::new(1, 4, 8, Duration::from_millis(1)).expect("custom layout must be valid");
     let maximum_63_bit_id = (1_u64 << 63) - 1;
 
     for layout in [default_layout, custom_layout] {
@@ -92,8 +78,7 @@ fn test_review_decode_extracts_default_and_custom_layout_fields() {
 #[test]
 fn test_sonyflake_layout_getters_return_configuration_and_limits() {
     let time_unit = Duration::from_millis(10);
-    let layout =
-        SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
 
     assert_eq!(layout.bits_time(), 39);
     assert_eq!(layout.bits_sequence(), 8);
@@ -107,8 +92,8 @@ fn test_sonyflake_layout_getters_return_configuration_and_limits() {
 
 #[test]
 fn test_sonyflake_layout_zero_bit_widths_select_defaults() {
-    let layout = SonyflakeLayout::new(23, 0, 0, Duration::from_millis(10))
-        .expect("zero widths must select Sonyflake defaults");
+    let layout =
+        SonyflakeLayout::new(23, 0, 0, Duration::from_millis(10)).expect("zero widths must select Sonyflake defaults");
 
     assert_eq!(layout.bits_time(), 39);
     assert_eq!(layout.bits_sequence(), 8);
@@ -165,8 +150,7 @@ fn test_sonyflake_layout_rejects_invalid_time_unit_and_machine() {
 
 #[test]
 fn test_sonyflake_layout_rejects_out_of_range_parts() {
-    let layout = SonyflakeLayout::new(23, 8, 16, Duration::from_millis(10))
-        .expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, Duration::from_millis(10)).expect("Sonyflake layout must be valid");
 
     assert!(matches!(
         layout.compose(layout.max_elapsed_time() + 1, 0),
@@ -196,8 +180,7 @@ fn test_sonyflake_layout_accepts_maximum_parts() {
 fn test_sonyflake_layout_calculates_exclusive_expiration() {
     let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let time_unit = Duration::from_millis(10);
-    let layout =
-        SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
 
     assert_eq!(
         layout
@@ -211,8 +194,7 @@ fn test_sonyflake_layout_calculates_exclusive_expiration() {
 fn test_sonyflake_layout_reports_expiration_time_overflow() {
     let origin = latest_representable_whole_second();
     let time_unit = Duration::from_millis(10);
-    let layout =
-        SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
+    let layout = SonyflakeLayout::new(23, 8, 16, time_unit).expect("Sonyflake layout must be valid");
 
     assert!(matches!(
         layout.expires_at(origin),
@@ -228,8 +210,7 @@ fn test_sonyflake_layout_reports_expiration_time_overflow() {
 
 #[test]
 fn test_sonyflake_layout_reports_lifetime_multiplication_overflow() {
-    let layout = SonyflakeLayout::new(1, 8, 16, Duration::MAX)
-        .expect("field widths and machine ID should be valid");
+    let layout = SonyflakeLayout::new(1, 8, 16, Duration::MAX).expect("field widths and machine ID should be valid");
 
     assert!(matches!(
         layout.expires_at(UNIX_EPOCH),
@@ -240,8 +221,7 @@ fn test_sonyflake_layout_reports_lifetime_multiplication_overflow() {
 #[test]
 fn test_sonyflake_layout_reports_lifetime_duration_overflow() {
     let time_unit = Duration::from_secs(u64::MAX);
-    let layout = SonyflakeLayout::new(1, 15, 16, time_unit)
-        .expect("field widths and machine ID should be valid");
+    let layout = SonyflakeLayout::new(1, 15, 16, time_unit).expect("field widths and machine ID should be valid");
 
     assert!(matches!(
         layout.expires_at(UNIX_EPOCH),
