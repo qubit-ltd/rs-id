@@ -10,9 +10,9 @@ checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
 name = "bumpalo"
-version = "3.20.3"
+version = "3.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
+checksum = "87a0cf66fd1eb2fb7b822cb78370d82303750809bc6ba855f3f58e517d3238db"
 
 [[package]]
 name = "cfg-if"
@@ -184,9 +184,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-clock"
-version = "0.13.6"
+version = "0.13.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd0b8b77730b8c3ca744d8f4fd0e9b6d5d80755d1711f8df2a2ac950a722f3f4"
+checksum = "0e0136a48bd424268e68d5cd2c77e68451a27119b6bca8f322dacf57e5160a7c"
 dependencies = [
  "qubit-collections",
  "thiserror",
@@ -194,16 +194,16 @@ dependencies = [
 
 [[package]]
 name = "qubit-collections"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c9a09506a51e914b26b5bf9407ef5df62e67f709458fca64ad04dc0bd943622"
+checksum = "c527754f2a853857f9bbb28c045b9e7bd025d9848ff8496b7cb675e9a3533e40"
 dependencies = [
  "hashbrown",
 ]
 
 [[package]]
 name = "qubit-id"
-version = "0.7.6"
+version = "0.7.7"
 dependencies = [
  "getrandom",
  "parking_lot",
