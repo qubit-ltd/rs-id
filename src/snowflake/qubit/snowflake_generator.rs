@@ -228,7 +228,9 @@ impl SnowflakeGenerator {
     /// [`IdGenerator::generate`].
     #[inline]
     pub fn try_generate(&self) -> Result<GenerationAttempt<Id>, IdGenerationError> {
-        self.inner.try_generate().map(|attempt| attempt.map(Id::from))
+        self.inner
+            .try_generate()
+            .map(|attempt| attempt.map(Id::from))
     }
 
     /// Generates the next Qubit Snowflake ID asynchronously.

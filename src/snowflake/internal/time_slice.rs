@@ -29,6 +29,9 @@ impl TimeSlice {
     /// A new time slice whose first sequence is already reserved.
     #[inline]
     pub(crate) const fn new(timestamp: u64) -> Self {
-        Self { timestamp, sequence: 0 }
+        Self {
+            timestamp,
+            sequence: 0,
+        }
     }
 }

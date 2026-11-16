@@ -46,7 +46,9 @@ fn main() {
             .expect("UUID v4 string generation must succeed")
             .to_string()
     });
-    run_case("uuid_crate_v4_string", || Uuid::new_v4().hyphenated().to_string());
+    run_case("uuid_crate_v4_string", || {
+        Uuid::new_v4().hyphenated().to_string()
+    });
 }
 
 /// Warms, measures, summarizes, and prints one benchmark case.

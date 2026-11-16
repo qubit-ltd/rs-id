@@ -113,9 +113,15 @@ pub(crate) fn validate_generator_lifetime(
 ///
 /// Returns [`IdGenerationError::EpochAhead`] when `epoch` is later than
 /// `current_time`.
-pub(crate) fn validate_generator_epoch(epoch: SystemTime, current_time: SystemTime) -> Result<(), IdGenerationError> {
+pub(crate) fn validate_generator_epoch(
+    epoch: SystemTime,
+    current_time: SystemTime,
+) -> Result<(), IdGenerationError> {
     if epoch > current_time {
-        return Err(IdGenerationError::EpochAhead { epoch, current_time });
+        return Err(IdGenerationError::EpochAhead {
+            epoch,
+            current_time,
+        });
     }
     Ok(())
 }

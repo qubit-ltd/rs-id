@@ -194,7 +194,9 @@ impl ClassicalSnowflakeGeneratorBuilder {
     /// epoch is later than the wall clock, or
     /// [`IdGenerationError::GeneratorExpired`] when the configured wall clock
     /// has reached the expiration boundary.
-    fn into_core(self) -> Result<(SnowflakeCore<ClassicalSnowflakeLayout>, Arc<dyn Timer>), IdGenerationError> {
+    fn into_core(
+        self,
+    ) -> Result<(SnowflakeCore<ClassicalSnowflakeLayout>, Arc<dyn Timer>), IdGenerationError> {
         let layout = ClassicalSnowflakeLayout::new(self.node_id)?;
         let current_time = self.wall_clock.now();
         validate_generator_epoch(self.epoch, current_time)?;

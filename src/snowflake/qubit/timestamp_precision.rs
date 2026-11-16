@@ -45,7 +45,11 @@ impl TimestampPrecision {
     /// [`TimestampPrecision::Second`] for every non-zero value.
     #[inline]
     pub const fn from_bit(bit: u64) -> Self {
-        if bit == 0 { Self::Millisecond } else { Self::Second }
+        if bit == 0 {
+            Self::Millisecond
+        } else {
+            Self::Second
+        }
     }
 
     /// Returns the one-bit ordinal used by the Qubit layout.
